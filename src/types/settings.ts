@@ -10,20 +10,40 @@ export const positionPresets = [
 
 export type PositionPreset = (typeof positionPresets)[number];
 
+export const backgroundChoices = ["slideshow", "bg1", "bg2", "bg3"] as const;
+export type BuiltInBackgroundChoice = (typeof backgroundChoices)[number];
+export type BackgroundChoice = BuiltInBackgroundChoice | `custom:${string}`;
+
+export const colorPresets = {
+  sky: { label: "スカイ", text: "#17345f", accent: "#91bde8", accentStrong: "#315f98" },
+  lavender: { label: "ラベンダー", text: "#453b68", accent: "#baa9e3", accentStrong: "#69559d" },
+  mint: { label: "ミント", text: "#245954", accent: "#91d2c5", accentStrong: "#347b70" },
+  peach: { label: "ピーチ", text: "#69463b", accent: "#e9b29d", accentStrong: "#965748" },
+  rose: { label: "ローズ", text: "#6b4050", accent: "#e1adc0", accentStrong: "#98536c" }
+} as const;
+export type ColorPreset = keyof typeof colorPresets | "custom";
+
 export type AppSettings = {
   version: 1;
+  uiRevision: 2;
   showClock: boolean;
   showDate: boolean;
   showTimer: boolean;
+  timerSetupCollapsed: boolean;
   showSeconds: boolean;
   use12Hour: boolean;
   clockFontSize: number;
   dateFontSize: number;
   timerFontSize: number;
+  timerBackgroundOpacity: number;
   fontFamily: string;
+  colorPreset: ColorPreset;
   textColor: string;
+  accentColor: string;
+  matchBackgroundColors: boolean;
   overlayOpacity: number;
   slideshowIntervalSec: number;
+  backgroundChoice: BackgroundChoice;
   clockPosition: PositionPreset;
   datePosition: PositionPreset;
   timerPosition: PositionPreset;
@@ -35,20 +55,27 @@ export type AppSettings = {
 
 export const defaultSettings: AppSettings = {
   version: 1,
+  uiRevision: 2,
   showClock: true,
   showDate: true,
   showTimer: true,
+  timerSetupCollapsed: false,
   showSeconds: false,
   use12Hour: false,
-  clockFontSize: 136,
-  dateFontSize: 28,
-  timerFontSize: 64,
+  clockFontSize: 104,
+  dateFontSize: 20,
+  timerFontSize: 60,
+  timerBackgroundOpacity: 0.8,
   fontFamily: "system",
-  textColor: "#f8fafc",
-  overlayOpacity: 0.42,
+  colorPreset: "sky",
+  textColor: "#17345f",
+  accentColor: "#91bde8",
+  matchBackgroundColors: false,
+  overlayOpacity: 0.16,
   slideshowIntervalSec: 60,
-  clockPosition: "center",
-  datePosition: "center",
+  backgroundChoice: "slideshow",
+  clockPosition: "bottom-left",
+  datePosition: "bottom-left",
   timerPosition: "center",
   workMinutes: 25,
   shortBreakMinutes: 5,

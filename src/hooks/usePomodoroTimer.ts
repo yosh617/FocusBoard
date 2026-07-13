@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AppSettings } from "../types/settings";
-import type { TimerMode, TimerState } from "../types/timer";
+import type { FloatingPosition, SessionCategory, TimerMode, TimerProgram, TimerState } from "../types/timer";
 import { createInitialTimerState, loadTimerState, removeTimerState, saveTimerState } from "../utils/storage";
 import { getDurationMs, modeLabels } from "../utils/time";
 
@@ -31,6 +31,8 @@ function playChime() {
     oscillator.stop(audioContext.currentTime + 0.72);
   }).catch(() => undefined);
 }
+
+const categoryLabel: Record<SessionCategory, string> = { focus: "実施中", break: "休憩" };
 
 export function usePomodoroTimer(settings: AppSettings) {
   const [timer, setTimer] = useState<TimerState>(() => loadTimerState(settings.workMinutes));
@@ -70,33 +72,42 @@ export function usePomodoroTimer(settings: AppSettings) {
 
   useEffect(() => {
     if (timer.status !== "completed") return;
+    if (settingsRef.current.soundEnabled) playChime();
+
+    if (timer.program !== "pomodoro") {
+      const direction = timer.program === "countup" ? "カウントアップ" : "カウントダウン";
+      setAnnouncement(`${categoryLabel[timer.category]}の${direction}が完了しました。`);
+      return;
+    }
+
     const completedWorkSessions = timer.mode === "work"
       ? timer.completedWorkSessions + 1
       : timer.completedWorkSessions;
     const nextMode: TimerMode = timer.mode === "work"
       ? (completedWorkSessions % 4 === 0 ? "longBreak" : "shortBreak")
       : "work";
+    const durationMs = getDurationMs(nextMode, settingsRef.current);
 
     setAnnouncement(`${modeLabels[timer.mode]}が終了しました。次は${modeLabels[nextMode]}です。`);
-    if (settingsRef.current.soundEnabled) playChime();
-    setTimer({
-      version: 1,
+    setTimer((current) => ({
+      ...current,
+      version: 2,
       mode: nextMode,
+      category: nextMode === "work" ? "focus" : "break",
       status: "paused",
-      remainingMs: getDurationMs(nextMode, settingsRef.current),
+      durationMs,
+      remainingMs: durationMs,
       endAt: null,
       completedWorkSessions
-    });
-  }, [timer.status, timer.mode, timer.completedWorkSessions]);
+    }));
+  }, [timer.status, timer.program, timer.mode, timer.category, timer.completedWorkSessions]);
 
   const start = useCallback(() => {
     if (settingsRef.current.soundEnabled) prepareAudio();
     setAnnouncement("");
     setTimer((current) => {
-      if (current.status === "running") return current;
-      const remainingMs = current.remainingMs > 0
-        ? current.remainingMs
-        : getDurationMs(current.mode, settingsRef.current);
+      if (current.status === "running" || current.status === "completed") return current;
+      const remainingMs = current.remainingMs > 0 ? current.remainingMs : current.durationMs;
       return { ...current, status: "running", remainingMs, endAt: Date.now() + remainingMs };
     });
   }, []);
@@ -111,23 +122,66 @@ export function usePomodoroTimer(settings: AppSettings) {
 
   const reset = useCallback(() => {
     setAnnouncement("");
+    setTimer((current) => {
+      const durationMs = current.program === "pomodoro"
+        ? getDurationMs(current.mode, settingsRef.current)
+        : current.customDurationMs;
+      return { ...current, status: "idle", durationMs, remainingMs: durationMs, endAt: null };
+    });
+  }, []);
+
+  const selectMode = useCallback((mode: TimerMode) => {
+    const durationMs = getDurationMs(mode, settingsRef.current);
+    setAnnouncement("");
     setTimer((current) => ({
       ...current,
+      program: "pomodoro",
+      mode,
+      category: mode === "work" ? "focus" : "break",
       status: "idle",
-      remainingMs: getDurationMs(current.mode, settingsRef.current),
+      durationMs,
+      remainingMs: durationMs,
       endAt: null
     }));
   }, []);
 
-  const selectMode = useCallback((mode: TimerMode) => {
+  const selectProgram = useCallback((program: TimerProgram) => {
     setAnnouncement("");
+    setTimer((current) => {
+      const durationMs = program === "pomodoro"
+        ? getDurationMs("work", settingsRef.current)
+        : current.customDurationMs;
+      return {
+        ...current,
+        program,
+        mode: program === "pomodoro" ? "work" : current.mode,
+        category: "focus",
+        status: "idle",
+        durationMs,
+        remainingMs: durationMs,
+        endAt: null
+      };
+    });
+  }, []);
+
+  const selectCategory = useCallback((category: SessionCategory) => {
+    setTimer((current) => current.program === "pomodoro" ? current : { ...current, category });
+  }, []);
+
+  const setCustomDurationMinutes = useCallback((minutes: number) => {
+    const customDurationMs = Math.min(24 * 60, Math.max(1, Math.round(minutes))) * 60_000;
     setTimer((current) => ({
       ...current,
-      mode,
-      status: "idle",
-      remainingMs: getDurationMs(mode, settingsRef.current),
-      endAt: null
+      customDurationMs,
+      durationMs: current.program === "pomodoro" ? current.durationMs : customDurationMs,
+      remainingMs: current.program === "pomodoro" ? current.remainingMs : customDurationMs,
+      endAt: null,
+      status: current.program === "pomodoro" ? current.status : "idle"
     }));
+  }, []);
+
+  const setFloatingPosition = useCallback((floatingPosition: FloatingPosition) => {
+    setTimer((current) => ({ ...current, floatingPosition }));
   }, []);
 
   const clearTimer = useCallback(() => {
@@ -137,5 +191,18 @@ export function usePomodoroTimer(settings: AppSettings) {
     setTimer(createInitialTimerState(settingsRef.current.workMinutes));
   }, []);
 
-  return { timer, announcement, setAnnouncement, start, pause, reset, selectMode, clearTimer };
+  return {
+    timer,
+    announcement,
+    setAnnouncement,
+    start,
+    pause,
+    reset,
+    selectMode,
+    selectProgram,
+    selectCategory,
+    setCustomDurationMinutes,
+    setFloatingPosition,
+    clearTimer
+  };
 }

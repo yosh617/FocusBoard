@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => {
         injectRegister: "auto",
         manifest: false,
         workbox: {
-          cacheId: "study-clock",
+          cacheId: "focusboard",
           globPatterns: ["**/*.{js,css,html,svg,webmanifest}"],
           navigateFallback: "index.html",
           cleanupOutdatedCaches: true

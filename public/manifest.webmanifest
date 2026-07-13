@@ -1,23 +1,23 @@
 {
-  "name": "Study Clock",
-  "short_name": "Study Clock",
+  "name": "FocusBoard",
+  "short_name": "FocusBoard",
   "description": "iPadで集中するための時計・ポモドーロタイマー",
   "lang": "ja",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
   "orientation": "any",
-  "theme_color": "#020617",
-  "background_color": "#020617",
+  "theme_color": "#dceafb",
+  "background_color": "#eaf4ff",
   "icons": [
     {
-      "src": "icons/study-clock.svg",
+      "src": "icons/focusboard.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "icons/study-clock-maskable.svg",
+      "src": "icons/focusboard-maskable.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "maskable"

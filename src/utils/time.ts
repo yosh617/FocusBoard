@@ -2,12 +2,19 @@ import type { AppSettings } from "../types/settings";
 import type { TimerMode } from "../types/timer";
 
 export function formatClock(date: Date, settings: Pick<AppSettings, "showSeconds" | "use12Hour">) {
-  return new Intl.DateTimeFormat("ja-JP", {
+  const formatter = new Intl.DateTimeFormat("ja-JP", {
     hour: "2-digit",
     minute: "2-digit",
     second: settings.showSeconds ? "2-digit" : undefined,
-    hour12: settings.use12Hour
-  }).format(date);
+    hourCycle: settings.use12Hour ? "h12" : "h23"
+  });
+
+  return formatter
+    .formatToParts(date)
+    .filter(({ type }) => type !== "dayPeriod")
+    .map(({ value }) => value)
+    .join("")
+    .trim();
 }
 
 export function formatDate(date: Date) {

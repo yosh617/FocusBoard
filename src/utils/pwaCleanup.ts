@@ -8,7 +8,7 @@ export async function clearPwaCachesAndWorkers(): Promise<CleanupResult> {
   if ("caches" in window) {
     supported = true;
     const keys = await caches.keys();
-    const appKeys = keys.filter((key) => key.includes("study-clock"));
+    const appKeys = keys.filter((key) => key.includes("focusboard"));
     const results = await Promise.all(appKeys.map((key) => caches.delete(key)));
     cachesDeleted = results.filter(Boolean).length;
   }

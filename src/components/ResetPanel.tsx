@@ -52,7 +52,7 @@ export function ResetPanel({ onResetSettings, onClearTimer, onMessage }: Props) 
         <div className="delete-guide" role="note">
           <h4>iPadのホーム画面から削除する方法</h4>
           <ol>
-            <li>ホーム画面でStudy Clockのアイコンを長押しします。</li>
+            <li>ホーム画面でFocusBoardのアイコンを長押しします。</li>
             <li>「ブックマークを削除」または「Appを削除」を選びます。</li>
             <li>必要であれば、Safariの設定からWebサイトデータも削除します。</li>
           </ol>

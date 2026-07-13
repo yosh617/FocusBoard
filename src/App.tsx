@@ -1,18 +1,36 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { BackgroundSlideshow } from "./components/BackgroundSlideshow";
 import { ClockDisplay } from "./components/ClockDisplay";
 import { DateDisplay } from "./components/DateDisplay";
 import { PomodoroTimer } from "./components/PomodoroTimer";
+import { FloatingTimer } from "./components/FloatingTimer";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { useClock } from "./hooks/useClock";
 import { useLocalStorageSettings } from "./hooks/useLocalStorageSettings";
 import { usePomodoroTimer } from "./hooks/usePomodoroTimer";
-import { fontOptions, positionPresets, type PositionPreset } from "./types/settings";
+import { useCustomBackgrounds } from "./hooks/useCustomBackgrounds";
+import { colorPresets, fontOptions, positionPresets, type PositionPreset } from "./types/settings";
+import { getAdaptivePalette, fallbackBackgroundRgb, getStrongAccent, type AdaptivePalette } from "./utils/adaptiveColor";
 
 export default function App() {
   const { settings, updateSettings, resetSettings, storageMessage, setStorageMessage } = useLocalStorageSettings();
-  const { timer, announcement, setAnnouncement, start, pause, reset, selectMode, clearTimer } = usePomodoroTimer(settings);
+  const {
+    timer,
+    announcement,
+    setAnnouncement,
+    start,
+    pause,
+    reset,
+    selectMode,
+    selectProgram,
+    selectCategory,
+    setCustomDurationMinutes,
+    setFloatingPosition,
+    clearTimer
+  } = usePomodoroTimer(settings);
+  const { backgrounds, addBackgrounds, removeBackground, backgroundMessage, setBackgroundMessage } = useCustomBackgrounds();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [adaptivePalette, setAdaptivePalette] = useState<AdaptivePalette>(() => getAdaptivePalette(fallbackBackgroundRgb, settings.overlayOpacity));
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
   const now = useClock(settings.showSeconds);
 
@@ -20,48 +38,82 @@ export default function App() {
   const showMessage = useCallback((message: string) => {
     setStorageMessage(message);
     setAnnouncement("");
-  }, [setAnnouncement, setStorageMessage]);
+    setBackgroundMessage("");
+  }, [setAnnouncement, setStorageMessage, setBackgroundMessage]);
 
   const slotContent = useMemo(() => {
     const slots = Object.fromEntries(positionPresets.map((position) => [position, [] as ReactNode[]])) as Record<PositionPreset, ReactNode[]>;
-    if (settings.showClock) slots[settings.clockPosition].push(<ClockDisplay now={now} settings={settings} key="clock" />);
     if (settings.showDate) slots[settings.datePosition].push(<DateDisplay now={now} fontSize={settings.dateFontSize} key="date" />);
-    if (settings.showTimer) slots[settings.timerPosition].push(
+    if (settings.showClock) slots[settings.clockPosition].push(<ClockDisplay now={now} settings={settings} key="clock" />);
+    if (settings.showTimer && timer.status === "idle" && !settings.timerSetupCollapsed) slots[settings.timerPosition].push(
       <PomodoroTimer
         timer={timer}
         fontSize={settings.timerFontSize}
         onStart={start}
-        onPause={pause}
-        onReset={reset}
         onSelectMode={selectMode}
+        onSelectProgram={selectProgram}
+        onSelectCategory={selectCategory}
+        onSetDuration={setCustomDurationMinutes}
+        onCollapse={() => updateSettings({ timerSetupCollapsed: true })}
         key="timer"
       />
     );
     return slots;
-  }, [now, settings, timer, start, pause, reset, selectMode]);
+  }, [now, settings, timer, start, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, updateSettings]);
 
-  const liveMessage = announcement || storageMessage;
+  const liveMessage = backgroundMessage || announcement || storageMessage;
+  const selectedPalette = settings.colorPreset === "custom"
+    ? { text: settings.textColor, accent: settings.accentColor, accentStrong: getStrongAccent(settings.accentColor) }
+    : colorPresets[settings.colorPreset];
+  const displayColor = settings.matchBackgroundColors ? adaptivePalette.text : selectedPalette.text;
+  const appStyle = {
+    color: displayColor,
+    fontFamily: fontOptions[settings.fontFamily as keyof typeof fontOptions] ?? fontOptions.system,
+    "--adaptive-accent": settings.matchBackgroundColors ? adaptivePalette.accent : selectedPalette.accent,
+    "--adaptive-accent-strong": settings.matchBackgroundColors ? adaptivePalette.accentStrong : selectedPalette.accentStrong,
+    "--timer-background-opacity": settings.timerBackgroundOpacity
+  } as CSSProperties;
 
   useEffect(() => {
     if (!liveMessage) return;
     const timeout = window.setTimeout(() => {
       setAnnouncement("");
       setStorageMessage("");
+      setBackgroundMessage("");
     }, 7_000);
     return () => window.clearTimeout(timeout);
-  }, [liveMessage, setAnnouncement, setStorageMessage]);
+  }, [liveMessage, setAnnouncement, setStorageMessage, setBackgroundMessage]);
 
   return (
     <main
       className="app-shell"
-      style={{ color: settings.textColor, fontFamily: fontOptions[settings.fontFamily as keyof typeof fontOptions] ?? fontOptions.system }}
+      style={appStyle}
     >
-      <BackgroundSlideshow intervalSec={settings.slideshowIntervalSec} overlayOpacity={settings.overlayOpacity} />
-      <div className="dashboard" aria-label="Study Clock ダッシュボード">
+      <BackgroundSlideshow
+        intervalSec={settings.slideshowIntervalSec}
+        overlayOpacity={settings.overlayOpacity}
+        backgroundChoice={settings.backgroundChoice}
+        customBackgrounds={backgrounds}
+        onPaletteChange={setAdaptivePalette}
+      />
+      <div className="dashboard" aria-label="FocusBoard ダッシュボード">
         {positionPresets.map((position) => (
           <div className={`slot slot--${position}`} key={position}>{slotContent[position]}</div>
         ))}
       </div>
+
+      {settings.showTimer && (timer.status !== "idle" || settings.timerSetupCollapsed) && (
+        <FloatingTimer
+          timer={timer}
+          onStart={start}
+          onPause={pause}
+          onReset={() => {
+            reset();
+            updateSettings({ timerSetupCollapsed: false });
+          }}
+          onPositionChange={setFloatingPosition}
+        />
+      )}
 
       {liveMessage && <div className="toast" role="status" aria-live="polite">{liveMessage}</div>}
       <button
@@ -85,6 +137,12 @@ export default function App() {
         onResetSettings={() => { resetSettings(); showMessage("設定を初期値に戻しました。"); }}
         onClearTimer={clearTimer}
         onMessage={showMessage}
+        customBackgrounds={backgrounds}
+        onAddBackgrounds={addBackgrounds}
+        onRemoveBackground={async (id) => {
+          const removed = await removeBackground(id);
+          if (removed && settings.backgroundChoice === `custom:${id}`) updateSettings({ backgroundChoice: "slideshow" });
+        }}
       />
     </main>
   );

@@ -1,4 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
-  <defs><linearGradient id="a" x1=".1" y1="0" x2=".9" y2="1"><stop stop-color="#312e81"/><stop offset=".55" stop-color="#1e293b"/><stop offset="1" stop-color="#020617"/></linearGradient><radialGradient id="b"><stop stop-color="#c4b5fd" stop-opacity=".28"/><stop offset="1" stop-color="#c4b5fd" stop-opacity="0"/></radialGradient></defs>
-  <rect width="1600" height="1000" fill="url(#a)"/><circle cx="360" cy="190" r="520" fill="url(#b)"/><path d="M0 850Q420 690 790 810t810-90v280H0z" fill="#020617" opacity=".5"/>
+  <defs>
+    <linearGradient id="lav" x1=".08" y1="0" x2=".92" y2="1"><stop stop-color="#f1efff"/><stop offset=".46" stop-color="#d9ddff"/><stop offset="1" stop-color="#badcf4"/></linearGradient>
+    <radialGradient id="glow"><stop stop-color="#ffffff" stop-opacity=".8"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#lav)"/>
+  <circle cx="290" cy="170" r="500" fill="url(#glow)"/>
+  <path d="M0 720Q280 610 555 710t450 16q310-145 595-42v316H0z" fill="#b9c7ec" opacity=".58"/>
+  <path d="M0 850Q370 720 760 845t840-20v175H0z" fill="#95b3dc" opacity=".54"/>
+  <path d="M1180 80c130 55 210 144 248 265" fill="none" stroke="#fff" stroke-width="2" opacity=".36"/>
 </svg>
