@@ -29,6 +29,19 @@ describe("settings storage", () => {
     expect(result.backgroundChoice).toBe("slideshow");
   });
 
+  it("migrates legacy layouts and validates free clock positions", () => {
+    const legacy = migrateSettings({ ...defaultSettings, uiRevision: 2 });
+    expect(legacy.clockDatePosition).toEqual(defaultSettings.clockDatePosition);
+
+    const current = migrateSettings({
+      ...defaultSettings,
+      clockDatePosition: { x: 4, y: -2 },
+      clockDateAlignment: "outside"
+    });
+    expect(current.clockDatePosition).toEqual({ x: .94, y: .08 });
+    expect(current.clockDateAlignment).toBe(defaultSettings.clockDateAlignment);
+  });
+
   it("falls back when localStorage access fails", () => {
     const spy = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("blocked"); });
     expect(loadSettings()).toEqual(defaultSettings);

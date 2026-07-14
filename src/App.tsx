@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { BackgroundSlideshow } from "./components/BackgroundSlideshow";
-import { ClockDisplay } from "./components/ClockDisplay";
-import { DateDisplay } from "./components/DateDisplay";
+import { ClockWidget } from "./components/ClockWidget";
 import { PomodoroTimer } from "./components/PomodoroTimer";
 import { FloatingTimer } from "./components/FloatingTimer";
 import { SettingsPanel } from "./components/SettingsPanel";
@@ -43,8 +42,6 @@ export default function App() {
 
   const slotContent = useMemo(() => {
     const slots = Object.fromEntries(positionPresets.map((position) => [position, [] as ReactNode[]])) as Record<PositionPreset, ReactNode[]>;
-    if (settings.showDate) slots[settings.datePosition].push(<DateDisplay now={now} fontSize={settings.dateFontSize} key="date" />);
-    if (settings.showClock) slots[settings.clockPosition].push(<ClockDisplay now={now} settings={settings} key="clock" />);
     if (settings.showTimer && timer.status === "idle" && !settings.timerSetupCollapsed) slots[settings.timerPosition].push(
       <PomodoroTimer
         timer={timer}
@@ -101,6 +98,7 @@ export default function App() {
           <div className={`slot slot--${position}`} key={position}>{slotContent[position]}</div>
         ))}
       </div>
+      {(settings.showClock || settings.showDate) && <ClockWidget now={now} settings={settings} onChange={updateSettings} onMessage={showMessage} />}
 
       {settings.showTimer && (timer.status !== "idle" || settings.timerSetupCollapsed) && (
         <FloatingTimer

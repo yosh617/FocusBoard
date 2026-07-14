@@ -1,4 +1,4 @@
-import { backgroundChoices, colorPresets, defaultSettings, fontOptions, positionPresets, type AppSettings, type BackgroundChoice, type ColorPreset, type PositionPreset } from "../types/settings";
+import { backgroundChoices, colorPresets, defaultSettings, fontOptions, positionPresets, type AppSettings, type BackgroundChoice, type ClockDateAlignment, type ColorPreset, type PositionPreset } from "../types/settings";
 import type { SessionCategory, TimerMode, TimerProgram, TimerState, TimerStatus } from "../types/timer";
 import { BACKGROUND_DB_NAME } from "./backgroundStorage";
 
@@ -20,15 +20,18 @@ const isBackgroundChoice = (value: unknown): value is BackgroundChoice =>
   );
 const isColorPreset = (value: unknown): value is ColorPreset =>
   value === "custom" || typeof value === "string" && value in colorPresets;
+const isAlignment = (value: unknown): value is ClockDateAlignment =>
+  value === "left" || value === "center" || value === "right";
 
 export function migrateSettings(value: unknown): AppSettings {
   if (!isRecord(value) || value.version !== 1) return { ...defaultSettings };
   const isLegacyTheme = !("backgroundChoice" in value);
-  const isLegacyLayout = value.uiRevision !== 2;
+  const isLegacyLayout = value.uiRevision !== 3;
+  const savedClockDatePosition = isRecord(value.clockDatePosition) ? value.clockDatePosition : {};
 
   return {
     version: 1,
-    uiRevision: 2,
+    uiRevision: 3,
     showClock: booleanValue(value.showClock, defaultSettings.showClock),
     showDate: booleanValue(value.showDate, defaultSettings.showDate),
     showTimer: booleanValue(value.showTimer, defaultSettings.showTimer),
@@ -56,6 +59,11 @@ export function migrateSettings(value: unknown): AppSettings {
     clockPosition: isLegacyLayout ? defaultSettings.clockPosition : isPosition(value.clockPosition) ? value.clockPosition : defaultSettings.clockPosition,
     datePosition: isLegacyLayout ? defaultSettings.datePosition : isPosition(value.datePosition) ? value.datePosition : defaultSettings.datePosition,
     timerPosition: isPosition(value.timerPosition) ? value.timerPosition : defaultSettings.timerPosition,
+    clockDatePosition: isLegacyLayout ? defaultSettings.clockDatePosition : {
+      x: numberValue(savedClockDatePosition.x, defaultSettings.clockDatePosition.x, .06, .94),
+      y: numberValue(savedClockDatePosition.y, defaultSettings.clockDatePosition.y, .08, .92)
+    },
+    clockDateAlignment: isLegacyLayout ? defaultSettings.clockDateAlignment : isAlignment(value.clockDateAlignment) ? value.clockDateAlignment : defaultSettings.clockDateAlignment,
     workMinutes: numberValue(value.workMinutes, defaultSettings.workMinutes, 1, 180),
     shortBreakMinutes: numberValue(value.shortBreakMinutes, defaultSettings.shortBreakMinutes, 1, 60),
     longBreakMinutes: numberValue(value.longBreakMinutes, defaultSettings.longBreakMinutes, 1, 120),

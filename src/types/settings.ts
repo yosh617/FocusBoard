@@ -9,6 +9,8 @@ export const positionPresets = [
 ] as const;
 
 export type PositionPreset = (typeof positionPresets)[number];
+export type ClockDateAlignment = "left" | "center" | "right";
+export type FreePosition = { x: number; y: number };
 
 export const backgroundChoices = ["slideshow", "bg1", "bg2", "bg3"] as const;
 export type BuiltInBackgroundChoice = (typeof backgroundChoices)[number];
@@ -25,7 +27,7 @@ export type ColorPreset = keyof typeof colorPresets | "custom";
 
 export type AppSettings = {
   version: 1;
-  uiRevision: 2;
+  uiRevision: 3;
   showClock: boolean;
   showDate: boolean;
   showTimer: boolean;
@@ -47,6 +49,8 @@ export type AppSettings = {
   clockPosition: PositionPreset;
   datePosition: PositionPreset;
   timerPosition: PositionPreset;
+  clockDatePosition: FreePosition;
+  clockDateAlignment: ClockDateAlignment;
   workMinutes: number;
   shortBreakMinutes: number;
   longBreakMinutes: number;
@@ -55,7 +59,7 @@ export type AppSettings = {
 
 export const defaultSettings: AppSettings = {
   version: 1,
-  uiRevision: 2,
+  uiRevision: 3,
   showClock: true,
   showDate: true,
   showTimer: true,
@@ -77,6 +81,8 @@ export const defaultSettings: AppSettings = {
   clockPosition: "bottom-left",
   datePosition: "bottom-left",
   timerPosition: "center",
+  clockDatePosition: { x: 0.06, y: 0.74 },
+  clockDateAlignment: "left",
   workMinutes: 25,
   shortBreakMinutes: 5,
   longBreakMinutes: 15,

@@ -221,11 +221,8 @@ export function SettingsPanel({
         <div className="settings-content">
           <section className="settings-section" aria-labelledby="visibility-heading">
             <h3 id="visibility-heading">表示</h3>
-            <Toggle id="show-clock" label="時計" checked={settings.showClock} onChange={(showClock) => onChange({ showClock })} />
-            <Toggle id="show-date" label="日付と曜日" checked={settings.showDate} onChange={(showDate) => onChange({ showDate })} />
             <Toggle id="show-timer" label="タイマー" checked={settings.showTimer} onChange={(showTimer) => onChange({ showTimer })} />
-            <Toggle id="show-seconds" label="秒を表示" checked={settings.showSeconds} onChange={(showSeconds) => onChange({ showSeconds })} />
-            <Toggle id="use-12-hour" label="12時間表示" checked={settings.use12Hour} onChange={(use12Hour) => onChange({ use12Hour })} />
+            <div className="settings-callout"><strong>時計とカレンダー</strong><span>画面上の表示をタップすると、そろえ方・表示・大きさをその場で変更できます。</span></div>
           </section>
 
           <section className="settings-section" aria-labelledby="appearance-heading">
@@ -284,8 +281,6 @@ export function SettingsPanel({
               />
               <p className="settings-help">10MB以下の画像を最大8枚まで端末内に保存できます。追加画像がある場合、自動切替は追加画像を使用します。</p>
             </div>
-            <Range id="clock-size" label="時計サイズ" value={settings.clockFontSize} min={56} max={220} suffix="px" onChange={(clockFontSize) => onChange({ clockFontSize })} />
-            <Range id="date-size" label="日付サイズ" value={settings.dateFontSize} min={16} max={64} suffix="px" onChange={(dateFontSize) => onChange({ dateFontSize })} />
             <Range id="timer-size" label="タイマーサイズ" value={settings.timerFontSize} min={36} max={120} suffix="px" onChange={(timerFontSize) => onChange({ timerFontSize })} />
             <Range id="timer-background-opacity" label="タイマー背景の不透明度" value={Math.round(settings.timerBackgroundOpacity * 100)} min={60} max={100} suffix="%" onChange={(value) => onChange({ timerBackgroundOpacity: value / 100 })} />
             <FontSelect value={settings.fontFamily} onChange={(fontFamily) => onChange({ fontFamily })} />
@@ -352,13 +347,16 @@ export function SettingsPanel({
             )}
           </section>
 
-          <section className="settings-section" aria-labelledby="position-heading">
-            <h3 id="position-heading">配置</h3>
-            {positionSelect("clock-position", "時計", settings.clockPosition, "clockPosition")}
-            {positionSelect("date-position", "日付", settings.datePosition, "datePosition")}
+          <details className="settings-section settings-advanced">
+            <summary>詳細設定</summary>
+            <div className="settings-advanced__content">
+            <Toggle id="use-12-hour" label="12時間表示" checked={settings.use12Hour} onChange={(use12Hour) => onChange({ use12Hour })} />
+            <Range id="date-size" label="日付サイズ" value={settings.dateFontSize} min={16} max={64} suffix="px" onChange={(dateFontSize) => onChange({ dateFontSize })} />
+            <h3 id="position-heading">開始前タイマーの配置</h3>
             {positionSelect("timer-position", "開始前タイマー", settings.timerPosition, "timerPosition")}
-            <p className="settings-help">同じ場所を選んだ要素は縦に並びます。開始後の円形タイマーは直接ドラッグできます。</p>
-          </section>
+            <p className="settings-help">開始後の円形タイマーは直接ドラッグできます。</p>
+            </div>
+          </details>
 
           <section className="settings-section" aria-labelledby="pomodoro-heading">
             <h3 id="pomodoro-heading">ポモドーロ</h3>

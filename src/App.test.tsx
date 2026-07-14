@@ -62,4 +62,16 @@ describe("App", () => {
     expect(screen.queryByLabelText("文字色")).toBeNull();
     expect(screen.getByRole("status", { name: "背景連動カラー" }).textContent).toContain("背景から自動調整中");
   });
+
+  it("edits the clock and calendar together from the display itself", () => {
+    render(<App />);
+    const display = screen.getByRole("button", { name: "時計とカレンダーの表示設定を開く" });
+    fireEvent.pointerDown(display, { pointerId: 1, clientX: 400, clientY: 500 });
+    fireEvent.pointerUp(display, { pointerId: 1, clientX: 400, clientY: 500 });
+    expect(screen.getByRole("region", { name: "時計とカレンダーの表示設定" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("radio", { name: "中央" }));
+    expect(screen.getByRole("radio", { name: "中央" }).getAttribute("aria-checked")).toBe("true");
+    fireEvent.change(screen.getByRole("slider", { name: "時計の大きさ" }), { target: { value: "128" } });
+    expect(document.querySelector<HTMLElement>(".clock")?.style.fontSize).toBe("128px");
+  });
 });
