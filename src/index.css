@@ -56,7 +56,7 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .clock-widget__display { display: flex; flex-direction: column; align-items: inherit; width: fit-content; max-width: 100%; padding: 12px 16px; color: inherit; text-align: inherit; border: 1px solid transparent; border-radius: 24px; background: transparent; cursor: grab; touch-action: none; transition: border-color .2s, background-color .2s, box-shadow .2s; }
 .clock-widget__display:active { cursor: grabbing; }.clock-widget__display:hover, .clock-widget--editing .clock-widget__display { border-color: rgba(255,255,255,.64); background: rgba(248,252,255,.17); box-shadow: 0 10px 32px rgba(23,52,95,.08); }
 .clock-widget--left .clock-widget__display { align-items: flex-start; }.clock-widget--center .clock-widget__display { align-items: center; margin-inline: auto; }.clock-widget--right .clock-widget__display { align-items: flex-end; margin-left: auto; }
-.clock-widget__hint { position: absolute; top: -31px; padding: 5px 9px; color: inherit; border: 1px solid rgba(255,255,255,.55); border-radius: 999px; background: rgba(248,252,255,.22); box-shadow: 0 3px 12px rgba(23,52,95,.09); font-size: 11px; font-weight: 750; letter-spacing: .02em; pointer-events: none; transition: opacity .2s; }.clock-widget__display:hover .clock-widget__hint { opacity: 1; }.clock-widget--editing .clock-widget__hint { opacity: 0; }
+.clock-widget__hint { position: absolute; top: -31px; padding: 5px 9px; color: inherit; border: 1px solid rgba(255,255,255,.55); border-radius: 999px; background: rgba(248,252,255,.22); box-shadow: 0 3px 12px rgba(23,52,95,.09); font-size: 11px; font-weight: 750; letter-spacing: .02em; opacity: 0; pointer-events: none; transition: opacity .2s; }.clock-widget--hint-visible .clock-widget__hint { opacity: 1; }
 .clock-editor { position: absolute; z-index: 8; top: calc(100% + 12px); left: 50%; width: min(360px, 86vw); padding: 16px; color: var(--ink); text-align: left; border: 1px solid rgba(255,255,255,.9); border-radius: 20px; background: rgba(247,251,255,.95); box-shadow: 0 18px 48px rgba(31,63,103,.24); transform: translateX(-50%); backdrop-filter: blur(20px); }
 .clock-editor--above { top:auto; bottom:calc(100% + 12px); }.clock-editor__title { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; font-size:15px; font-weight:800; }.clock-editor__title button { width:44px; height:44px; padding:0; color:var(--ink); border:0; border-radius:12px; background:#e5effa; font-size:22px; line-height:1; }
 .clock-editor__row { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:13px; color:var(--ink); font-size:13px; font-weight:750; }.segmented-control { display:flex; padding:3px; border-radius:10px; background:#e4eef9; }.segmented-control button { min-width:44px; min-height:44px; padding:0 8px; color:var(--ink-muted); border:0; border-radius:8px; background:transparent; font-size:12px; font-weight:750; }.segmented-control button.is-active { color:#fff; background:var(--blue-deep); box-shadow:0 2px 5px rgba(39,79,136,.24); }
@@ -135,7 +135,7 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .floating-timer__done { padding: 0 6px; color: #7ce2ca; font-size: 12px; font-weight: 850; }
 
 .settings-button, .icon-button { display: grid; place-items: center; width: 52px; height: 52px; padding: 0; color: var(--ink); border: 1px solid rgba(255,255,255,.85); border-radius: 18px; background: rgba(248, 252, 255, .68); box-shadow: 0 12px 34px rgba(47, 81, 126, .15), inset 0 1px rgba(255,255,255,.92); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); transition: background-color .2s, border-color .2s, box-shadow .2s; }
-.settings-button { position: fixed; z-index: 5; right: max(24px, env(safe-area-inset-right)); bottom: max(24px, env(safe-area-inset-bottom)); }
+.settings-button { position: fixed; z-index: 5; right: max(24px, env(safe-area-inset-right)); bottom: max(24px, env(safe-area-inset-bottom)); display: inline-flex; width: auto; min-height: 52px; gap: 9px; padding: 0 18px 0 15px; border-radius: 999px; font-size: 15px; font-weight: 800; animation: settings-button-in .2s ease-out; }
 .settings-button:hover, .icon-button:hover { border-color: #fff; background: rgba(255,255,255,.92); box-shadow: 0 14px 36px rgba(47, 81, 126, .2); }
 .settings-button svg, .icon-button svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
@@ -213,6 +213,7 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .background-upload { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 48px; margin-top: 14px; color: var(--blue-deep); border: 1px dashed rgba(52,94,148,.42); border-radius: 15px; background: rgba(255,255,255,.48); font-size: 14px; font-weight: 750; transition: background-color .2s, border-color .2s; cursor: pointer; }
 .background-upload:hover { border-color: var(--blue); background: rgba(255,255,255,.78); }
 .visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
+.settings-reveal-shortcut:focus-visible { position: fixed !important; z-index: 7; right: max(24px, env(safe-area-inset-right)); bottom: max(24px, env(safe-area-inset-bottom)); width: auto !important; height: auto !important; padding: 15px 18px !important; margin: 0 !important; overflow: visible !important; clip: auto !important; color: var(--ink); white-space: normal !important; border: 1px solid rgba(255,255,255,.9) !important; border-radius: 999px; background: rgba(248,252,255,.94); box-shadow: 0 12px 34px rgba(47,81,126,.18), inset 0 1px rgba(255,255,255,.92); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
 
 .toggle { position: relative; width: 52px; min-width: 52px; height: 31px; appearance: none; border: 1px solid rgba(63,102,151,.22); border-radius: 999px; background: #c9d8ea; transition: background-color .2s; }
 .toggle::after { content: ""; position: absolute; top: 3px; left: 3px; width: 23px; height: 23px; border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(44,75,113,.24); transition: transform .2s; }
@@ -231,6 +232,7 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 
 @keyframes fade-in { from { opacity: 0; } }
 @keyframes drawer-in { from { transform: translateX(100%); } }
+@keyframes settings-button-in { from { opacity: 0; transform: translateY(8px); } }
 
 @media (orientation: portrait) {
   .slot { width: min(90vw, 700px); }

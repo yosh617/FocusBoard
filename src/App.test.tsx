@@ -1,9 +1,11 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
 describe("App", () => {
   beforeEach(() => localStorage.clear());
+
+  const revealSettings = () => fireEvent.pointerUp(screen.getByRole("main"));
 
   it("starts in setup mode, collapses to a floating timer, and opens settings", () => {
     render(<App />);
@@ -11,7 +13,8 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /Start timer/i }));
     expect(screen.getByLabelText("集中タイマー")).toBeTruthy();
     expect(screen.queryByLabelText("タイマー設定")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "設定を開く" }));
+    revealSettings();
+    fireEvent.click(screen.getByRole("button", { name: "設定" }));
     expect(screen.getByRole("dialog", { name: "表示設定" })).toBeTruthy();
   });
 
@@ -27,14 +30,16 @@ describe("App", () => {
 
   it("applies a shared opacity to timer backgrounds", () => {
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: "設定を開く" }));
+    revealSettings();
+    fireEvent.click(screen.getByRole("button", { name: "設定" }));
     fireEvent.change(screen.getByRole("slider", { name: /タイマー背景の不透明度/ }), { target: { value: "60" } });
     expect(document.querySelector<HTMLElement>(".app-shell")?.style.getPropertyValue("--timer-background-opacity")).toBe("0.6");
   });
 
   it("uses the rounded font picker and enables adaptive colors", () => {
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: "設定を開く" }));
+    revealSettings();
+    fireEvent.click(screen.getByRole("button", { name: "設定" }));
     const fontPicker = screen.getByRole("button", { name: /フォント.*システム/ });
     fireEvent.click(fontPicker);
     fireEvent.click(screen.getByRole("option", { name: /丸ゴシック/ }));
@@ -73,5 +78,28 @@ describe("App", () => {
     expect(screen.getByRole("radio", { name: "中央" }).getAttribute("aria-checked")).toBe("true");
     fireEvent.change(screen.getByRole("slider", { name: "時計の大きさ" }), { target: { value: "128" } });
     expect(document.querySelector<HTMLElement>(".clock")?.style.fontSize).toBe("128px");
+  });
+
+  it("shows the clock gesture hint briefly after tapping the clock", () => {
+    vi.useFakeTimers();
+    try {
+      render(<App />);
+      const display = screen.getByRole("button", { name: "時計とカレンダーの表示設定を開く" });
+      expect(document.querySelector(".clock-widget")?.classList.contains("clock-widget--hint-visible")).toBe(false);
+      fireEvent.pointerDown(display, { pointerId: 1, clientX: 400, clientY: 500 });
+      fireEvent.pointerUp(display, { pointerId: 1, clientX: 400, clientY: 500 });
+      expect(document.querySelector(".clock-widget")?.classList.contains("clock-widget--hint-visible")).toBe(true);
+      act(() => { vi.advanceTimersByTime(2_500); });
+      expect(document.querySelector(".clock-widget")?.classList.contains("clock-widget--hint-visible")).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps settings hidden until an empty area is tapped", () => {
+    render(<App />);
+    expect(screen.queryByRole("button", { name: "設定" })).toBeNull();
+    revealSettings();
+    expect(screen.getByRole("button", { name: "設定" })).toBeTruthy();
   });
 });

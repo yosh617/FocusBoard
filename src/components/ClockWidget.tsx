@@ -20,8 +20,10 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
 
 export function ClockWidget({ now, settings, onChange, onMessage }: Props) {
   const [open, setOpen] = useState(false);
+  const [hintVisible, setHintVisible] = useState(false);
   const widgetRef = useRef<HTMLDivElement>(null);
   const pointerStart = useRef<{ x: number; y: number; position: FreePosition } | null>(null);
+  const hintTimeoutRef = useRef<number | null>(null);
   const moved = useRef(false);
 
   useEffect(() => {
@@ -40,8 +42,20 @@ export function ClockWidget({ now, settings, onChange, onMessage }: Props) {
     };
   }, [open]);
 
+  useEffect(() => () => {
+    if (hintTimeoutRef.current !== null) window.clearTimeout(hintTimeoutRef.current);
+  }, []);
+
   const position = settings.clockDatePosition;
   const moveBy = (x: number, y: number) => onChange({ clockDatePosition: { x: clamp(x, .06, .94), y: clamp(y, .08, .92) } });
+  const showHint = () => {
+    if (hintTimeoutRef.current !== null) window.clearTimeout(hintTimeoutRef.current);
+    setHintVisible(true);
+    hintTimeoutRef.current = window.setTimeout(() => {
+      hintTimeoutRef.current = null;
+      setHintVisible(false);
+    }, 2_500);
+  };
   const onPointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
     const start = pointerStart.current;
     if (!start) return;
@@ -54,7 +68,7 @@ export function ClockWidget({ now, settings, onChange, onMessage }: Props) {
 
   return (
     <div
-      className={`clock-widget clock-widget--${settings.clockDateAlignment}${open ? " clock-widget--editing" : ""}`}
+      className={`clock-widget clock-widget--${settings.clockDateAlignment}${open ? " clock-widget--editing" : ""}${hintVisible ? " clock-widget--hint-visible" : ""}`}
       style={{ left: `${position.x * 100}%`, top: `${position.y * 100}%` }}
       ref={widgetRef}
     >
@@ -72,7 +86,10 @@ export function ClockWidget({ now, settings, onChange, onMessage }: Props) {
         onPointerUp={() => {
           pointerStart.current = null;
           if (moved.current) onMessage("時計とカレンダーの位置を変更しました。");
-          else setOpen((current) => !current);
+          else {
+            showHint();
+            setOpen((current) => !current);
+          }
         }}
         onKeyDown={(event) => {
           const step = event.shiftKey ? .05 : .015;
