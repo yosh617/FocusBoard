@@ -15,7 +15,7 @@ describe("App", () => {
     expect(screen.queryByLabelText("タイマー設定")).toBeNull();
     revealSettings();
     fireEvent.click(screen.getByRole("button", { name: "設定" }));
-    expect(screen.getByRole("dialog", { name: "表示設定" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "設定" })).toBeTruthy();
   });
 
   it("collapses the idle timer into the same circular timer UI and returns on reset", () => {
@@ -32,6 +32,7 @@ describe("App", () => {
     render(<App />);
     revealSettings();
     fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    fireEvent.click(screen.getByRole("tab", { name: "タイマー" }));
     fireEvent.change(screen.getByRole("slider", { name: /タイマー背景の不透明度/ }), { target: { value: "60" } });
     expect(document.querySelector<HTMLElement>(".app-shell")?.style.getPropertyValue("--timer-background-opacity")).toBe("0.6");
   });
@@ -40,14 +41,9 @@ describe("App", () => {
     render(<App />);
     revealSettings();
     fireEvent.click(screen.getByRole("button", { name: "設定" }));
-    const fontPicker = screen.getByRole("button", { name: /フォント.*システム/ });
-    fireEvent.click(fontPicker);
-    fireEvent.click(screen.getByRole("option", { name: /丸ゴシック/ }));
-    expect(screen.getByRole("button", { name: /フォント.*丸ゴシック/ })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /フォント.*丸ゴシック/ }));
-    fireEvent.keyDown(document, { key: "Escape" });
-    expect(screen.queryByRole("listbox", { name: "フォント" })).toBeNull();
-    expect(screen.getByRole("dialog", { name: "表示設定" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("radio", { name: "丸ゴシック" }));
+    expect(screen.getByRole("radio", { name: "丸ゴシック" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("dialog", { name: "設定" })).toBeTruthy();
 
     const colorThemes = within(screen.getByRole("radiogroup", { name: "カラーテーマ" }));
     fireEvent.click(colorThemes.getByRole("radio", { name: "ラベンダー" }));
@@ -65,7 +61,7 @@ describe("App", () => {
     fireEvent.click(adaptiveToggle);
     expect(adaptiveToggle.checked).toBe(true);
     expect(screen.queryByLabelText("文字色")).toBeNull();
-    expect(screen.getByRole("status", { name: "背景連動カラー" }).textContent).toContain("背景から自動調整中");
+    expect(adaptiveToggle.checked).toBe(true);
   });
 
   it("edits the clock and calendar together from the display itself", () => {
@@ -93,6 +89,29 @@ describe("App", () => {
       expect(document.querySelector(".clock-widget")?.classList.contains("clock-widget--hint-visible")).toBe(false);
     } finally {
       vi.useRealTimers();
+    }
+  });
+
+  it("keeps the clock editor within the viewport near the right edge", () => {
+    const originalWidth = window.innerWidth;
+    const originalHeight = window.innerHeight;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 800 });
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 900 });
+    try {
+      render(<App />);
+      const display = screen.getByRole("button", { name: "時計とカレンダーの表示設定を開く" });
+      Object.defineProperty(display, "getBoundingClientRect", {
+        configurable: true,
+        value: () => ({ left: 760, top: 120, width: 80, height: 180, right: 840, bottom: 300 })
+      });
+      fireEvent.pointerDown(display, { pointerId: 1, clientX: 800, clientY: 210 });
+      fireEvent.pointerUp(display, { pointerId: 1, clientX: 800, clientY: 210 });
+      const editor = screen.getByRole("region", { name: "時計とカレンダーの表示設定" }) as HTMLElement;
+      expect(Number.parseInt(editor.style.left, 10)).toBeLessThanOrEqual(424);
+      expect(Number.parseInt(editor.style.left, 10)).toBeGreaterThanOrEqual(16);
+    } finally {
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: originalWidth });
+      Object.defineProperty(window, "innerHeight", { configurable: true, value: originalHeight });
     }
   });
 

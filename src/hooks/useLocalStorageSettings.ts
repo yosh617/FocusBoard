@@ -5,6 +5,8 @@ import { loadSettings, saveSettings } from "../utils/storage";
 export function useLocalStorageSettings() {
   const [settings, setSettings] = useState<AppSettings>(loadSettings);
   const [storageMessage, setStorageMessage] = useState("");
+  const [saveState, setSaveState] = useState<"saved" | "saving" | "failed">("saved");
+  const previousSettings = useRef<AppSettings | null>(null);
   const firstRender = useRef(true);
 
   useEffect(() => {
@@ -12,11 +14,28 @@ export function useLocalStorageSettings() {
       firstRender.current = false;
       return;
     }
-    if (!saveSettings(settings)) setStorageMessage("設定を端末に保存できませんでした。");
+    setSaveState("saving");
+    if (!saveSettings(settings)) {
+      setSaveState("failed");
+      setStorageMessage("設定を端末に保存できませんでした。");
+    } else {
+      setSaveState("saved");
+    }
   }, [settings]);
 
   const updateSettings = useCallback((patch: Partial<AppSettings>) => {
-    setSettings((current) => ({ ...current, ...patch, version: 1 }));
+    setSettings((current) => {
+      previousSettings.current = current;
+      return { ...current, ...patch, version: 1 };
+    });
+  }, []);
+
+  const undoSettings = useCallback(() => {
+    if (!previousSettings.current) return false;
+    const previous = previousSettings.current;
+    previousSettings.current = null;
+    setSettings(previous);
+    return true;
   }, []);
 
   const resetSettings = useCallback(() => {
@@ -25,5 +44,5 @@ export function useLocalStorageSettings() {
     if (!saveSettings(next)) setStorageMessage("設定を端末に保存できませんでした。");
   }, []);
 
-  return { settings, updateSettings, resetSettings, storageMessage, setStorageMessage };
+  return { settings, updateSettings, undoSettings, resetSettings, storageMessage, setStorageMessage, saveState };
 }

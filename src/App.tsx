@@ -12,7 +12,7 @@ import { colorPresets, fontOptions, positionPresets, type PositionPreset } from 
 import { getAdaptivePalette, fallbackBackgroundRgb, getStrongAccent, type AdaptivePalette } from "./utils/adaptiveColor";
 
 export default function App() {
-  const { settings, updateSettings, resetSettings, storageMessage, setStorageMessage } = useLocalStorageSettings();
+  const { settings, updateSettings, undoSettings, resetSettings, storageMessage, setStorageMessage, saveState } = useLocalStorageSettings();
   const {
     timer,
     announcement,
@@ -27,7 +27,7 @@ export default function App() {
     setFloatingPosition,
     clearTimer
   } = usePomodoroTimer(settings);
-  const { backgrounds, addBackgrounds, removeBackground, backgroundMessage, setBackgroundMessage } = useCustomBackgrounds();
+  const { backgrounds, addBackgrounds, removeBackground, reorderBackgrounds, backgroundMessage, setBackgroundMessage } = useCustomBackgrounds();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsLauncherVisible, setSettingsLauncherVisible] = useState(false);
   const [adaptivePalette, setAdaptivePalette] = useState<AdaptivePalette>(() => getAdaptivePalette(fallbackBackgroundRgb, settings.overlayOpacity));
@@ -162,7 +162,9 @@ export default function App() {
       <SettingsPanel
         open={settingsOpen}
         settings={settings}
+        saveState={saveState}
         onChange={updateSettings}
+        onUndo={undoSettings}
         onClose={closeSettings}
         onResetSettings={() => { resetSettings(); showMessage("設定を初期値に戻しました。"); }}
         onClearTimer={clearTimer}
@@ -173,6 +175,7 @@ export default function App() {
           const removed = await removeBackground(id);
           if (removed && settings.backgroundChoice === `custom:${id}`) updateSettings({ backgroundChoice: "slideshow" });
         }}
+        onReorderBackgrounds={reorderBackgrounds}
       />
     </main>
   );

@@ -2,6 +2,8 @@ export const positionPresets = [
   "center",
   "top",
   "bottom",
+  "left",
+  "right",
   "top-left",
   "top-right",
   "bottom-left",
@@ -56,6 +58,18 @@ export type AppSettings = {
   longBreakMinutes: number;
   soundEnabled: boolean;
 };
+
+export const settingRanges = {
+  clockFontSize: { min: 56, max: 220, step: 1, unit: "px" },
+  dateFontSize: { min: 16, max: 64, step: 1, unit: "px" },
+  timerFontSize: { min: 36, max: 120, step: 1, unit: "px" },
+  timerBackgroundOpacity: { min: 60, max: 100, step: 1, unit: "%" },
+  overlayOpacity: { min: 0, max: 70, step: 1, unit: "%" },
+  slideshowIntervalSec: { min: 10, max: 600, step: 10, unit: "秒" },
+  workMinutes: { min: 1, max: 180, step: 1, unit: "分" },
+  shortBreakMinutes: { min: 1, max: 60, step: 1, unit: "分" },
+  longBreakMinutes: { min: 1, max: 120, step: 1, unit: "分" }
+} as const;
 
 export const defaultSettings: AppSettings = {
   version: 1,

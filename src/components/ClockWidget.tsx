@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import type { AppSettings, ClockDateAlignment, FreePosition } from "../types/settings";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
+import { fontOptions, type AppSettings, type ClockDateAlignment, type FreePosition } from "../types/settings";
 import { ClockDisplay } from "./ClockDisplay";
 import { DateDisplay } from "./DateDisplay";
 
@@ -18,18 +19,29 @@ const alignments: { value: ClockDateAlignment; label: string }[] = [
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
+type EditorPosition = {
+  left: number;
+  offset: number;
+  above: boolean;
+};
+
 export function ClockWidget({ now, settings, onChange, onMessage }: Props) {
   const [open, setOpen] = useState(false);
   const [hintVisible, setHintVisible] = useState(false);
+  const [editorPosition, setEditorPosition] = useState<EditorPosition | null>(null);
   const widgetRef = useRef<HTMLDivElement>(null);
+  const displayRef = useRef<HTMLButtonElement>(null);
+  const editorRef = useRef<HTMLElement>(null);
   const pointerStart = useRef<{ x: number; y: number; position: FreePosition } | null>(null);
   const hintTimeoutRef = useRef<number | null>(null);
   const moved = useRef(false);
+  const position = settings.clockDatePosition;
 
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (event: PointerEvent) => {
-      if (!widgetRef.current?.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      if (!widgetRef.current?.contains(target) && !editorRef.current?.contains(target)) setOpen(false);
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
@@ -42,11 +54,33 @@ export function ClockWidget({ now, settings, onChange, onMessage }: Props) {
     };
   }, [open]);
 
+  useLayoutEffect(() => {
+    if (!open || !displayRef.current) {
+      setEditorPosition(null);
+      return;
+    }
+
+    const updateEditorPosition = () => {
+      const display = displayRef.current;
+      if (!display) return;
+      const rect = display.getBoundingClientRect();
+      const edgeGap = 16;
+      const panelWidth = Math.min(360, window.innerWidth - edgeGap * 2);
+      const left = clamp(rect.left + rect.width / 2 - panelWidth / 2, edgeGap, window.innerWidth - panelWidth - edgeGap);
+      const above = rect.top > window.innerHeight / 2;
+      const offset = above ? window.innerHeight - rect.top + 12 : rect.bottom + 12;
+      setEditorPosition({ left, offset, above });
+    };
+
+    updateEditorPosition();
+    window.addEventListener("resize", updateEditorPosition);
+    return () => window.removeEventListener("resize", updateEditorPosition);
+  }, [open, position.x, position.y]);
+
   useEffect(() => () => {
     if (hintTimeoutRef.current !== null) window.clearTimeout(hintTimeoutRef.current);
   }, []);
 
-  const position = settings.clockDatePosition;
   const moveBy = (x: number, y: number) => onChange({ clockDatePosition: { x: clamp(x, .06, .94), y: clamp(y, .08, .92) } });
   const showHint = () => {
     if (hintTimeoutRef.current !== null) window.clearTimeout(hintTimeoutRef.current);
@@ -98,14 +132,24 @@ export function ClockWidget({ now, settings, onChange, onMessage }: Props) {
           if (event.key === "ArrowUp") { event.preventDefault(); moveBy(position.x, position.y - step); }
           if (event.key === "ArrowDown") { event.preventDefault(); moveBy(position.x, position.y + step); }
         }}
+        ref={displayRef}
       >
         <span className="clock-widget__hint" aria-hidden="true">タップで表示設定・ドラッグで移動</span>
         {settings.showDate && <DateDisplay now={now} fontSize={settings.dateFontSize} />}
         {settings.showClock && <ClockDisplay now={now} settings={settings} />}
       </button>
 
-      {open && (
-        <section className={`clock-editor${position.y > .58 ? " clock-editor--above" : ""}`} aria-label="時計とカレンダーの表示設定">
+      {open && editorPosition && createPortal(
+        <section
+          className={`clock-editor${editorPosition.above ? " clock-editor--above" : ""}`}
+          aria-label="時計とカレンダーの表示設定"
+          ref={editorRef}
+          style={{
+            left: `${editorPosition.left}px`,
+            [editorPosition.above ? "bottom" : "top"]: `${editorPosition.offset}px`,
+            fontFamily: fontOptions[settings.fontFamily as keyof typeof fontOptions] ?? fontOptions.system
+          } as CSSProperties}
+        >
           <div className="clock-editor__title"><span>表示を整える</span><button type="button" aria-label="時計の設定を閉じる" onClick={() => setOpen(false)}>×</button></div>
           <div className="clock-editor__row">
             <span>そろえ</span>
@@ -120,7 +164,8 @@ export function ClockWidget({ now, settings, onChange, onMessage }: Props) {
           </div>
           <label className="clock-editor__range">時計の大きさ <output>{settings.clockFontSize}px</output><input aria-label="時計の大きさ" type="range" min="56" max="220" value={settings.clockFontSize} onChange={(event) => onChange({ clockFontSize: Number(event.target.value) })} /></label>
           <button className="clock-editor__reset" type="button" onClick={() => { onChange({ clockDatePosition: { x: .5, y: .5 }, clockDateAlignment: "center" }); onMessage("時計とカレンダーを中央にそろえました。"); }}>中央に戻す</button>
-        </section>
+        </section>,
+        document.body
       )}
     </div>
   );

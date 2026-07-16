@@ -73,5 +73,22 @@ export function useCustomBackgrounds() {
     }
   }, []);
 
-  return { backgrounds, addBackgrounds, removeBackground, backgroundMessage: message, setBackgroundMessage: setMessage };
+  const reorderBackgrounds = useCallback(async (ids: string[]) => {
+    const current = backgroundsRef.current;
+    if (ids.length !== current.length || new Set(ids).size !== current.length) return;
+    const byId = new Map(current.map((background) => [background.id, background]));
+    const ordered = ids.map((id) => byId.get(id)).filter((item): item is CustomBackground => Boolean(item));
+    if (ordered.length !== current.length) return;
+    try {
+      const base = Date.now();
+      const updated = ordered.map((background, index) => ({ ...background, createdAt: base + index }));
+      await Promise.all(updated.map((background) => saveStoredBackground(background)));
+      setBackgrounds(updated);
+      setMessage("背景画像の順番を保存しました。");
+    } catch {
+      setMessage("背景画像の順番を保存できませんでした。");
+    }
+  }, []);
+
+  return { backgrounds, addBackgrounds, removeBackground, reorderBackgrounds, backgroundMessage: message, setBackgroundMessage: setMessage };
 }

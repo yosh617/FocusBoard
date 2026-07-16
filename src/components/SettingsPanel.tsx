@@ -1,375 +1,61 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { colorPresets, fontOptions, positionPresets, type AppSettings, type BackgroundChoice, type ColorPreset, type FontOption, type PositionPreset } from "../types/settings";
+import { useEffect, useRef, useState } from "react";
+import { colorPresets, defaultSettings, fontOptions, positionPresets, settingRanges, type AppSettings, type BackgroundChoice, type ColorPreset, type FontOption, type PositionPreset } from "../types/settings";
 import type { CustomBackground } from "../utils/backgroundStorage";
+import { MAX_BACKGROUND_FILE_SIZE, MAX_CUSTOM_BACKGROUNDS } from "../utils/backgroundStorage";
 import { defaultBackgrounds } from "./BackgroundSlideshow";
 import { ResetPanel } from "./ResetPanel";
 
+type Category = "display" | "background" | "clock" | "timer" | "pomodoro" | "accessibility" | "data";
 type Props = {
-  open: boolean;
-  settings: AppSettings;
-  onChange: (patch: Partial<AppSettings>) => void;
-  onClose: () => void;
-  onResetSettings: () => void;
-  onClearTimer: () => void;
-  onMessage: (message: string) => void;
-  customBackgrounds: CustomBackground[];
-  onAddBackgrounds: (files: File[]) => Promise<CustomBackground[]>;
-  onRemoveBackground: (id: string) => Promise<void>;
+  open: boolean; settings: AppSettings; saveState: "saved" | "saving" | "failed";
+  onChange: (patch: Partial<AppSettings>) => void; onUndo: () => boolean; onClose: () => void;
+  onResetSettings: () => void; onClearTimer: () => void; onMessage: (message: string) => void;
+  customBackgrounds: CustomBackground[]; onAddBackgrounds: (files: File[]) => Promise<CustomBackground[]>;
+  onRemoveBackground: (id: string) => Promise<void>; onReorderBackgrounds: (ids: string[]) => Promise<void>;
 };
 
-const positionLabels: Record<PositionPreset, string> = {
-  center: "中央",
-  top: "上",
-  bottom: "下",
-  "top-left": "左上",
-  "top-right": "右上",
-  "bottom-left": "左下",
-  "bottom-right": "右下"
-};
-
-type PickerBackgroundOption = { value: BackgroundChoice; label: string; path?: string; customId?: string };
-
-const backgroundOptions: PickerBackgroundOption[] = [
-  { value: "slideshow", label: "自動切替" },
-  { value: "bg1", label: "モーニング", path: defaultBackgrounds[0] },
-  { value: "bg2", label: "ラベンダー", path: defaultBackgrounds[1] },
-  { value: "bg3", label: "スカイ", path: defaultBackgrounds[2] }
+const categories: { id: Category; label: string }[] = [
+  { id: "display", label: "表示" }, { id: "background", label: "背景" }, { id: "clock", label: "時計と日付" },
+  { id: "timer", label: "タイマー" }, { id: "pomodoro", label: "ポモドーロ" }, { id: "accessibility", label: "アクセシビリティ" }, { id: "data", label: "データ管理" }
 ];
+const positionLabels: Record<PositionPreset, string> = { "top-left": "左上", top: "上", "top-right": "右上", left: "左", center: "中央", right: "右", "bottom-left": "左下", bottom: "下", "bottom-right": "右下" };
+const positionGrid: PositionPreset[] = ["top-left", "top", "top-right", "left", "center", "right", "bottom-left", "bottom", "bottom-right"];
+const fonts: { value: FontOption; label: string }[] = [{ value: "system", label: "システム" }, { value: "rounded", label: "丸ゴシック" }, { value: "serif", label: "明朝" }, { value: "mono", label: "等幅" }];
 
 function Toggle({ id, label, checked, onChange }: { id: string; label: string; checked: boolean; onChange: (value: boolean) => void }) {
-  return (
-    <div className="setting-row">
-      <label htmlFor={id}>{label}</label>
-      <input id={id} className="toggle" type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
-    </div>
-  );
+  return <div className="setting-row"><label htmlFor={id}>{label}</label><input id={id} className="toggle" type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} /></div>;
+}
+function Range({ id, label, value, min, max, step, unit, initial, onChange }: { id: string; label: string; value: number; min: number; max: number; step: number; unit: string; initial: number; onChange: (value: number) => void }) {
+  const input = (next: string) => { const value = Number(next); if (Number.isFinite(value)) onChange(Math.min(max, Math.max(min, value))); };
+  return <div className="setting-control range-control"><label htmlFor={id}>{label}<output>{value}{unit}</output></label><div className="range-control__inputs"><input id={id} type="range" min={min} max={max} step={step} value={value} aria-valuemin={min} aria-valuemax={max} aria-valuenow={value} onChange={(event) => input(event.target.value)} /><input className="number-input" aria-label={`${label}の数値`} type="number" min={min} max={max} step={step} value={value} onChange={(event) => input(event.target.value)} /><span>{unit}</span><button type="button" className="reset-value" aria-label={`${label}を初期値に戻す`} onClick={() => onChange(initial)}>戻す</button></div><small>範囲: {min}〜{max}{unit}</small></div>;
+}
+function PositionGrid({ label, value, onChange }: { label: string; value: PositionPreset; onChange: (value: PositionPreset) => void }) {
+  const [focus, setFocus] = useState(value);
+  return <div className="setting-control"><span className="setting-label">{label}</span><div className="position-grid" role="radiogroup" aria-label={label} onKeyDown={(event) => { const index = positionGrid.indexOf(focus); const movement = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : event.key === "ArrowDown" ? 3 : event.key === "ArrowUp" ? -3 : 0; if (!movement) return; event.preventDefault(); const next = positionGrid[(index + movement + 9) % 9]; setFocus(next); onChange(next); document.getElementById(`position-${next}`)?.focus(); }}>
+    {positionGrid.map((position) => <button id={`position-${position}`} type="button" role="radio" aria-label={positionLabels[position]} aria-checked={value === position} className={`position-grid__cell${value === position ? " is-selected" : ""}`} onFocus={() => setFocus(position)} onClick={() => onChange(position)} key={position}><i aria-hidden="true" /></button>)}
+  </div><small>矢印キーでも移動できます。</small></div>;
 }
 
-function Range({ id, label, value, min, max, step = 1, suffix = "", onChange }: {
-  id: string; label: string; value: number; min: number; max: number; step?: number; suffix?: string; onChange: (value: number) => void;
-}) {
-  return (
-    <div className="setting-control">
-      <label htmlFor={id}>{label}<output htmlFor={id}>{value}{suffix}</output></label>
-      <input id={id} type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} />
-    </div>
-  );
-}
-
-function Select({ id, label, value, onChange, children }: {
-  id: string; label: string; value: string; onChange: (value: string) => void; children: ReactNode;
-}) {
-  return (
-    <div className="setting-control">
-      <label htmlFor={id}>{label}</label>
-      <select id={id} value={value} onChange={(event) => onChange(event.target.value)}>{children}</select>
-    </div>
-  );
-}
-
-const fontChoices: { value: FontOption; label: string; sample: string }[] = [
-  { value: "system", label: "システム", sample: "読みやすく自然" },
-  { value: "rounded", label: "丸ゴシック", sample: "やわらかな印象" },
-  { value: "serif", label: "明朝", sample: "落ち着いた印象" },
-  { value: "mono", label: "等幅", sample: "数字を均等に" }
-];
-
-function FontSelect({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const active = fontChoices.find((choice) => choice.value === value) ?? fontChoices[0];
-
-  useEffect(() => {
-    if (!open) return;
-    const closeOnOutside = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      setOpen(false);
-      triggerRef.current?.focus();
-    };
-    document.addEventListener("pointerdown", closeOnOutside);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutside);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [open]);
-
-  return (
-    <div className="setting-control">
-      <label id="font-family-label">フォント</label>
-      <div className={`custom-select${open ? " custom-select--open" : ""}`} ref={rootRef}>
-        <button
-          className="custom-select__trigger"
-          type="button"
-          aria-haspopup="listbox"
-          aria-expanded={open}
-          aria-labelledby="font-family-label font-family-value"
-          onClick={() => setOpen((current) => !current)}
-          onKeyDown={(event) => {
-            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-              event.preventDefault();
-              setOpen(true);
-            }
-          }}
-          ref={triggerRef}
-        >
-          <span id="font-family-value" style={{ fontFamily: fontOptions[active.value] }}>{active.label}</span>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5" /></svg>
-        </button>
-        {open && (
-          <div className="custom-select__menu" role="listbox" aria-labelledby="font-family-label">
-            {fontChoices.map((choice) => (
-              <button
-                className={`custom-select__option${choice.value === value ? " custom-select__option--active" : ""}`}
-                type="button"
-                role="option"
-                aria-selected={choice.value === value}
-                onClick={() => {
-                  onChange(choice.value);
-                  setOpen(false);
-                  triggerRef.current?.focus();
-                }}
-                key={choice.value}
-              >
-                <span style={{ fontFamily: fontOptions[choice.value] }}><strong>{choice.label}</strong><small>{choice.sample}</small></span>
-                {choice.value === value && <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 12 4 4 8-9" /></svg>}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-export function SettingsPanel({
-  open,
-  settings,
-  onChange,
-  onClose,
-  onResetSettings,
-  onClearTimer,
-  onMessage,
-  customBackgrounds,
-  onAddBackgrounds,
-  onRemoveBackground
-}: Props) {
-  const drawerRef = useRef<HTMLElement>(null);
-  const closeRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const previous = document.activeElement as HTMLElement | null;
-    closeRef.current?.focus();
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        if (drawerRef.current?.querySelector(".custom-select--open")) return;
-        onClose();
-      }
-      if (event.key !== "Tab" || !drawerRef.current) return;
-      const focusable = [...drawerRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])')];
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
-      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
-    };
-    document.addEventListener("keydown", handleKey);
-    return () => {
-      document.removeEventListener("keydown", handleKey);
-      previous?.focus();
-    };
-  }, [open, onClose]);
-
+export function SettingsPanel({ open, settings, saveState, onChange, onUndo, onClose, onResetSettings, onClearTimer, onMessage, customBackgrounds, onAddBackgrounds, onRemoveBackground, onReorderBackgrounds }: Props) {
+  const drawerRef = useRef<HTMLElement>(null); const closeRef = useRef<HTMLButtonElement>(null); const [category, setCategory] = useState<Category>("display");
+  useEffect(() => { if (!open) return; const previous = document.activeElement as HTMLElement | null; closeRef.current?.focus(); const keys = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); if (event.key !== "Tab" || !drawerRef.current) return; const nodes = [...drawerRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')]; const first = nodes[0], last = nodes.at(-1); if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); } }; document.addEventListener("keydown", keys); return () => { document.removeEventListener("keydown", keys); previous?.focus(); }; }, [open, onClose]);
   if (!open) return null;
-
-  const allBackgroundOptions: PickerBackgroundOption[] = [
-    ...backgroundOptions,
-    ...customBackgrounds.map((background) => ({
-      value: `custom:${background.id}` as BackgroundChoice,
-      label: background.name,
-      path: background.url,
-      customId: background.id
-    }))
-  ];
-
-  const uploadBackgrounds = async (files: FileList | null) => {
-    if (!files?.length) return;
-    const created = await onAddBackgrounds([...files]);
-    if (created[0]) onChange({ backgroundChoice: `custom:${created[0].id}` });
-  };
-
-  const positionSelect = (id: string, label: string, value: PositionPreset, key: "clockPosition" | "datePosition" | "timerPosition") => (
-    <Select id={id} label={label} value={value} onChange={(next) => onChange({ [key]: next as PositionPreset })}>
-      {positionPresets.map((position) => <option value={position} key={position}>{positionLabels[position]}</option>)}
-    </Select>
-  );
-
-  return (
-    <div className="drawer-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <aside className="settings-drawer" role="dialog" aria-modal="true" aria-labelledby="settings-title" ref={drawerRef}>
-        <header className="settings-header">
-          <div><p className="eyebrow">FOCUSBOARD</p><h2 id="settings-title">表示設定</h2></div>
-          <button className="icon-button" type="button" aria-label="設定を閉じる" onClick={onClose} ref={closeRef}>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
-          </button>
-        </header>
-
-        <div className="settings-content">
-          <section className="settings-section" aria-labelledby="visibility-heading">
-            <h3 id="visibility-heading">表示</h3>
-            <Toggle id="show-timer" label="タイマー" checked={settings.showTimer} onChange={(showTimer) => onChange({ showTimer })} />
-            <div className="settings-callout"><strong>時計とカレンダー</strong><span>画面上の表示をタップすると、そろえ方・表示・大きさをその場で変更できます。</span></div>
-          </section>
-
-          <section className="settings-section" aria-labelledby="appearance-heading">
-            <h3 id="appearance-heading">文字と背景</h3>
-            <div className="setting-control">
-              <span className="setting-label" id="background-label">背景を選択</span>
-              <div className="background-picker" role="radiogroup" aria-labelledby="background-label">
-                {allBackgroundOptions.map((option) => (
-                  <div className="background-option-wrap" key={option.value}>
-                    <button
-                      className={`background-option${settings.backgroundChoice === option.value ? " background-option--active" : ""}`}
-                      type="button"
-                      role="radio"
-                      aria-checked={settings.backgroundChoice === option.value}
-                      onClick={() => onChange({ backgroundChoice: option.value })}
-                    >
-                      <span
-                        className={`background-option__preview${option.value === "slideshow" ? " background-option__preview--auto" : ""}`}
-                        style={option.path ? { backgroundImage: option.path.startsWith("blob:") ? `url(${option.path})` : `url(${import.meta.env.BASE_URL}${option.path})` } : undefined}
-                      >
-                        {settings.backgroundChoice === option.value && (
-                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 12 4 4 8-9" /></svg>
-                        )}
-                      </span>
-                      <span className="background-option__label" title={option.label}>{option.label}</span>
-                    </button>
-                    {option.customId && (
-                      <button
-                        className="background-option__delete"
-                        type="button"
-                        aria-label={`${option.label}を削除`}
-                        onClick={() => {
-                          if (window.confirm(`${option.label}を背景一覧から削除しますか？`)) void onRemoveBackground(option.customId!);
-                        }}
-                      >
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12M10 11v6M14 11v6M9 7l1-2h4l1 2m2 0-1 13H8L7 7" /></svg>
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <label className="background-upload" htmlFor="background-upload">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5 5 5M5 14v5h14v-5" /></svg>
-                端末から画像を追加
-              </label>
-              <input
-                className="visually-hidden"
-                id="background-upload"
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={(event) => {
-                  void uploadBackgrounds(event.target.files);
-                  event.target.value = "";
-                }}
-              />
-              <p className="settings-help">10MB以下の画像を最大8枚まで端末内に保存できます。追加画像がある場合、自動切替は追加画像を使用します。</p>
-            </div>
-            <Range id="timer-size" label="タイマーサイズ" value={settings.timerFontSize} min={36} max={120} suffix="px" onChange={(timerFontSize) => onChange({ timerFontSize })} />
-            <Range id="timer-background-opacity" label="タイマー背景の不透明度" value={Math.round(settings.timerBackgroundOpacity * 100)} min={60} max={100} suffix="%" onChange={(value) => onChange({ timerBackgroundOpacity: value / 100 })} />
-            <FontSelect value={settings.fontFamily} onChange={(fontFamily) => onChange({ fontFamily })} />
-            <Toggle
-              id="match-background-colors"
-              label="色を背景に合わせる"
-              checked={settings.matchBackgroundColors}
-              onChange={(matchBackgroundColors) => onChange({ matchBackgroundColors })}
-            />
-            {settings.matchBackgroundColors ? (
-              <div className="adaptive-color-note" role="status" aria-label="背景連動カラー">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1m0-12.8-2.1 2.1m-8.6 8.6-2.1 2.1" /><circle cx="12" cy="12" r="4" /></svg>
-                <span><strong>背景から自動調整中</strong><small>文字色とアクセント色を表示中の画像に合わせます</small></span>
-              </div>
-            ) : (
-              <div className="setting-control color-theme-control">
-                <span className="setting-label" id="color-theme-label">カラーテーマ</span>
-                <div className="color-preset-grid" role="radiogroup" aria-labelledby="color-theme-label">
-                  {(Object.entries(colorPresets) as [Exclude<ColorPreset, "custom">, (typeof colorPresets)[keyof typeof colorPresets]][]).map(([value, preset]) => (
-                    <button
-                      className={`color-preset${settings.colorPreset === value ? " color-preset--active" : ""}`}
-                      type="button"
-                      role="radio"
-                      aria-checked={settings.colorPreset === value}
-                      onClick={() => onChange({ colorPreset: value })}
-                      key={value}
-                    >
-                      <span className="color-preset__swatches" aria-hidden="true">
-                        <i style={{ background: preset.text }} /><i style={{ background: preset.accent }} /><i style={{ background: preset.accentStrong }} />
-                      </span>
-                      <span>{preset.label}</span>
-                      {settings.colorPreset === value && <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 12 4 4 8-9" /></svg>}
-                    </button>
-                  ))}
-                  <button
-                    className={`color-preset${settings.colorPreset === "custom" ? " color-preset--active" : ""}`}
-                    type="button"
-                    role="radio"
-                    aria-checked={settings.colorPreset === "custom"}
-                    onClick={() => onChange({ colorPreset: "custom" })}
-                  >
-                    <span className="color-preset__swatches color-preset__swatches--custom" aria-hidden="true" />
-                    <span>カスタム</span>
-                    {settings.colorPreset === "custom" && <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 12 4 4 8-9" /></svg>}
-                  </button>
-                </div>
-                {settings.colorPreset === "custom" && (
-                  <div className="custom-color-fields">
-                    <div className="setting-row">
-                      <label htmlFor="text-color">文字色</label>
-                      <input id="text-color" className="color-input" type="color" value={settings.textColor} onChange={(event) => onChange({ textColor: event.target.value })} />
-                    </div>
-                    <div className="setting-row">
-                      <label htmlFor="accent-color">アクセント色</label>
-                      <input id="accent-color" className="color-input" type="color" value={settings.accentColor} onChange={(event) => onChange({ accentColor: event.target.value })} />
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-            <Range id="overlay" label="背景のやわらかさ" value={Math.round(settings.overlayOpacity * 100)} min={0} max={70} suffix="%" onChange={(value) => onChange({ overlayOpacity: value / 100 })} />
-            {settings.backgroundChoice === "slideshow" && (
-              <Range id="slideshow" label="背景切り替え" value={settings.slideshowIntervalSec} min={10} max={600} step={10} suffix="秒" onChange={(slideshowIntervalSec) => onChange({ slideshowIntervalSec })} />
-            )}
-          </section>
-
-          <details className="settings-section settings-advanced">
-            <summary>詳細設定</summary>
-            <div className="settings-advanced__content">
-            <Toggle id="use-12-hour" label="12時間表示" checked={settings.use12Hour} onChange={(use12Hour) => onChange({ use12Hour })} />
-            <Range id="date-size" label="日付サイズ" value={settings.dateFontSize} min={16} max={64} suffix="px" onChange={(dateFontSize) => onChange({ dateFontSize })} />
-            <h3 id="position-heading">開始前タイマーの配置</h3>
-            {positionSelect("timer-position", "開始前タイマー", settings.timerPosition, "timerPosition")}
-            <p className="settings-help">開始後の円形タイマーは直接ドラッグできます。</p>
-            </div>
-          </details>
-
-          <section className="settings-section" aria-labelledby="pomodoro-heading">
-            <h3 id="pomodoro-heading">ポモドーロ</h3>
-            <Range id="work-minutes" label="作業時間" value={settings.workMinutes} min={1} max={180} suffix="分" onChange={(workMinutes) => onChange({ workMinutes })} />
-            <Range id="short-minutes" label="短い休憩" value={settings.shortBreakMinutes} min={1} max={60} suffix="分" onChange={(shortBreakMinutes) => onChange({ shortBreakMinutes })} />
-            <Range id="long-minutes" label="長い休憩" value={settings.longBreakMinutes} min={1} max={120} suffix="分" onChange={(longBreakMinutes) => onChange({ longBreakMinutes })} />
-            <Toggle id="sound-enabled" label="終了音" checked={settings.soundEnabled} onChange={(soundEnabled) => onChange({ soundEnabled })} />
-            <p className="settings-help">時間の変更は次回のResetまたはモード切り替えから反映されます。</p>
-          </section>
-
-          <ResetPanel onResetSettings={onResetSettings} onClearTimer={onClearTimer} onMessage={onMessage} />
-        </div>
-      </aside>
-    </div>
-  );
+  const uploads = async (files: FileList | null) => { if (!files?.length) return; const created = await onAddBackgrounds([...files]); if (created[0]) onChange({ backgroundChoice: `custom:${created[0].id}` }); };
+  const resetSection = (patch: Partial<AppSettings>) => { onChange(patch); onMessage("この項目を初期値に戻しました。"); };
+  const customSize = customBackgrounds.reduce((total, item) => total + item.blob.size, 0);
+  const move = (index: number, amount: number) => { const next = [...customBackgrounds]; const target = index + amount; if (target < 0 || target >= next.length) return; [next[index], next[target]] = [next[target], next[index]]; void onReorderBackgrounds(next.map((item) => item.id)); };
+  const sectionTitle = categories.find((item) => item.id === category)?.label;
+  return <div className="drawer-backdrop" onPointerDown={(event) => event.target === event.currentTarget && onClose()}><aside className="settings-drawer" role="dialog" aria-modal="true" aria-labelledby="settings-title" ref={drawerRef}>
+    <header className="settings-header"><div><p className="eyebrow">FOCUSBOARD</p><h2 id="settings-title">設定</h2></div><div className={`save-state save-state--${saveState}`} role="status">{saveState === "saving" ? "保存中" : saveState === "failed" ? "保存失敗" : "自動保存済み"}</div><button className="icon-button" type="button" aria-label="設定を閉じる" onClick={onClose} ref={closeRef}>×</button></header>
+    <nav className="settings-tabs" aria-label="設定カテゴリー" role="tablist">{categories.map((item) => <button type="button" role="tab" aria-selected={category === item.id} className={category === item.id ? "is-active" : ""} onClick={() => setCategory(item.id)} key={item.id}>{item.label}</button>)}</nav>
+    <div className="settings-content"><section className="settings-section" aria-labelledby="category-title"><div className="section-heading"><h3 id="category-title">{sectionTitle}</h3>{category !== "accessibility" && category !== "data" && <button className="text-button" type="button" onClick={() => { const map: Record<Exclude<Category, "accessibility" | "data">, Partial<AppSettings>> = { display: { showClock: defaultSettings.showClock, showDate: defaultSettings.showDate, showTimer: defaultSettings.showTimer, fontFamily: defaultSettings.fontFamily, colorPreset: defaultSettings.colorPreset, matchBackgroundColors: defaultSettings.matchBackgroundColors }, background: { backgroundChoice: defaultSettings.backgroundChoice, overlayOpacity: defaultSettings.overlayOpacity, slideshowIntervalSec: defaultSettings.slideshowIntervalSec }, clock: { use12Hour: defaultSettings.use12Hour, showSeconds: defaultSettings.showSeconds, clockFontSize: defaultSettings.clockFontSize, dateFontSize: defaultSettings.dateFontSize }, timer: { timerFontSize: defaultSettings.timerFontSize, timerBackgroundOpacity: defaultSettings.timerBackgroundOpacity, timerPosition: defaultSettings.timerPosition }, pomodoro: { workMinutes: defaultSettings.workMinutes, shortBreakMinutes: defaultSettings.shortBreakMinutes, longBreakMinutes: defaultSettings.longBreakMinutes, soundEnabled: defaultSettings.soundEnabled } }; resetSection(map[category]); }}>初期値に戻す</button>}</div>
+      {category === "display" && <><Toggle id="show-clock" label="時計を表示" checked={settings.showClock} onChange={(showClock) => onChange({ showClock })} /><Toggle id="show-date" label="日付を表示" checked={settings.showDate} onChange={(showDate) => onChange({ showDate })} /><Toggle id="show-timer" label="タイマーを表示" checked={settings.showTimer} onChange={(showTimer) => onChange({ showTimer })} /><div className="setting-control"><span className="setting-label">フォント</span><div className="choice-grid" role="radiogroup">{fonts.map((font) => <button type="button" role="radio" aria-checked={settings.fontFamily === font.value} className={settings.fontFamily === font.value ? "is-selected" : ""} style={{ fontFamily: fontOptions[font.value] }} onClick={() => onChange({ fontFamily: font.value })} key={font.value}>{font.label}</button>)}</div></div><Toggle id="match-colors" label="色を背景に合わせる" checked={settings.matchBackgroundColors} onChange={(matchBackgroundColors) => onChange({ matchBackgroundColors })} />{!settings.matchBackgroundColors && <div className="setting-control"><span className="setting-label">カラーテーマ</span><div className="choice-grid" role="radiogroup" aria-label="カラーテーマ">{(Object.entries(colorPresets) as [Exclude<ColorPreset, "custom">, typeof colorPresets.sky][]).map(([id, preset]) => <button type="button" role="radio" aria-checked={settings.colorPreset === id} className={settings.colorPreset === id ? "is-selected" : ""} onClick={() => onChange({ colorPreset: id })} key={id}><i style={{ background: preset.accent }} />{preset.label}</button>)}<button type="button" role="radio" aria-checked={settings.colorPreset === "custom"} className={settings.colorPreset === "custom" ? "is-selected" : ""} onClick={() => onChange({ colorPreset: "custom" })}>カスタム</button></div>{settings.colorPreset === "custom" && <div className="custom-color-fields"><div className="setting-row"><label htmlFor="text-color">文字色</label><input id="text-color" className="color-input" type="color" value={settings.textColor} onChange={(event) => onChange({ textColor: event.target.value })} /></div><div className="setting-row"><label htmlFor="accent-color">アクセント色</label><input id="accent-color" className="color-input" type="color" value={settings.accentColor} onChange={(event) => onChange({ accentColor: event.target.value })} /></div></div>}</div>}</>}
+      {category === "background" && <><div className="background-picker" role="radiogroup" aria-label="背景を選択"><button type="button" role="radio" aria-checked={settings.backgroundChoice === "slideshow"} className={`background-option${settings.backgroundChoice === "slideshow" ? " background-option--active" : ""}`} onClick={() => onChange({ backgroundChoice: "slideshow" })}><span className="background-option__preview background-option__preview--auto" />自動切替</button>{defaultBackgrounds.map((path, index) => <button type="button" role="radio" aria-checked={settings.backgroundChoice === `bg${index + 1}`} className={`background-option${settings.backgroundChoice === `bg${index + 1}` ? " background-option--active" : ""}`} onClick={() => onChange({ backgroundChoice: `bg${index + 1}` as BackgroundChoice })} key={path}><span className="background-option__preview" style={{ backgroundImage: `url(${import.meta.env.BASE_URL}${path})` }} />{["モーニング", "ラベンダー", "スカイ"][index]}</button>)}</div><label className="background-upload" htmlFor="background-upload">端末から画像を追加</label><input id="background-upload" className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={(event) => { void uploads(event.target.files); event.target.value = ""; }} /><p className="settings-help">{customBackgrounds.length} / {MAX_CUSTOM_BACKGROUNDS} 枚・{(customSize / 1024 / 1024).toFixed(1)}MB 使用中。JPEG、PNG、WebP、GIF、各 {(MAX_BACKGROUND_FILE_SIZE / 1024 / 1024).toFixed(0)}MB 以下。</p><div className="background-manager" aria-label="追加した背景画像">{customBackgrounds.map((item, index) => <article key={item.id}><img src={item.url} alt="" /><span>{item.name}</span><div><button type="button" aria-label={`${item.name}を前へ`} disabled={index === 0} onClick={() => move(index, -1)}>↑</button><button type="button" aria-label={`${item.name}を後へ`} disabled={index === customBackgrounds.length - 1} onClick={() => move(index, 1)}>↓</button><button type="button" aria-label={`${item.name}を削除`} onClick={() => { if (window.confirm(`${item.name}を削除しますか？`)) void onRemoveBackground(item.id); }}>削除</button></div></article>)}</div><Range id="overlay" label="背景オーバーレイ" value={Math.round(settings.overlayOpacity * 100)} {...settingRanges.overlayOpacity} initial={Math.round(defaultSettings.overlayOpacity * 100)} onChange={(value) => onChange({ overlayOpacity: value / 100 })} />{settings.backgroundChoice === "slideshow" && <Range id="slideshow" label="背景切り替え時間" value={settings.slideshowIntervalSec} {...settingRanges.slideshowIntervalSec} initial={defaultSettings.slideshowIntervalSec} onChange={(slideshowIntervalSec) => onChange({ slideshowIntervalSec })} />}</>}
+      {category === "clock" && <><Toggle id="use-12-hour" label="12時間表示" checked={settings.use12Hour} onChange={(use12Hour) => onChange({ use12Hour })} /><Toggle id="show-seconds" label="秒を表示" checked={settings.showSeconds} onChange={(showSeconds) => onChange({ showSeconds })} /><Range id="clock-size" label="時計サイズ" value={settings.clockFontSize} {...settingRanges.clockFontSize} initial={defaultSettings.clockFontSize} onChange={(clockFontSize) => onChange({ clockFontSize })} /><Range id="date-size" label="日付サイズ" value={settings.dateFontSize} {...settingRanges.dateFontSize} initial={defaultSettings.dateFontSize} onChange={(dateFontSize) => onChange({ dateFontSize })} /><p className="settings-help">時計と日付は画面上でドラッグして移動できます。</p></>}
+      {category === "timer" && <><Range id="timer-size" label="タイマーサイズ" value={settings.timerFontSize} {...settingRanges.timerFontSize} initial={defaultSettings.timerFontSize} onChange={(timerFontSize) => onChange({ timerFontSize })} /><Range id="timer-opacity" label="タイマー背景の不透明度" value={Math.round(settings.timerBackgroundOpacity * 100)} {...settingRanges.timerBackgroundOpacity} initial={Math.round(defaultSettings.timerBackgroundOpacity * 100)} onChange={(value) => onChange({ timerBackgroundOpacity: value / 100 })} /><PositionGrid label="開始前タイマーの配置" value={settings.timerPosition} onChange={(timerPosition) => onChange({ timerPosition })} /></>}
+      {category === "pomodoro" && <><Range id="work" label="作業時間" value={settings.workMinutes} {...settingRanges.workMinutes} initial={defaultSettings.workMinutes} onChange={(workMinutes) => onChange({ workMinutes })} /><Range id="short-break" label="短い休憩" value={settings.shortBreakMinutes} {...settingRanges.shortBreakMinutes} initial={defaultSettings.shortBreakMinutes} onChange={(shortBreakMinutes) => onChange({ shortBreakMinutes })} /><Range id="long-break" label="長い休憩" value={settings.longBreakMinutes} {...settingRanges.longBreakMinutes} initial={defaultSettings.longBreakMinutes} onChange={(longBreakMinutes) => onChange({ longBreakMinutes })} /><Toggle id="sound" label="終了音" checked={settings.soundEnabled} onChange={(soundEnabled) => onChange({ soundEnabled })} /></>}
+      {category === "accessibility" && <div className="settings-callout"><strong>見やすさと操作性</strong><span>キーボード操作、44px以上の操作領域、フォーカス表示、アニメーション軽減設定を常に適用しています。端末の「視差効果を減らす」設定にも追従します。</span></div>}
+      {category === "data" && <><div className="settings-callout"><strong>設定はこの端末だけに保存</strong><span>背景画像はIndexedDB、設定はLocalStorageへ保存されます。</span></div><button className="secondary-button" type="button" onClick={() => onUndo() ? onMessage("直前の変更を元に戻しました。") : onMessage("元に戻せる変更はありません。")}>直前の変更を元に戻す</button><ResetPanel onResetSettings={onResetSettings} onClearTimer={onClearTimer} onMessage={onMessage} /></>}
+    </section></div>
+  </aside></div>;
 }
