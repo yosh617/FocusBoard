@@ -73,6 +73,18 @@ describe("App", () => {
     expect(document.querySelector(".date")?.textContent).toMatch(/^\d{2}\/\d{2} /);
   });
 
+  it("can minimize the floating timer without losing its main controls", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /Start timer/i }));
+    const timer = screen.getByRole("timer");
+    fireEvent.doubleClick(timer);
+    expect(document.querySelector(".floating-timer--compact")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "ミニ表示を展開" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "ミニ表示を展開" }));
+    expect(document.querySelector(".floating-timer--compact")).toBeNull();
+    expect(screen.getByRole("button", { name: "リセットして設定へ戻る" })).toBeTruthy();
+  });
+
   it("shows the app version and exports settings from data management", () => {
     const createObjectURL = vi.fn(() => "blob:focusboard-settings");
     const revokeObjectURL = vi.fn();
