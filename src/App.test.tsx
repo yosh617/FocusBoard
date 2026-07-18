@@ -64,6 +64,15 @@ describe("App", () => {
     expect(screen.queryByText(/px/)).toBeNull();
   });
 
+  it("changes the date display format from clock settings", () => {
+    render(<App />);
+    revealSettings();
+    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    fireEvent.click(screen.getByRole("tab", { name: "時計と日付" }));
+    fireEvent.change(screen.getByLabelText("日付の形式"), { target: { value: "mm/dd weekday" } });
+    expect(document.querySelector(".date")?.textContent).toMatch(/^\d{2}\/\d{2} /);
+  });
+
   it("uses the rounded font picker and enables adaptive colors", () => {
     render(<App />);
     revealSettings();

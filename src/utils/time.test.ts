@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatClock, formatDuration, getDurationMs } from "./time";
+import { formatClock, formatDate, formatDuration, getDurationMs } from "./time";
 import { defaultSettings } from "../types/settings";
 
 describe("time helpers", () => {
@@ -18,5 +18,11 @@ describe("time helpers", () => {
     const value = formatClock(new Date(2026, 6, 13, 14, 5, 6), { showSeconds: false, use12Hour: true });
     expect(value).not.toMatch(/午前|午後|AM|PM/i);
     expect(value).toMatch(/02:05|2:05/);
+  });
+
+  it("formats dates with preset-style tokens", () => {
+    const date = new Date(2026, 6, 18);
+    expect(formatDate(date, "yyyy/mm/dd weekday")).toBe("2026/07/18 土曜日");
+    expect(formatDate(date, "mm/dd weekdayShort")).toBe("07/18 土");
   });
 });

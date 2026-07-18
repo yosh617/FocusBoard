@@ -32,6 +32,11 @@ describe("settings storage", () => {
     expect(result.backgroundPosition).toEqual({ x: 0, y: 1 });
   });
 
+  it("falls back to the default date format when a saved format is invalid", () => {
+    const result = migrateSettings({ ...defaultSettings, dateFormat: "<script>" });
+    expect(result.dateFormat).toBe(defaultSettings.dateFormat);
+  });
+
   it("migrates the previous dark default to the pastel theme", () => {
     const legacy = { ...defaultSettings, textColor: "#f8fafc", overlayOpacity: 0.42 } as Record<string, unknown>;
     delete legacy.backgroundChoice;

@@ -1,5 +1,5 @@
 import { fireEvent, render } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { BackgroundSlideshow } from "./BackgroundSlideshow";
 
 describe("BackgroundSlideshow", () => {
@@ -25,5 +25,19 @@ describe("BackgroundSlideshow", () => {
     const activeLayer = container.querySelector<HTMLElement>(".background__image--active");
     expect(activeLayer?.style.backgroundPosition).toBe("25% 75%");
     expect(activeLayer?.style.transform).toBe("scale(1.5)");
+  });
+
+  it("updates the frame when the background is dragged", () => {
+    const onFrameChange = vi.fn();
+    const { container } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="bg2" customBackgrounds={[]} onFrameChange={onFrameChange} />);
+    const gesture = container.querySelector<HTMLElement>(".background__gesture");
+    expect(gesture).not.toBeNull();
+    fireEvent(gesture!, new MouseEvent("pointerdown", { bubbles: true, clientX: 200, clientY: 300 }));
+    fireEvent(gesture!, new MouseEvent("pointermove", { bubbles: true, clientX: 300, clientY: 250 }));
+    fireEvent(gesture!, new MouseEvent("pointerup", { bubbles: true, clientX: 300, clientY: 250 }));
+    const [position, scale] = onFrameChange.mock.calls.at(-1) as [{ x: number; y: number }, number];
+    expect(position.x).toBeLessThan(.5);
+    expect(position.y).toBeGreaterThan(.5);
+    expect(scale).toBe(100);
   });
 });

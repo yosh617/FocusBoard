@@ -13,6 +13,25 @@ export const positionPresets = [
 export type PositionPreset = (typeof positionPresets)[number];
 export type ClockDateAlignment = "left" | "center" | "right";
 export type FreePosition = { x: number; y: number };
+export type DateFormat = string;
+
+export const dateFormatPresets = [
+  { value: "yyyy/mm/dd weekday", label: "yyyy/mm/dd 曜日" },
+  { value: "mm/dd weekday", label: "mm/dd 曜日" },
+  { value: "yyyy年m月d日 weekday", label: "yyyy年m月d日 曜日" },
+  { value: "mm月dd日 weekday", label: "mm月dd日 曜日" },
+  { value: "weekday", label: "曜日だけ" }
+] as const;
+
+export const defaultDateFormat = "yyyy年m月d日 weekday";
+
+export function isDateFormat(value: unknown): value is DateFormat {
+  return typeof value === "string"
+    && value.length > 0
+    && value.length <= 40
+    && /^[a-zA-Z0-9年月日/ .(),-]+$/.test(value)
+    && /yyyy|yy|mm|m|dd|d|weekdayShort|weekday/.test(value);
+}
 
 export const backgroundChoices = ["slideshow", "bg1", "bg2", "bg3"] as const;
 export type BuiltInBackgroundChoice = (typeof backgroundChoices)[number];
@@ -37,6 +56,7 @@ export type AppSettings = {
   timerSetupCollapsed: boolean;
   showSeconds: boolean;
   use12Hour: boolean;
+  dateFormat: DateFormat;
   clockFontSize: number;
   dateFontSize: number;
   timerFontSize: number;
@@ -85,6 +105,7 @@ export const defaultSettings: AppSettings = {
   timerSetupCollapsed: false,
   showSeconds: false,
   use12Hour: false,
+  dateFormat: defaultDateFormat,
   clockFontSize: 104,
   dateFontSize: 20,
   timerFontSize: 60,

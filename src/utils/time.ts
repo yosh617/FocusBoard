@@ -1,4 +1,4 @@
-import type { AppSettings } from "../types/settings";
+import { defaultDateFormat, type AppSettings } from "../types/settings";
 import type { TimerMode } from "../types/timer";
 
 export function formatClock(date: Date, settings: Pick<AppSettings, "showSeconds" | "use12Hour">) {
@@ -17,13 +17,27 @@ export function formatClock(date: Date, settings: Pick<AppSettings, "showSeconds
     .trim();
 }
 
-export function formatDate(date: Date) {
-  return new Intl.DateTimeFormat("ja-JP", {
+export function formatDate(date: Date, pattern = defaultDateFormat) {
+  const parts = new Intl.DateTimeFormat("ja-JP", {
     year: "numeric",
-    month: "long",
+    month: "numeric",
     day: "numeric",
     weekday: "long"
-  }).format(date);
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  const shortWeekday = new Intl.DateTimeFormat("ja-JP", { weekday: "short" }).format(date);
+  const tokens: [string, string][] = [
+    ["weekdayShort", shortWeekday],
+    ["weekday", values.weekday ?? ""],
+    ["yyyy", values.year ?? ""],
+    ["yy", (values.year ?? "").slice(-2)],
+    ["mm", (values.month ?? "").padStart(2, "0")],
+    ["m", values.month ?? ""],
+    ["dd", (values.day ?? "").padStart(2, "0")],
+    ["d", values.day ?? ""]
+  ];
+
+  return tokens.reduce((result, [token, value]) => result.replaceAll(token, value), pattern);
 }
 
 export function formatDuration(milliseconds: number) {

@@ -135,7 +135,7 @@ export function ClockWidget({ now, settings, onChange, onMessage }: Props) {
         ref={displayRef}
       >
         <span className="clock-widget__hint" aria-hidden="true">タップで表示設定・ドラッグで移動</span>
-        {settings.showDate && <DateDisplay now={now} fontSize={settings.dateFontSize} />}
+        {settings.showDate && <DateDisplay now={now} fontSize={settings.dateFontSize} format={settings.dateFormat} />}
         {settings.showClock && <ClockDisplay now={now} settings={settings} />}
       </button>
 

@@ -1,4 +1,4 @@
-import { backgroundChoices, colorPresets, defaultSettings, fontOptions, positionPresets, type AppSettings, type BackgroundChoice, type ClockDateAlignment, type ColorPreset, type PositionPreset } from "../types/settings";
+import { backgroundChoices, colorPresets, defaultSettings, fontOptions, isDateFormat, positionPresets, type AppSettings, type BackgroundChoice, type ClockDateAlignment, type ColorPreset, type PositionPreset } from "../types/settings";
 import type { SessionCategory, TimerMode, TimerProgram, TimerState, TimerStatus } from "../types/timer";
 import { BACKGROUND_DB_NAME } from "./backgroundStorage";
 
@@ -40,6 +40,7 @@ export function migrateSettings(value: unknown): AppSettings {
     timerSetupCollapsed: booleanValue(value.timerSetupCollapsed, defaultSettings.timerSetupCollapsed),
     showSeconds: booleanValue(value.showSeconds, defaultSettings.showSeconds),
     use12Hour: booleanValue(value.use12Hour, defaultSettings.use12Hour),
+    dateFormat: isDateFormat(value.dateFormat) ? value.dateFormat : defaultSettings.dateFormat,
     clockFontSize: isLegacyLayout ? defaultSettings.clockFontSize : numberValue(value.clockFontSize, defaultSettings.clockFontSize, 56, 220),
     dateFontSize: isLegacyLayout ? defaultSettings.dateFontSize : numberValue(value.dateFontSize, defaultSettings.dateFontSize, 16, 64),
     timerFontSize: isLegacyLayout ? defaultSettings.timerFontSize : numberValue(value.timerFontSize, defaultSettings.timerFontSize, 36, 120),
