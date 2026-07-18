@@ -14,6 +14,8 @@ type Props = {
   backgroundPosition?: FreePosition;
   backgroundScale?: number;
   backgroundFrames?: BackgroundFrames;
+  editing?: boolean;
+  onEditModeChange?: (editing: boolean) => void;
   onFrameChange?: (backgroundId: string, position: FreePosition, scale: number) => void;
   onPaletteChange?: (palette: AdaptivePalette) => void;
 };
@@ -55,7 +57,7 @@ function getFocusedSampleRegion(image: HTMLImageElement, width: number, height: 
   return { x: imageX - sampleWidth / 2, y: imageY - sampleHeight / 2, width: sampleWidth, height: sampleHeight };
 }
 
-function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundChoice, customBackgrounds, clockPosition = defaultClockPosition, backgroundPosition = defaultBackgroundPosition, backgroundScale = minBackgroundScale, backgroundFrames = {}, onFrameChange, onPaletteChange }: Props) {
+function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundChoice, customBackgrounds, clockPosition = defaultClockPosition, backgroundPosition = defaultBackgroundPosition, backgroundScale = minBackgroundScale, backgroundFrames = {}, editing = false, onEditModeChange, onFrameChange, onPaletteChange }: Props) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [failed, setFailed] = useState<Set<string>>(() => new Set());
   const [imageRevision, setImageRevision] = useState(0);
@@ -75,7 +77,7 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
   });
   const builtInLayers = defaultBackgrounds.map((path, index) => ({ id: `bg${index + 1}`, path: `${import.meta.env.BASE_URL}${path}` }));
   const customLayers = customBackgrounds.map((background) => ({ id: `custom:${background.id}`, path: background.url }));
-  const slideshowLayers = customLayers.length > 0 ? customLayers : builtInLayers;
+  const slideshowLayers = [...builtInLayers, ...customLayers];
   const allLayers = [...builtInLayers, ...customLayers];
 
   useEffect(() => {
@@ -95,13 +97,20 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
   }, []);
 
   useEffect(() => {
-    const gestureArea = gestureAreaRef.current;
-    if (!gestureArea) return;
-    const preventNativeGesture = (event: Event) => event.preventDefault();
+    if (!editing) {
+      gestureRef.current.pointers = new Map();
+      setGestureActive(false);
+      return;
+    }
+    const preventNativeGesture = (event: Event) => {
+      const target = event.target;
+      const gestureArea = gestureAreaRef.current;
+      if (event.type.startsWith("gesture") || (gestureArea && target instanceof Node && gestureArea.contains(target))) event.preventDefault();
+    };
     const nativeGestureEvents = ["touchstart", "touchmove", "gesturestart", "gesturechange", "gestureend"];
-    nativeGestureEvents.forEach((eventName) => gestureArea.addEventListener(eventName, preventNativeGesture, { passive: false }));
-    return () => nativeGestureEvents.forEach((eventName) => gestureArea.removeEventListener(eventName, preventNativeGesture));
-  }, []);
+    nativeGestureEvents.forEach((eventName) => document.addEventListener(eventName, preventNativeGesture, { passive: false }));
+    return () => nativeGestureEvents.forEach((eventName) => document.removeEventListener(eventName, preventNativeGesture));
+  }, [editing]);
 
   const requestedId = backgroundChoice === "slideshow" ? slideshowLayers[activeIndex % slideshowLayers.length]?.id : backgroundChoice;
   const selectedId = allLayers.some(({ id }) => id === requestedId) ? requestedId : builtInLayers[0].id;
@@ -191,18 +200,21 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
     }
   };
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (!editing) return;
     event.preventDefault();
     if (event.pointerType === "touch") pointerTouchActiveRef.current = true;
     event.currentTarget.setPointerCapture?.(event.pointerId);
     startGesture(new Map(gestureRef.current.pointers).set(event.pointerId, { x: event.clientX, y: event.clientY }));
   };
   const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (!editing) return;
     const gesture = gestureRef.current;
     if (!gesture.pointers.has(event.pointerId)) return;
     event.preventDefault();
     moveGesture(new Map(gesture.pointers).set(event.pointerId, { x: event.clientX, y: event.clientY }));
   };
   const onPointerEnd = (event: PointerEvent<HTMLDivElement>) => {
+    if (!editing) return;
     if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture?.(event.pointerId);
     const gesture = gestureRef.current;
     const pointers = new Map(gesture.pointers);
@@ -219,23 +231,28 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
     return pointers;
   };
   const onTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
+    if (!editing) return;
     event.preventDefault();
     if (!pointerTouchActiveRef.current) startGesture(getTouchPointers(event.touches));
   };
   const onTouchMove = (event: ReactTouchEvent<HTMLDivElement>) => {
+    if (!editing) return;
     event.preventDefault();
     if (!pointerTouchActiveRef.current) moveGesture(getTouchPointers(event.touches));
   };
   const onTouchEnd = (event: ReactTouchEvent<HTMLDivElement>) => {
+    if (!editing) return;
     event.preventDefault();
     if (!pointerTouchActiveRef.current) endGesture(getTouchPointers(event.touches));
   };
   const onWheel = (event: WheelEvent<HTMLDivElement>) => {
+    if (!editing) return;
     event.preventDefault();
     const amount = event.deltaY < 0 ? 5 : -5;
     updateFrame(selectedFrame.position, selectedFrame.scale + amount);
   };
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!editing) return;
     const positionStep = event.shiftKey ? .1 : .03;
     if (event.key === "ArrowLeft" || event.key === "ArrowRight" || event.key === "ArrowUp" || event.key === "ArrowDown") {
       event.preventDefault();
@@ -250,7 +267,7 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
   };
 
   return (
-    <div className={`background${gestureActive ? " background--gesturing" : ""}`} ref={backgroundRef}>
+    <div className={`background${editing ? " background--editing" : ""}${gestureActive ? " background--gesturing" : ""}`} ref={backgroundRef}>
       {allLayers.map(({ id, path }) => (
         <div
           className={`background__image${selectedId === id ? " background__image--active" : ""}`}
@@ -273,12 +290,23 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
         </div>
       ))}
       <div className="background__overlay" style={{ opacity: overlayOpacity }} />
+      {editing && <>
+        <div className="background-editor__toolbar" role="status" aria-live="polite">
+          <div>
+            <span className="background-editor__eyebrow">壁紙の編集</span>
+            <strong>背景を調整中</strong>
+          </div>
+          <button type="button" className="background-editor__done" onClick={() => onEditModeChange?.(false)}>完了</button>
+        </div>
+        <div className="background-editor__hint" role="status">1本指で移動・2本指ピンチで拡大縮小</div>
+      </>}
       <div
         className="background__gesture"
         ref={gestureAreaRef}
-        role="button"
-        tabIndex={0}
-        aria-label="背景をドラッグして移動。2本指またはホイールで拡大縮小"
+        role={editing ? "group" : undefined}
+        tabIndex={editing ? 0 : -1}
+        aria-hidden={!editing}
+        aria-label="背景をドラッグして移動。2本指またはホイールで拡大縮小。フォーカス後は矢印キーで移動できます"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerEnd}

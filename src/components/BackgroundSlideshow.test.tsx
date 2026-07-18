@@ -36,7 +36,7 @@ describe("BackgroundSlideshow", () => {
 
   it("updates the frame when the background is dragged", () => {
     const onFrameChange = vi.fn();
-    const { container } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="bg2" customBackgrounds={[]} onFrameChange={onFrameChange} />);
+    const { container } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="bg2" customBackgrounds={[]} editing onFrameChange={onFrameChange} />);
     const gesture = container.querySelector<HTMLElement>(".background__gesture");
     expect(gesture).not.toBeNull();
     fireEvent(gesture!, new MouseEvent("pointerdown", { bubbles: true, clientX: 200, clientY: 300 }));
@@ -51,7 +51,7 @@ describe("BackgroundSlideshow", () => {
 
   it("handles a two-finger touch as background zoom", () => {
     const onFrameChange = vi.fn();
-    const { container } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="bg2" customBackgrounds={[]} onFrameChange={onFrameChange} />);
+    const { container } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="bg2" customBackgrounds={[]} editing onFrameChange={onFrameChange} />);
     const gesture = container.querySelector<HTMLElement>(".background__gesture");
     expect(gesture).not.toBeNull();
     fireEvent.touchStart(gesture!, { touches: [{ identifier: 1, clientX: 100, clientY: 200 }, { identifier: 2, clientX: 200, clientY: 200 }] });
@@ -60,5 +60,35 @@ describe("BackgroundSlideshow", () => {
     fireEvent(gesture!, moveEvent);
     expect(moveEvent.defaultPrevented).toBe(true);
     expect(onFrameChange.mock.calls.at(-1)?.[2]).toBe(150);
+  });
+
+  it("does not capture gestures until background editing starts", () => {
+    const onFrameChange = vi.fn();
+    const { container } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="bg2" customBackgrounds={[]} onFrameChange={onFrameChange} />);
+    const gesture = container.querySelector<HTMLElement>(".background__gesture");
+    fireEvent.pointerDown(gesture!, { pointerId: 1, clientX: 200, clientY: 300 });
+    fireEvent.pointerMove(gesture!, { pointerId: 1, clientX: 300, clientY: 250 });
+    expect(onFrameChange).not.toHaveBeenCalled();
+    expect(gesture?.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("shows a clear editing state and can finish it", () => {
+    const onEditModeChange = vi.fn();
+    const { getByRole, getByText } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="bg2" customBackgrounds={[]} editing onEditModeChange={onEditModeChange} />);
+    expect(getByText("背景を調整中")).toBeTruthy();
+    fireEvent.click(getByRole("button", { name: "完了" }));
+    expect(onEditModeChange).toHaveBeenCalledWith(false);
+  });
+
+  it("cancels browser pinch gestures while editing", () => {
+    const { container } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="bg2" customBackgrounds={[]} editing />);
+    const gesture = container.querySelector<HTMLElement>(".background__gesture");
+    expect(gesture).not.toBeNull();
+
+    for (const eventName of ["gesturestart", "gesturechange", "gestureend"]) {
+      const event = new Event(eventName, { bubbles: true, cancelable: true });
+      fireEvent(gesture!, event);
+      expect(event.defaultPrevented).toBe(true);
+    }
   });
 });

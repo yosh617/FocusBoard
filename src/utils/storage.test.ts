@@ -11,11 +11,11 @@ describe("settings storage", () => {
   });
 
   it("validates and clamps persisted fields", () => {
-    const result = migrateSettings({ ...defaultSettings, clockFontSize: 999, overlayOpacity: -1, timerBackgroundOpacity: .1, textColor: "red", accentColor: "blue", colorPreset: "neon" });
+    const result = migrateSettings({ ...defaultSettings, clockFontSize: 999, overlayOpacity: -1, timerBackgroundOpacity: .1, clockColor: "red", timerColor: "blue", colorPreset: "neon" });
     expect(result.clockFontSize).toBe(220);
     expect(result.overlayOpacity).toBe(0);
-    expect(result.textColor).toBe(defaultSettings.textColor);
-    expect(result.accentColor).toBe(defaultSettings.accentColor);
+    expect(result.clockColor).toBe(defaultSettings.clockColor);
+    expect(result.timerColor).toBe(defaultSettings.timerColor);
     expect(result.colorPreset).toBe(defaultSettings.colorPreset);
     expect(result.timerBackgroundOpacity).toBe(.6);
   });
@@ -55,9 +55,18 @@ describe("settings storage", () => {
     const legacy = { ...defaultSettings, textColor: "#f8fafc", overlayOpacity: 0.42 } as Record<string, unknown>;
     delete legacy.backgroundChoice;
     const result = migrateSettings(legacy);
-    expect(result.textColor).toBe(defaultSettings.textColor);
+    expect(result.clockColor).toBe(defaultSettings.clockColor);
     expect(result.overlayOpacity).toBe(defaultSettings.overlayOpacity);
     expect(result.backgroundChoice).toBe("slideshow");
+  });
+
+  it("migrates legacy text and accent colors into separate colors", () => {
+    const legacy = { ...defaultSettings, textColor: "#112233", accentColor: "#aabbcc" } as Record<string, unknown>;
+    Reflect.deleteProperty(legacy, "clockColor");
+    Reflect.deleteProperty(legacy, "timerColor");
+    const result = migrateSettings(legacy);
+    expect(result.clockColor).toBe("#112233");
+    expect(result.timerColor).toBe("#aabbcc");
   });
 
   it("migrates legacy layouts and validates free clock positions", () => {

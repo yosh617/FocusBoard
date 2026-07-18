@@ -9,7 +9,7 @@ import { useLocalStorageSettings } from "./hooks/useLocalStorageSettings";
 import { usePomodoroTimer } from "./hooks/usePomodoroTimer";
 import { useCustomBackgrounds } from "./hooks/useCustomBackgrounds";
 import { useFullscreen } from "./hooks/useFullscreen";
-import { colorPresets, fontOptions, positionPresets, type PositionPreset } from "./types/settings";
+import { fontOptions, positionPresets, type PositionPreset } from "./types/settings";
 import { getAdaptivePalette, fallbackBackgroundRgb, getStrongAccent, type AdaptivePalette } from "./utils/adaptiveColor";
 
 export default function App() {
@@ -31,12 +31,18 @@ export default function App() {
   const { backgrounds, addBackgrounds, removeBackground, reorderBackgrounds, backgroundMessage, setBackgroundMessage } = useCustomBackgrounds();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsLauncherVisible, setSettingsLauncherVisible] = useState(false);
+  const [backgroundEditing, setBackgroundEditing] = useState(false);
   const [adaptivePalette, setAdaptivePalette] = useState<AdaptivePalette>(() => getAdaptivePalette(fallbackBackgroundRgb, settings.overlayOpacity));
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
   const settingsLauncherTimeoutRef = useRef<number | null>(null);
   const now = useClock(settings.showSeconds);
 
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
+  const startBackgroundEditing = useCallback(() => {
+    setSettingsOpen(false);
+    setSettingsLauncherVisible(false);
+    setBackgroundEditing(true);
+  }, []);
   const hideSettingsLauncher = useCallback(() => {
     if (settingsLauncherTimeoutRef.current !== null) window.clearTimeout(settingsLauncherTimeoutRef.current);
     settingsLauncherTimeoutRef.current = null;
@@ -88,15 +94,13 @@ export default function App() {
   }, [now, settings, timer, start, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, updateSettings]);
 
   const liveMessage = backgroundMessage || announcement || storageMessage;
-  const selectedPalette = settings.colorPreset === "custom"
-    ? { text: settings.textColor, accent: settings.accentColor, accentStrong: getStrongAccent(settings.accentColor) }
-    : colorPresets[settings.colorPreset];
-  const displayColor = settings.matchBackgroundColors ? adaptivePalette.text : selectedPalette.text;
+  const clockColor = settings.matchBackgroundColors ? adaptivePalette.text : settings.clockColor;
+  const timerColor = settings.matchBackgroundColors ? adaptivePalette.accent : settings.timerColor;
   const appStyle = {
-    color: displayColor,
+    color: clockColor,
     fontFamily: fontOptions[settings.fontFamily as keyof typeof fontOptions] ?? fontOptions.system,
-    "--adaptive-accent": settings.matchBackgroundColors ? adaptivePalette.accent : selectedPalette.accent,
-    "--adaptive-accent-strong": settings.matchBackgroundColors ? adaptivePalette.accentStrong : selectedPalette.accentStrong,
+    "--timer-accent": timerColor,
+    "--timer-accent-strong": getStrongAccent(timerColor),
     "--timer-background-opacity": settings.timerBackgroundOpacity
   } as CSSProperties;
 
@@ -115,14 +119,14 @@ export default function App() {
   }, []);
 
   const handleShellPointerUp = (event: PointerEvent<HTMLElement>) => {
-    if (settingsOpen || !(event.target instanceof Element)) return;
+    if (settingsOpen || backgroundEditing || !(event.target instanceof Element)) return;
     const interactiveTarget = event.target.closest("button, input, select, textarea, a, [role='dialog'], .clock-widget, .floating-timer, .timer-card");
     if (!interactiveTarget) showSettingsLauncher();
   };
 
   return (
     <main
-      className="app-shell"
+      className={`app-shell${backgroundEditing ? " app-shell--background-editing" : ""}`}
       style={appStyle}
       onPointerUp={handleShellPointerUp}
     >
@@ -135,6 +139,8 @@ export default function App() {
         backgroundPosition={settings.backgroundPosition}
         backgroundScale={settings.backgroundScale}
         backgroundFrames={settings.backgroundFrames}
+        editing={backgroundEditing}
+        onEditModeChange={setBackgroundEditing}
         onFrameChange={(backgroundId, backgroundPosition, backgroundScale) => updateSettings({
           backgroundPosition,
           backgroundScale,
@@ -150,7 +156,7 @@ export default function App() {
           <div className={`slot slot--${position}`} key={position}>{slotContent[position]}</div>
         ))}
       </div>
-      {(settings.showClock || settings.showDate) && <ClockWidget now={now} settings={settings} textColor={adaptivePalette.text} onChange={updateSettings} onMessage={showMessage} />}
+      {(settings.showClock || settings.showDate) && <ClockWidget now={now} settings={settings} textColor={clockColor} onChange={updateSettings} onMessage={showMessage} />}
 
       {settings.showTimer && (timer.status !== "idle" || settings.timerSetupCollapsed) && (
         <FloatingTimer
@@ -192,6 +198,7 @@ export default function App() {
         onChange={updateSettings}
         onUndo={undoSettings}
         onClose={closeSettings}
+        onStartBackgroundEditing={startBackgroundEditing}
         fullscreenSupported={fullscreenSupported}
         onFullscreenToggle={handleFullscreenToggle}
         onResetSettings={() => { resetSettings(); showMessage("設定を初期値に戻しました。"); }}

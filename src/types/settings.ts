@@ -65,8 +65,8 @@ export type AppSettings = {
   timerBackgroundOpacity: number;
   fontFamily: string;
   colorPreset: ColorPreset;
-  textColor: string;
-  accentColor: string;
+  clockColor: string;
+  timerColor: string;
   matchBackgroundColors: boolean;
   overlayOpacity: number;
   backgroundScale: number;
@@ -115,8 +115,8 @@ export const defaultSettings: AppSettings = {
   timerBackgroundOpacity: 0.8,
   fontFamily: "system",
   colorPreset: "sky",
-  textColor: "#17345f",
-  accentColor: "#91bde8",
+  clockColor: "#17345f",
+  timerColor: "#91bde8",
   matchBackgroundColors: false,
   overlayOpacity: 0.16,
   backgroundScale: 100,

@@ -187,6 +187,7 @@ export function ClockWidget({ now, settings, textColor, onChange, onMessage }: P
       {open && editorPosition && createPortal(
         <section
           className={`clock-editor${editorPosition.above ? " clock-editor--above" : ""}`}
+          role="dialog"
           aria-label="時計とカレンダーの表示設定"
           ref={editorRef}
           style={{

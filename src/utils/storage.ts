@@ -12,6 +12,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const booleanValue = (value: unknown, fallback: boolean) => typeof value === "boolean" ? value : fallback;
 const numberValue = (value: unknown, fallback: number, min: number, max: number) =>
   typeof value === "number" && Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
+const colorValue = (value: unknown, fallback: string) => /^#[0-9a-f]{6}$/i.test(String(value)) ? String(value) : fallback;
 const isPosition = (value: unknown): value is PositionPreset =>
   typeof value === "string" && (positionPresets as readonly string[]).includes(value);
 const isBackgroundChoice = (value: unknown): value is BackgroundChoice =>
@@ -42,6 +43,8 @@ export function migrateSettings(value: unknown): AppSettings {
   const isLegacyLayout = value.uiRevision !== 3;
   const savedClockDatePosition = isRecord(value.clockDatePosition) ? value.clockDatePosition : {};
   const savedBackgroundPosition = isRecord(value.backgroundPosition) ? value.backgroundPosition : {};
+  const savedClockColor = colorValue(value.clockColor, colorValue(value.textColor, defaultSettings.clockColor));
+  const savedTimerColor = colorValue(value.timerColor, colorValue(value.accentColor, defaultSettings.timerColor));
 
   return {
     version: 1,
@@ -62,10 +65,8 @@ export function migrateSettings(value: unknown): AppSettings {
       ? value.fontFamily
       : defaultSettings.fontFamily,
     colorPreset: isColorPreset(value.colorPreset) ? value.colorPreset : defaultSettings.colorPreset,
-    textColor: isLegacyTheme && String(value.textColor).toLowerCase() === "#f8fafc"
-      ? defaultSettings.textColor
-      : /^#[0-9a-f]{6}$/i.test(String(value.textColor)) ? String(value.textColor) : defaultSettings.textColor,
-    accentColor: /^#[0-9a-f]{6}$/i.test(String(value.accentColor)) ? String(value.accentColor) : defaultSettings.accentColor,
+    clockColor: isLegacyTheme && savedClockColor.toLowerCase() === "#f8fafc" ? defaultSettings.clockColor : savedClockColor,
+    timerColor: savedTimerColor,
     matchBackgroundColors: booleanValue(value.matchBackgroundColors, defaultSettings.matchBackgroundColors),
     overlayOpacity: isLegacyTheme && value.overlayOpacity === 0.42
       ? defaultSettings.overlayOpacity

@@ -131,13 +131,14 @@ export function FloatingTimer({ timer, onStart, onPause, onReset, onPositionChan
     <section
       className={`floating-timer floating-timer--${timer.status}${isCompact ? " floating-timer--compact" : ""}`}
       style={{ left: `${position.x * 100}%`, top: `${position.y * 100}%` }}
+      role="group"
       aria-label={`${sessionLabel}タイマー${isCompact ? "（ミニ表示）" : ""}`}
     >
       <div
         className="floating-timer__drag"
         ref={dragElementRef}
-        role="button"
-        aria-pressed={isCompact}
+        role={isCompact ? "button" : "group"}
+        aria-pressed={isCompact ? isCompact : undefined}
         tabIndex={0}
         aria-label={`${sessionLabel} ${formatDuration(displayMs)}。クリックで${isCompact ? "通常表示に戻す" : "ミニ表示にする"}。ドラッグまたは矢印キーで移動できます。`}
         onPointerDown={handlePointerDown}
@@ -146,6 +147,7 @@ export function FloatingTimer({ timer, onStart, onPause, onReset, onPositionChan
         onPointerCancel={handlePointerUp}
         onClick={handleClick}
         onKeyDown={(event) => {
+          if ((event.target as Element).closest("button")) return;
           const moves: Record<string, [number, number]> = { ArrowLeft: [-.02, 0], ArrowRight: [.02, 0], ArrowUp: [0, -.02], ArrowDown: [0, .02] };
           if (moves[event.key]) { event.preventDefault(); moveWithKeyboard(...moves[event.key]); }
           if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggleCompact(); }
