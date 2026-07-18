@@ -202,12 +202,17 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (!editing) return;
     event.preventDefault();
-    if (event.pointerType === "touch") pointerTouchActiveRef.current = true;
+    if (event.pointerType === "touch") {
+      pointerTouchActiveRef.current = true;
+      return;
+    }
+    if (pointerTouchActiveRef.current) return;
     event.currentTarget.setPointerCapture?.(event.pointerId);
     startGesture(new Map(gestureRef.current.pointers).set(event.pointerId, { x: event.clientX, y: event.clientY }));
   };
   const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
     if (!editing) return;
+    if (event.pointerType === "touch" || pointerTouchActiveRef.current) return;
     const gesture = gestureRef.current;
     if (!gesture.pointers.has(event.pointerId)) return;
     event.preventDefault();
@@ -215,12 +220,16 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
   };
   const onPointerEnd = (event: PointerEvent<HTMLDivElement>) => {
     if (!editing) return;
+    if (event.pointerType === "touch") {
+      pointerTouchActiveRef.current = false;
+      return;
+    }
+    if (pointerTouchActiveRef.current) return;
     if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture?.(event.pointerId);
     const gesture = gestureRef.current;
     const pointers = new Map(gesture.pointers);
     pointers.delete(event.pointerId);
     endGesture(pointers);
-    if (event.pointerType === "touch" && pointers.size === 0) pointerTouchActiveRef.current = false;
   };
   const getTouchPointers = (touches: TouchCollection) => {
     const pointers = new Map<number, GesturePoint>();
@@ -233,17 +242,19 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
   const onTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
     if (!editing) return;
     event.preventDefault();
-    if (!pointerTouchActiveRef.current) startGesture(getTouchPointers(event.touches));
+    startGesture(getTouchPointers(event.touches));
   };
   const onTouchMove = (event: ReactTouchEvent<HTMLDivElement>) => {
     if (!editing) return;
     event.preventDefault();
-    if (!pointerTouchActiveRef.current) moveGesture(getTouchPointers(event.touches));
+    moveGesture(getTouchPointers(event.touches));
   };
   const onTouchEnd = (event: ReactTouchEvent<HTMLDivElement>) => {
     if (!editing) return;
     event.preventDefault();
-    if (!pointerTouchActiveRef.current) endGesture(getTouchPointers(event.touches));
+    const pointers = getTouchPointers(event.touches);
+    endGesture(pointers);
+    if (!pointers.size) pointerTouchActiveRef.current = false;
   };
   const onWheel = (event: WheelEvent<HTMLDivElement>) => {
     if (!editing) return;

@@ -196,19 +196,23 @@ describe("App", () => {
     expect(document.querySelector<HTMLElement>(".app-shell")?.style.getPropertyValue("--timer-accent")).toBe("#baa9e3");
 
     fireEvent.click(colorThemes.getByRole("radio", { name: "カスタム" }));
-    const clockColor = screen.getByLabelText("時計の色") as HTMLInputElement;
-    const timerColor = screen.getByLabelText("タイマーの色") as HTMLInputElement;
+    fireEvent.click(screen.getByRole("tab", { name: "時計と日付" }));
+    const clockColor = screen.getByLabelText("時計・日付の色") as HTMLInputElement;
     fireEvent.change(clockColor, { target: { value: "#112233" } });
+    fireEvent.click(screen.getByRole("tab", { name: "タイマー" }));
+    const timerColor = screen.getByLabelText("タイマーのアクセント色") as HTMLInputElement;
     fireEvent.change(timerColor, { target: { value: "#aabbcc" } });
     expect(clockColor.value).toBe("#112233");
     expect(timerColor.value).toBe("#aabbcc");
     expect(screen.getByRole("button", { name: "時計とカレンダーの表示設定を開く" }).style.color).toBe("rgb(17, 34, 51)");
     expect(document.querySelector<HTMLElement>(".app-shell")?.style.getPropertyValue("--timer-accent")).toBe("#aabbcc");
 
+    fireEvent.click(screen.getByRole("tab", { name: "表示" }));
     const adaptiveToggle = screen.getByLabelText("背景に合わせて自動調整") as HTMLInputElement;
     fireEvent.click(adaptiveToggle);
     expect(adaptiveToggle.checked).toBe(true);
-    expect(screen.queryByLabelText("時計の色")).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: "時計と日付" }));
+    expect((screen.getByLabelText("時計・日付の色") as HTMLInputElement).disabled).toBe(true);
     expect(adaptiveToggle.checked).toBe(true);
   });
 

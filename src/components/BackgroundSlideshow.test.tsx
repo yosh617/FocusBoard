@@ -62,6 +62,22 @@ describe("BackgroundSlideshow", () => {
     expect(onFrameChange.mock.calls.at(-1)?.[2]).toBe(150);
   });
 
+  it("moves the background with one finger touch", () => {
+    const onFrameChange = vi.fn();
+    const { container } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="bg2" customBackgrounds={[]} editing onFrameChange={onFrameChange} />);
+    const gesture = container.querySelector<HTMLElement>(".background__gesture");
+    expect(gesture).not.toBeNull();
+    fireEvent.touchStart(gesture!, { touches: [{ identifier: 1, clientX: 200, clientY: 300 }] });
+    const moveEvent = new Event("touchmove", { bubbles: true, cancelable: true });
+    Object.defineProperty(moveEvent, "touches", { value: [{ identifier: 1, clientX: 300, clientY: 250 }] });
+    fireEvent(gesture!, moveEvent);
+    expect(moveEvent.defaultPrevented).toBe(true);
+    const [, position, scale] = onFrameChange.mock.calls.at(-1) as [string, { x: number; y: number }, number];
+    expect(position.x).toBeLessThan(.5);
+    expect(position.y).toBeGreaterThan(.5);
+    expect(scale).toBe(100);
+  });
+
   it("does not capture gestures until background editing starts", () => {
     const onFrameChange = vi.fn();
     const { container } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="bg2" customBackgrounds={[]} onFrameChange={onFrameChange} />);
