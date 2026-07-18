@@ -7,6 +7,7 @@ import { DateDisplay } from "./DateDisplay";
 type Props = {
   now: Date;
   settings: AppSettings;
+  textColor: string;
   onChange: (patch: Partial<AppSettings>) => void;
   onMessage: (message: string) => void;
 };
@@ -25,7 +26,7 @@ type EditorPosition = {
   above: boolean;
 };
 
-export function ClockWidget({ now, settings, onChange, onMessage }: Props) {
+export function ClockWidget({ now, settings, textColor, onChange, onMessage }: Props) {
   const [open, setOpen] = useState(false);
   const [hintVisible, setHintVisible] = useState(false);
   const [editorPosition, setEditorPosition] = useState<EditorPosition | null>(null);
@@ -152,6 +153,7 @@ export function ClockWidget({ now, settings, onChange, onMessage }: Props) {
       <button
         className="clock-widget__display"
         type="button"
+        style={{ color: textColor }}
         aria-label="時計とカレンダーの表示設定を開く"
         aria-expanded={open}
         onPointerDown={(event) => {

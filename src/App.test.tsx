@@ -73,16 +73,16 @@ describe("App", () => {
     expect(document.querySelector(".date")?.textContent).toMatch(/^\d{2}\/\d{2} /);
   });
 
-  it("shows a touch-friendly preview for each background image", () => {
+  it("selects a background image for direct editing on the home screen", () => {
     render(<App />);
     revealSettings();
     fireEvent.click(screen.getByRole("button", { name: "設定" }));
     fireEvent.click(screen.getByRole("tab", { name: "背景" }));
     fireEvent.change(screen.getByLabelText("配置を調整する背景"), { target: { value: "bg2" } });
-    const preview = screen.getByRole("button", { name: /ラベンダーの表示位置と拡大率を調整/ });
-    expect(preview).toBeTruthy();
-    fireEvent.keyDown(preview, { key: "ArrowLeft" });
-    expect(document.querySelector<HTMLElement>(".background-frame-editor__image")?.style.backgroundPosition).toBe("53% 50%");
+    expect(screen.getByRole("button", { name: "設定を閉じて画面上で調整" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "設定を閉じて画面上で調整" }));
+    expect(screen.queryByRole("dialog", { name: "設定" })).toBeNull();
+    expect(document.querySelectorAll(".background__image")[1].classList.contains("background__image--active")).toBe(true);
   });
 
   it("can minimize the floating timer without losing its main controls", () => {
@@ -193,6 +193,16 @@ describe("App", () => {
     expect(adaptiveToggle.checked).toBe(true);
     expect(screen.queryByLabelText("文字色")).toBeNull();
     expect(adaptiveToggle.checked).toBe(true);
+  });
+
+  it("keeps the clock and date readable independently of the selected theme", () => {
+    render(<App />);
+    const display = screen.getByRole("button", { name: "時計とカレンダーの表示設定を開く" });
+    revealSettings();
+    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    const colorThemes = within(screen.getByRole("radiogroup", { name: "カラーテーマ" }));
+    fireEvent.click(colorThemes.getByRole("radio", { name: "ローズ" }));
+    expect(display.style.color).toBe("rgb(18, 42, 76)");
   });
 
   it("edits the clock and calendar together from the display itself", () => {

@@ -65,6 +65,20 @@ function hexToRgb(value: string): Rgb | null {
   return { r: number >> 16, g: number >> 8 & 255, b: number & 255 };
 }
 
+const darkText: Rgb = { r: 18, g: 42, b: 76 };
+const lightText: Rgb = { r: 247, g: 251, b: 255 };
+const blackText: Rgb = { r: 0, g: 0, b: 0 };
+const whiteText: Rgb = { r: 255, g: 255, b: 255 };
+
+export function getReadableTextColor(background: Rgb) {
+  const darkContrast = contrastRatio(background, darkText);
+  const lightContrast = contrastRatio(background, lightText);
+  if (Math.max(darkContrast, lightContrast) >= 4.5) {
+    return darkContrast >= lightContrast ? "#122a4c" : "#f7fbff";
+  }
+  return contrastRatio(background, blackText) >= contrastRatio(background, whiteText) ? "#000000" : "#ffffff";
+}
+
 export function getStrongAccent(accent: string) {
   const source = hexToRgb(accent);
   if (!source) return "#315f98";
@@ -89,9 +103,7 @@ export function getAdaptivePalette(source: Rgb, overlayOpacity: number): Adaptiv
     g: source.g * (1 - opacity) + overlay.g * opacity,
     b: source.b * (1 - opacity) + overlay.b * opacity
   };
-  const darkText: Rgb = { r: 18, g: 42, b: 76 };
-  const lightText: Rgb = { r: 247, g: 251, b: 255 };
-  const text = contrastRatio(background, darkText) >= contrastRatio(background, lightText) ? "#122a4c" : "#f7fbff";
+  const text = getReadableTextColor(background);
   const hue = rgbToHue(source);
 
   return {

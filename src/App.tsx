@@ -150,7 +150,7 @@ export default function App() {
           <div className={`slot slot--${position}`} key={position}>{slotContent[position]}</div>
         ))}
       </div>
-      {(settings.showClock || settings.showDate) && <ClockWidget now={now} settings={settings} onChange={updateSettings} onMessage={showMessage} />}
+      {(settings.showClock || settings.showDate) && <ClockWidget now={now} settings={settings} textColor={adaptivePalette.text} onChange={updateSettings} onMessage={showMessage} />}
 
       {settings.showTimer && (timer.status !== "idle" || settings.timerSetupCollapsed) && (
         <FloatingTimer
