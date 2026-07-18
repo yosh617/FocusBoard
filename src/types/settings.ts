@@ -13,6 +13,8 @@ export const positionPresets = [
 export type PositionPreset = (typeof positionPresets)[number];
 export type ClockDateAlignment = "left" | "center" | "right";
 export type FreePosition = { x: number; y: number };
+export type BackgroundFrame = { scale: number; position: FreePosition };
+export type BackgroundFrames = Record<string, BackgroundFrame>;
 export type DateFormat = string;
 
 export const dateFormatPresets = [
@@ -69,6 +71,7 @@ export type AppSettings = {
   overlayOpacity: number;
   backgroundScale: number;
   backgroundPosition: FreePosition;
+  backgroundFrames: BackgroundFrames;
   slideshowIntervalSec: number;
   backgroundChoice: BackgroundChoice;
   clockPosition: PositionPreset;
@@ -118,6 +121,7 @@ export const defaultSettings: AppSettings = {
   overlayOpacity: 0.16,
   backgroundScale: 100,
   backgroundPosition: { x: 0.5, y: 0.5 },
+  backgroundFrames: {},
   slideshowIntervalSec: 60,
   backgroundChoice: "slideshow",
   clockPosition: "bottom-left",

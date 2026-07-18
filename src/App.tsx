@@ -134,7 +134,15 @@ export default function App() {
         clockPosition={settings.clockDatePosition}
         backgroundPosition={settings.backgroundPosition}
         backgroundScale={settings.backgroundScale}
-        onFrameChange={(backgroundPosition, backgroundScale) => updateSettings({ backgroundPosition, backgroundScale })}
+        backgroundFrames={settings.backgroundFrames}
+        onFrameChange={(backgroundId, backgroundPosition, backgroundScale) => updateSettings({
+          backgroundPosition,
+          backgroundScale,
+          backgroundFrames: {
+            ...settings.backgroundFrames,
+            [backgroundId]: { position: backgroundPosition, scale: backgroundScale }
+          }
+        })}
         onPaletteChange={setAdaptivePalette}
       />
       <div className="dashboard" aria-label="FocusBoard ダッシュボード">

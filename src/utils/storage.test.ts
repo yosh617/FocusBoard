@@ -32,6 +32,20 @@ describe("settings storage", () => {
     expect(result.backgroundPosition).toEqual({ x: 0, y: 1 });
   });
 
+  it("validates per-image framing settings", () => {
+    const result = migrateSettings({
+      ...defaultSettings,
+      backgroundFrames: {
+        bg2: { scale: 999, position: { x: -1, y: 2 } },
+        slideshow: { scale: 150, position: { x: .5, y: .5 } },
+        unknown: { scale: 150, position: { x: .5, y: .5 } }
+      }
+    });
+    expect(result.backgroundFrames.bg2).toEqual({ scale: 220, position: { x: 0, y: 1 } });
+    expect(result.backgroundFrames.slideshow).toBeUndefined();
+    expect(result.backgroundFrames.unknown).toBeUndefined();
+  });
+
   it("falls back to the default date format when a saved format is invalid", () => {
     const result = migrateSettings({ ...defaultSettings, dateFormat: "<script>" });
     expect(result.dateFormat).toBe(defaultSettings.dateFormat);

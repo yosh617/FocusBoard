@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
-import type { BackgroundChoice, FreePosition } from "../types/settings";
+import type { BackgroundChoice, BackgroundFrames, FreePosition } from "../types/settings";
 import type { CustomBackground } from "../utils/backgroundStorage";
 import { fallbackBackgroundRgb, getAdaptivePalette, sampleImageRgb, type AdaptivePalette, type ImageSampleRegion } from "../utils/adaptiveColor";
 
@@ -13,7 +13,8 @@ type Props = {
   clockPosition?: FreePosition;
   backgroundPosition?: FreePosition;
   backgroundScale?: number;
-  onFrameChange?: (position: FreePosition, scale: number) => void;
+  backgroundFrames?: BackgroundFrames;
+  onFrameChange?: (backgroundId: string, position: FreePosition, scale: number) => void;
   onPaletteChange?: (palette: AdaptivePalette) => void;
 };
 
@@ -52,7 +53,7 @@ function getFocusedSampleRegion(image: HTMLImageElement, width: number, height: 
   return { x: imageX - sampleWidth / 2, y: imageY - sampleHeight / 2, width: sampleWidth, height: sampleHeight };
 }
 
-function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundChoice, customBackgrounds, clockPosition = defaultClockPosition, backgroundPosition = defaultBackgroundPosition, backgroundScale = minBackgroundScale, onFrameChange, onPaletteChange }: Props) {
+function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundChoice, customBackgrounds, clockPosition = defaultClockPosition, backgroundPosition = defaultBackgroundPosition, backgroundScale = minBackgroundScale, backgroundFrames = {}, onFrameChange, onPaletteChange }: Props) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [failed, setFailed] = useState<Set<string>>(() => new Set());
   const [imageRevision, setImageRevision] = useState(0);
@@ -91,13 +92,14 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
 
   const requestedId = backgroundChoice === "slideshow" ? slideshowLayers[activeIndex % slideshowLayers.length]?.id : backgroundChoice;
   const selectedId = allLayers.some(({ id }) => id === requestedId) ? requestedId : builtInLayers[0].id;
+  const selectedFrame = backgroundFrames[selectedId] ?? { position: backgroundPosition, scale: backgroundScale };
   const selectedColor = useMemo(() => {
     const image = imageRefs.current[selectedId];
     const bounds = backgroundRef.current?.getBoundingClientRect();
     if (!image || !bounds?.width || !bounds.height) return fallbackBackgroundRgb;
-    const region = getFocusedSampleRegion(image, bounds.width, bounds.height, clockPosition, backgroundPosition, backgroundScale);
+    const region = getFocusedSampleRegion(image, bounds.width, bounds.height, clockPosition, selectedFrame.position, selectedFrame.scale);
     return sampleImageRgb(image, region) ?? fallbackBackgroundRgb;
-  }, [selectedId, imageRevision, viewportRevision, clockPosition.x, clockPosition.y, backgroundPosition.x, backgroundPosition.y, backgroundScale]);
+  }, [selectedId, imageRevision, viewportRevision, clockPosition.x, clockPosition.y, selectedFrame.position.x, selectedFrame.position.y, selectedFrame.scale]);
   const palette = useMemo(
     () => getAdaptivePalette(selectedColor, overlayOpacity),
     [selectedColor, overlayOpacity]
@@ -111,6 +113,7 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
   };
   const updateFrame = (position: FreePosition, scale: number) => {
     onFrameChange?.(
+      selectedId,
       { x: clamp(position.x, 0, 1), y: clamp(position.y, 0, 1) },
       clamp(scale, minBackgroundScale, maxBackgroundScale)
     );
@@ -127,15 +130,15 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
       gesture.startPointer = point;
       gesture.startDistance = null;
       gesture.startMidpoint = null;
-      gesture.startPosition = backgroundPosition;
-      gesture.startScale = backgroundScale;
+      gesture.startPosition = selectedFrame.position;
+      gesture.startScale = selectedFrame.scale;
     } else if (pointers.size === 2) {
       const points = [...pointers.values()];
       gesture.startPointer = null;
       gesture.startDistance = distance(points[0], points[1]);
       gesture.startMidpoint = midpoint(points[0], points[1]);
-      gesture.startPosition = backgroundPosition;
-      gesture.startScale = backgroundScale;
+      gesture.startPosition = selectedFrame.position;
+      gesture.startScale = selectedFrame.scale;
     }
   };
   const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
@@ -172,8 +175,8 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
       gesture.startPointer = point;
       gesture.startDistance = null;
       gesture.startMidpoint = null;
-      gesture.startPosition = backgroundPosition;
-      gesture.startScale = backgroundScale;
+      gesture.startPosition = selectedFrame.position;
+      gesture.startScale = selectedFrame.scale;
     } else if (pointers.size === 0) {
       gesture.startPointer = null;
       gesture.startDistance = null;
@@ -184,19 +187,19 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
   const onWheel = (event: WheelEvent<HTMLDivElement>) => {
     event.preventDefault();
     const amount = event.deltaY < 0 ? 5 : -5;
-    updateFrame(backgroundPosition, backgroundScale + amount);
+    updateFrame(selectedFrame.position, selectedFrame.scale + amount);
   };
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const positionStep = event.shiftKey ? .1 : .03;
     if (event.key === "ArrowLeft" || event.key === "ArrowRight" || event.key === "ArrowUp" || event.key === "ArrowDown") {
       event.preventDefault();
       updateFrame({
-        x: backgroundPosition.x + (event.key === "ArrowLeft" ? positionStep : event.key === "ArrowRight" ? -positionStep : 0),
-        y: backgroundPosition.y + (event.key === "ArrowUp" ? positionStep : event.key === "ArrowDown" ? -positionStep : 0)
-      }, backgroundScale);
+        x: selectedFrame.position.x + (event.key === "ArrowLeft" ? positionStep : event.key === "ArrowRight" ? -positionStep : 0),
+        y: selectedFrame.position.y + (event.key === "ArrowUp" ? positionStep : event.key === "ArrowDown" ? -positionStep : 0)
+      }, selectedFrame.scale);
     } else if (event.key === "+" || event.key === "=" || event.key === "-" || event.key === "_") {
       event.preventDefault();
-      updateFrame(backgroundPosition, backgroundScale + (event.key === "+" || event.key === "=" ? positionStep * 100 : -positionStep * 100));
+      updateFrame(selectedFrame.position, selectedFrame.scale + (event.key === "+" || event.key === "=" ? positionStep * 100 : -positionStep * 100));
     }
   };
 
@@ -207,8 +210,8 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
           className={`background__image${selectedId === id ? " background__image--active" : ""}`}
           style={failed.has(id) ? undefined : {
             backgroundImage: `url(${path})`,
-            backgroundPosition: `${backgroundPosition.x * 100}% ${backgroundPosition.y * 100}%`,
-            transform: `scale(${backgroundScale / 100})`
+            backgroundPosition: `${(backgroundFrames[id]?.position ?? backgroundPosition).x * 100}% ${(backgroundFrames[id]?.position ?? backgroundPosition).y * 100}%`,
+            transform: `scale(${(backgroundFrames[id]?.scale ?? backgroundScale) / 100})`
           }}
           key={id}
         >

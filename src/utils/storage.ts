@@ -1,4 +1,4 @@
-import { backgroundChoices, colorPresets, defaultSettings, fontOptions, isDateFormat, positionPresets, type AppSettings, type BackgroundChoice, type ClockDateAlignment, type ColorPreset, type PositionPreset } from "../types/settings";
+import { backgroundChoices, colorPresets, defaultSettings, fontOptions, isDateFormat, positionPresets, type AppSettings, type BackgroundChoice, type BackgroundFrames, type ClockDateAlignment, type ColorPreset, type PositionPreset } from "../types/settings";
 import type { SessionCategory, TimerMode, TimerProgram, TimerState, TimerStatus } from "../types/timer";
 import { BACKGROUND_DB_NAME } from "./backgroundStorage";
 
@@ -22,6 +22,19 @@ const isColorPreset = (value: unknown): value is ColorPreset =>
   value === "custom" || typeof value === "string" && value in colorPresets;
 const isAlignment = (value: unknown): value is ClockDateAlignment =>
   value === "left" || value === "center" || value === "right";
+const readBackgroundFrames = (value: unknown): BackgroundFrames => {
+  if (!isRecord(value)) return {};
+  return Object.fromEntries(Object.entries(value).flatMap(([id, frame]) => {
+    if (id === "slideshow" || !isBackgroundChoice(id) || !isRecord(frame) || !isRecord(frame.position)) return [];
+    return [[id, {
+      scale: numberValue(frame.scale, defaultSettings.backgroundScale, 100, 220),
+      position: {
+        x: numberValue(frame.position.x, defaultSettings.backgroundPosition.x, 0, 1),
+        y: numberValue(frame.position.y, defaultSettings.backgroundPosition.y, 0, 1)
+      }
+    }]];
+  }));
+};
 
 export function migrateSettings(value: unknown): AppSettings {
   if (!isRecord(value) || value.version !== 1) return { ...defaultSettings };
@@ -62,6 +75,7 @@ export function migrateSettings(value: unknown): AppSettings {
       x: numberValue(savedBackgroundPosition.x, defaultSettings.backgroundPosition.x, 0, 1),
       y: numberValue(savedBackgroundPosition.y, defaultSettings.backgroundPosition.y, 0, 1)
     },
+    backgroundFrames: readBackgroundFrames(value.backgroundFrames),
     slideshowIntervalSec: numberValue(value.slideshowIntervalSec, defaultSettings.slideshowIntervalSec, 10, 600),
     backgroundChoice: isBackgroundChoice(value.backgroundChoice) ? value.backgroundChoice : defaultSettings.backgroundChoice,
     clockPosition: isLegacyLayout ? defaultSettings.clockPosition : isPosition(value.clockPosition) ? value.clockPosition : defaultSettings.clockPosition,

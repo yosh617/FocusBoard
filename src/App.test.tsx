@@ -76,11 +76,12 @@ describe("App", () => {
   it("can minimize the floating timer without losing its main controls", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: /Start timer/i }));
-    const timer = screen.getByRole("timer");
-    fireEvent.doubleClick(timer);
+    const timer = screen.getByRole("button", { name: /クリックでミニ表示にする/ });
+    fireEvent.click(timer);
     expect(document.querySelector(".floating-timer--compact")).not.toBeNull();
-    expect(screen.getByRole("button", { name: "ミニ表示を展開" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "ミニ表示を展開" }));
+    expect(document.querySelector(".floating-timer--compact .progress-ring")).not.toBeNull();
+    expect(document.querySelector(".floating-timer--compact strong")?.textContent).toMatch(/^\d{2}:\d{2}$/);
+    fireEvent.click(screen.getByRole("button", { name: /クリックで通常表示に戻す/ }));
     expect(document.querySelector(".floating-timer--compact")).toBeNull();
     expect(screen.getByRole("button", { name: "リセットして設定へ戻る" })).toBeTruthy();
   });
