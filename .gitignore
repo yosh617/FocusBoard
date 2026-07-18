@@ -3,6 +3,5 @@ dist
 *.local
 *.tsbuildinfo
 .DS_Store
-.github
 .agents
 .codex
