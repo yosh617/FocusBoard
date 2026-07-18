@@ -1,6 +1,14 @@
 import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { getBackgroundImageLayout } from "../utils/backgroundFrame";
 import { BackgroundSlideshow } from "./BackgroundSlideshow";
+
+function firePointer(target: Element, type: string, values: { pointerId: number; clientX: number; clientY: number; pointerType?: string }) {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  for (const [key, value] of Object.entries(values)) Object.defineProperty(event, key, { value });
+  fireEvent(target, event);
+  return event;
+}
 
 describe("BackgroundSlideshow", () => {
   it("removes a failed image URL while preserving the gradient container", () => {
@@ -9,7 +17,7 @@ describe("BackgroundSlideshow", () => {
     expect(image).not.toBeNull();
     fireEvent.error(image!);
     const firstLayer = container.querySelector<HTMLElement>(".background__image");
-    expect(firstLayer?.style.backgroundImage).toBe("");
+    expect(firstLayer?.querySelector("img")).toBeNull();
     expect(container.querySelector(".background")).not.toBeNull();
   });
 
@@ -20,33 +28,42 @@ describe("BackgroundSlideshow", () => {
     expect(layers[0].classList.contains("background__image--active")).toBe(false);
   });
 
-  it("applies background zoom and position settings", () => {
-    const { container } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="bg2" customBackgrounds={[]} backgroundPosition={{ x: .25, y: .75 }} backgroundScale={150} />);
-    const activeLayer = container.querySelector<HTMLElement>(".background__image--active");
-    expect(activeLayer?.style.backgroundPosition).toBe("25% 75%");
-    expect(activeLayer?.style.transform).toBe("scale(1.5)");
+  it("creates horizontal and vertical pan space after zooming", () => {
+    const layout = getBackgroundImageLayout(1_000, 500, 1_000, 500, { position: { x: .75, y: .25 }, scale: 150 });
+    expect(layout).toEqual({ width: 1_500, height: 750, left: -375, top: -62.5 });
   });
 
   it("uses the selected image's own frame settings", () => {
     const { container } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="bg2" customBackgrounds={[]} backgroundPosition={{ x: .25, y: .75 }} backgroundScale={150} backgroundFrames={{ bg2: { position: { x: .1, y: .9 }, scale: 180 } }} />);
-    const activeLayer = container.querySelector<HTMLElement>(".background__image--active");
-    expect(activeLayer?.style.backgroundPosition).toBe("10% 90%");
-    expect(activeLayer?.style.transform).toBe("scale(1.8)");
+    const image = container.querySelector<HTMLImageElement>(".background__image--active img");
+    expect(image).not.toBeNull();
+    Object.defineProperties(image!, {
+      naturalWidth: { value: 1_600 },
+      naturalHeight: { value: 1_000 }
+    });
+    fireEvent.load(image!);
+    const expected = getBackgroundImageLayout(1_600, 1_000, window.innerWidth, window.innerHeight, { position: { x: .1, y: .9 }, scale: 180 });
+    expect(image?.style.width).toBe(`${expected?.width}px`);
+    expect(image?.style.left).toBe(`${expected?.left}px`);
+    expect(image?.style.top).toBe(`${expected?.top}px`);
   });
 
-  it("updates the frame when the background is dragged", () => {
+  it("keeps drag updates local and commits once when the pointer is released", () => {
     const onFrameChange = vi.fn();
-    const { container } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="bg2" customBackgrounds={[]} editing onFrameChange={onFrameChange} />);
+    const { container } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="bg2" customBackgrounds={[]} backgroundScale={150} editing onFrameChange={onFrameChange} />);
     const gesture = container.querySelector<HTMLElement>(".background__gesture");
     expect(gesture).not.toBeNull();
-    fireEvent(gesture!, new MouseEvent("pointerdown", { bubbles: true, clientX: 200, clientY: 300 }));
-    fireEvent(gesture!, new MouseEvent("pointermove", { bubbles: true, clientX: 300, clientY: 250 }));
-    fireEvent(gesture!, new MouseEvent("pointerup", { bubbles: true, clientX: 300, clientY: 250 }));
+    firePointer(gesture!, "pointerdown", { pointerId: 1, pointerType: "touch", clientX: 200, clientY: 300 });
+    firePointer(gesture!, "pointermove", { pointerId: 1, pointerType: "touch", clientX: 250, clientY: 275 });
+    firePointer(gesture!, "pointermove", { pointerId: 1, pointerType: "touch", clientX: 300, clientY: 250 });
+    expect(onFrameChange).not.toHaveBeenCalled();
+    firePointer(gesture!, "pointerup", { pointerId: 1, pointerType: "touch", clientX: 300, clientY: 250 });
+    expect(onFrameChange).toHaveBeenCalledTimes(1);
     const [backgroundId, position, scale] = onFrameChange.mock.calls.at(-1) as [string, { x: number; y: number }, number];
     expect(backgroundId).toBe("bg2");
     expect(position.x).toBeLessThan(.5);
     expect(position.y).toBeGreaterThan(.5);
-    expect(scale).toBe(100);
+    expect(scale).toBe(150);
   });
 
   it("handles a two-finger touch as background zoom", () => {
@@ -54,36 +71,24 @@ describe("BackgroundSlideshow", () => {
     const { container } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="bg2" customBackgrounds={[]} editing onFrameChange={onFrameChange} />);
     const gesture = container.querySelector<HTMLElement>(".background__gesture");
     expect(gesture).not.toBeNull();
-    fireEvent.touchStart(gesture!, { touches: [{ identifier: 1, clientX: 100, clientY: 200 }, { identifier: 2, clientX: 200, clientY: 200 }] });
-    const moveEvent = new Event("touchmove", { bubbles: true, cancelable: true });
-    Object.defineProperty(moveEvent, "touches", { value: [{ identifier: 1, clientX: 75, clientY: 200 }, { identifier: 2, clientX: 225, clientY: 200 }] });
-    fireEvent(gesture!, moveEvent);
-    expect(moveEvent.defaultPrevented).toBe(true);
+    firePointer(gesture!, "pointerdown", { pointerId: 1, pointerType: "touch", clientX: 100, clientY: 200 });
+    firePointer(gesture!, "pointerdown", { pointerId: 2, pointerType: "touch", clientX: 200, clientY: 200 });
+    firePointer(gesture!, "pointermove", { pointerId: 1, pointerType: "touch", clientX: 75, clientY: 200 });
+    firePointer(gesture!, "pointermove", { pointerId: 2, pointerType: "touch", clientX: 225, clientY: 200 });
+    expect(onFrameChange).not.toHaveBeenCalled();
+    firePointer(gesture!, "pointerup", { pointerId: 1, pointerType: "touch", clientX: 75, clientY: 200 });
+    firePointer(gesture!, "pointermove", { pointerId: 2, pointerType: "touch", clientX: 250, clientY: 200 });
+    firePointer(gesture!, "pointerup", { pointerId: 2, pointerType: "touch", clientX: 225, clientY: 200 });
     expect(onFrameChange.mock.calls.at(-1)?.[2]).toBe(150);
-  });
-
-  it("moves the background with one finger touch", () => {
-    const onFrameChange = vi.fn();
-    const { container } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="bg2" customBackgrounds={[]} editing onFrameChange={onFrameChange} />);
-    const gesture = container.querySelector<HTMLElement>(".background__gesture");
-    expect(gesture).not.toBeNull();
-    fireEvent.touchStart(gesture!, { touches: [{ identifier: 1, clientX: 200, clientY: 300 }] });
-    const moveEvent = new Event("touchmove", { bubbles: true, cancelable: true });
-    Object.defineProperty(moveEvent, "touches", { value: [{ identifier: 1, clientX: 300, clientY: 250 }] });
-    fireEvent(gesture!, moveEvent);
-    expect(moveEvent.defaultPrevented).toBe(true);
-    const [, position, scale] = onFrameChange.mock.calls.at(-1) as [string, { x: number; y: number }, number];
-    expect(position.x).toBeLessThan(.5);
-    expect(position.y).toBeGreaterThan(.5);
-    expect(scale).toBe(100);
+    expect(onFrameChange.mock.calls.at(-1)?.[1].x).toBeLessThan(.5);
   });
 
   it("does not capture gestures until background editing starts", () => {
     const onFrameChange = vi.fn();
     const { container } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="bg2" customBackgrounds={[]} onFrameChange={onFrameChange} />);
     const gesture = container.querySelector<HTMLElement>(".background__gesture");
-    fireEvent.pointerDown(gesture!, { pointerId: 1, clientX: 200, clientY: 300 });
-    fireEvent.pointerMove(gesture!, { pointerId: 1, clientX: 300, clientY: 250 });
+    firePointer(gesture!, "pointerdown", { pointerId: 1, clientX: 200, clientY: 300 });
+    firePointer(gesture!, "pointermove", { pointerId: 1, clientX: 300, clientY: 250 });
     expect(onFrameChange).not.toHaveBeenCalled();
     expect(gesture?.getAttribute("aria-hidden")).toBe("true");
   });
@@ -97,14 +102,24 @@ describe("BackgroundSlideshow", () => {
   });
 
   it("cancels browser pinch gestures while editing", () => {
-    const { container } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="bg2" customBackgrounds={[]} editing />);
+    const { container, unmount } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="bg2" customBackgrounds={[]} editing />);
     const gesture = container.querySelector<HTMLElement>(".background__gesture");
     expect(gesture).not.toBeNull();
+    expect(document.documentElement.classList.contains("focusboard-background-editing")).toBe(true);
+    expect(document.body.classList.contains("focusboard-background-editing")).toBe(true);
+
+    const touchMove = new Event("touchmove", { bubbles: true, cancelable: true });
+    fireEvent(gesture!, touchMove);
+    expect(touchMove.defaultPrevented).toBe(true);
 
     for (const eventName of ["gesturestart", "gesturechange", "gestureend"]) {
       const event = new Event(eventName, { bubbles: true, cancelable: true });
       fireEvent(gesture!, event);
       expect(event.defaultPrevented).toBe(true);
     }
+
+    unmount();
+    expect(document.documentElement.classList.contains("focusboard-background-editing")).toBe(false);
+    expect(document.body.classList.contains("focusboard-background-editing")).toBe(false);
   });
 });

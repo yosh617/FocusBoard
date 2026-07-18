@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { defaultSettings, type AppSettings } from "../types/settings";
 import { loadSettings, saveSettings } from "../utils/storage";
 
+type SettingsUpdate = Partial<AppSettings> | ((current: AppSettings) => Partial<AppSettings>);
+
 export function useLocalStorageSettings() {
   const [settings, setSettings] = useState<AppSettings>(loadSettings);
   const [storageMessage, setStorageMessage] = useState("");
@@ -23,8 +25,9 @@ export function useLocalStorageSettings() {
     }
   }, [settings]);
 
-  const updateSettings = useCallback((patch: Partial<AppSettings>) => {
+  const updateSettings = useCallback((update: SettingsUpdate) => {
     setSettings((current) => {
+      const patch = typeof update === "function" ? update(current) : update;
       previousSettings.current = current;
       return { ...current, ...patch, version: 1 };
     });

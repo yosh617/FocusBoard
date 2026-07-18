@@ -48,6 +48,7 @@ function PositionGrid({ label, value, onChange }: { label: string; value: Positi
 type BackgroundFrameOption = { value: BackgroundFrameTarget; label: string };
 type BackgroundSettingsProps = {
   settings: AppSettings;
+  frame: BackgroundFrame;
   customBackgrounds: CustomBackground[];
   customSize: number;
   frameOptions: BackgroundFrameOption[];
@@ -60,7 +61,7 @@ type BackgroundSettingsProps = {
   onRemoveBackground: (id: string) => Promise<void>;
 };
 
-function BackgroundSettings({ settings, customBackgrounds, customSize, frameOptions, frameTarget, onFrameTargetChange, onStartBackgroundEditing, onChange, uploads, move, onRemoveBackground }: BackgroundSettingsProps) {
+function BackgroundSettings({ settings, frame, customBackgrounds, customSize, frameOptions, frameTarget, onFrameTargetChange, onStartBackgroundEditing, onChange, uploads, move, onRemoveBackground }: BackgroundSettingsProps) {
   const sourceOptions: { value: BackgroundChoice; label: string; imageUrl?: string }[] = [
     { value: "slideshow", label: "自動切替" },
     ...defaultBackgrounds.map((path, index) => ({ value: `bg${index + 1}` as BackgroundChoice, label: builtInBackgroundLabels[index], imageUrl: `${import.meta.env.BASE_URL}${path}` })),
@@ -88,7 +89,7 @@ function BackgroundSettings({ settings, customBackgrounds, customSize, frameOpti
       <div className="background-frame-settings__heading"><div><h4 id="background-frame-heading">画像ごとの表示</h4><p>調整する画像を選び、設定を閉じた後の画面上で移動・拡大できます。</p></div><label htmlFor="background-frame-target">調整する画像<select id="background-frame-target" aria-label="配置を調整する背景" value={frameTarget} onChange={(event) => onFrameTargetChange(event.target.value as BackgroundFrameTarget)}>{frameOptions.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}</select></label></div>
       <div className="settings-callout background-frame-settings__guide" id="background-frame-guide"><strong>画面上で調整します</strong><span>選んだ画像を固定表示に切り替えてから設定を閉じ、ホーム画面の背景を直接ドラッグ・ピンチします。自動切替に戻すときは、上の「自動切替」を選んでください。</span></div>
       <button className="primary-button background-frame-settings__close" type="button" onClick={onStartBackgroundEditing}>設定を閉じて画面上で調整</button>
-      <details className="background-advanced"><summary>PC向け：スライダーで微調整</summary><div className="background-advanced__content"><Range id="background-scale" label="背景の拡大" value={settings.backgroundScale} {...settingRanges.backgroundScale} initial={defaultSettings.backgroundScale} onChange={(backgroundScale) => onChange({ backgroundScale })} /><Range id="background-position-x" label="背景の左右位置" value={Math.round(settings.backgroundPosition.x * 100)} min={0} max={100} step={1} unit="%" initial={defaultSettings.backgroundPosition.x * 100} onChange={(value) => onChange({ backgroundPosition: { ...settings.backgroundPosition, x: value / 100 } })} /><Range id="background-position-y" label="背景の上下位置" value={Math.round(settings.backgroundPosition.y * 100)} min={0} max={100} step={1} unit="%" initial={defaultSettings.backgroundPosition.y * 100} onChange={(value) => onChange({ backgroundPosition: { ...settings.backgroundPosition, y: value / 100 } })} /></div></details>
+      <details className="background-advanced"><summary>PC向け：スライダーで微調整</summary><div className="background-advanced__content"><Range id="background-scale" label="背景の拡大" value={frame.scale} {...settingRanges.backgroundScale} initial={defaultSettings.backgroundScale} onChange={(backgroundScale) => onChange({ backgroundScale })} /><Range id="background-position-x" label="背景の左右位置" value={Math.round(frame.position.x * 100)} min={0} max={100} step={1} unit="%" initial={defaultSettings.backgroundPosition.x * 100} onChange={(value) => onChange({ backgroundPosition: { ...frame.position, x: value / 100 } })} /><Range id="background-position-y" label="背景の上下位置" value={Math.round(frame.position.y * 100)} min={0} max={100} step={1} unit="%" initial={defaultSettings.backgroundPosition.y * 100} onChange={(value) => onChange({ backgroundPosition: { ...frame.position, y: value / 100 } })} /></div></details>
     </section>
     <section className="background-global-settings" aria-labelledby="background-global-heading"><div className="background-settings-heading"><div><h4 id="background-global-heading">画面全体の設定</h4><p>画像の上に重ねる色と、自動切替の間隔を設定します。</p></div></div><Range id="overlay" label="背景オーバーレイ" value={Math.round(settings.overlayOpacity * 100)} {...settingRanges.overlayOpacity} initial={Math.round(defaultSettings.overlayOpacity * 100)} onChange={(value) => onChange({ overlayOpacity: value / 100 })} />{settings.backgroundChoice === "slideshow" && <Range id="slideshow" label="背景切り替え時間" value={settings.slideshowIntervalSec} {...settingRanges.slideshowIntervalSec} initial={defaultSettings.slideshowIntervalSec} onChange={(slideshowIntervalSec) => onChange({ slideshowIntervalSec })} />}</section>
   </>;
@@ -101,15 +102,6 @@ export function SettingsPanel({ open, settings, saveState, onChange: applySettin
   useEffect(() => {
     if (frameTarget.startsWith("custom:") && !customBackgrounds.some((item) => `custom:${item.id}` === frameTarget)) setFrameTarget("bg1");
   }, [customBackgrounds, frameTarget]);
-  useEffect(() => {
-    const frame = settings.backgroundFrames[frameTarget];
-    const fallback = Object.keys(settings.backgroundFrames).length === 0
-      ? { scale: settings.backgroundScale, position: settings.backgroundPosition }
-      : defaultSettings.backgroundFrames[frameTarget] ?? { scale: defaultSettings.backgroundScale, position: defaultSettings.backgroundPosition };
-    const next = frame ?? fallback;
-    if (settings.backgroundScale === next.scale && settings.backgroundPosition.x === next.position.x && settings.backgroundPosition.y === next.position.y) return;
-    applySettings({ backgroundScale: next.scale, backgroundPosition: next.position });
-  }, [applySettings, frameTarget, settings.backgroundFrames, settings.backgroundPosition, settings.backgroundScale]);
   if (!open) return null;
   const uploads = async (files: FileList | null) => { if (!files?.length) return; const created = await onAddBackgrounds([...files]); if (created[0]) { const target = `custom:${created[0].id}` as BackgroundFrameTarget; setFrameTarget(target); onChange({ backgroundChoice: target }); } };
   const resetSection = (patch: Partial<AppSettings>) => { onChange(category === "clock" ? { ...patch, dateFormat: defaultSettings.dateFormat } : category === "background" ? { ...patch, backgroundFrames: defaultSettings.backgroundFrames } : category === "display" ? { ...patch, clockColor: defaultSettings.clockColor, timerColor: defaultSettings.timerColor } : patch); onMessage("この項目を初期値に戻しました。"); };
@@ -164,7 +156,7 @@ export function SettingsPanel({ open, settings, saveState, onChange: applySettin
         <div className="data-undo"><div><strong>変更履歴</strong><span>直前の設定変更だけ元に戻せます。</span></div><button className="secondary-button" type="button" onClick={() => onUndo() ? onMessage("直前の変更を元に戻しました。") : onMessage("元に戻せる変更はありません。")}>元に戻す</button></div>
         <ResetPanel onResetSettings={onResetSettings} onClearTimer={onClearTimer} onMessage={onMessage} />
       </>}
-      {category === "background" && <div className="background-settings-redesigned"><BackgroundSettings settings={settings} customBackgrounds={customBackgrounds} customSize={customSize} frameOptions={frameOptions} frameTarget={frameTarget} onFrameTargetChange={(target) => { setFrameTarget(target); onChange({ backgroundChoice: target }); }} onStartBackgroundEditing={onStartBackgroundEditing} onChange={onChange} uploads={uploads} move={move} onRemoveBackground={onRemoveBackground} /></div>}
+      {category === "background" && <div className="background-settings-redesigned"><BackgroundSettings settings={settings} frame={backgroundFrame} customBackgrounds={customBackgrounds} customSize={customSize} frameOptions={frameOptions} frameTarget={frameTarget} onFrameTargetChange={(target) => { setFrameTarget(target); onChange({ backgroundChoice: target }); }} onStartBackgroundEditing={onStartBackgroundEditing} onChange={onChange} uploads={uploads} move={move} onRemoveBackground={onRemoveBackground} /></div>}
     </section></div>
   </aside></div>;
 }

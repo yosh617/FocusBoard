@@ -33,7 +33,6 @@ export default function App() {
   const [settingsLauncherVisible, setSettingsLauncherVisible] = useState(false);
   const [backgroundEditing, setBackgroundEditing] = useState(false);
   const [adaptivePalette, setAdaptivePalette] = useState<AdaptivePalette>(() => getAdaptivePalette(fallbackBackgroundRgb, settings.overlayOpacity));
-  const settingsButtonRef = useRef<HTMLButtonElement>(null);
   const settingsLauncherTimeoutRef = useRef<number | null>(null);
   const now = useClock(settings.showSeconds);
 
@@ -91,7 +90,7 @@ export default function App() {
       />
     );
     return slots;
-  }, [now, settings, timer, start, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, updateSettings]);
+  }, [settings, timer, start, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, updateSettings]);
 
   const liveMessage = backgroundMessage || announcement || storageMessage;
   const clockColor = settings.matchBackgroundColors ? adaptivePalette.text : settings.clockColor;
@@ -141,14 +140,14 @@ export default function App() {
         backgroundFrames={settings.backgroundFrames}
         editing={backgroundEditing}
         onEditModeChange={setBackgroundEditing}
-        onFrameChange={(backgroundId, backgroundPosition, backgroundScale) => updateSettings({
+        onFrameChange={(backgroundId, backgroundPosition, backgroundScale) => updateSettings((current) => ({
           backgroundPosition,
           backgroundScale,
           backgroundFrames: {
-            ...settings.backgroundFrames,
+            ...current.backgroundFrames,
             [backgroundId]: { position: backgroundPosition, scale: backgroundScale }
           }
-        })}
+        }))}
         onPaletteChange={setAdaptivePalette}
       />
       <div className="dashboard" aria-label="FocusBoard ダッシュボード">
@@ -181,7 +180,6 @@ export default function App() {
             hideSettingsLauncher();
             setSettingsOpen(true);
           }}
-          ref={settingsButtonRef}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 15.3a3.3 3.3 0 1 0 0-6.6 3.3 3.3 0 0 0 0 6.6Z" />

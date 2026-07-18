@@ -39,14 +39,14 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 
 .background, .background__image, .background__overlay, .background__gesture { position: absolute; inset: 0; }
 .background { z-index: 0; overflow: hidden; background: radial-gradient(circle at 72% 16%, #f6fbff, transparent 50%), linear-gradient(145deg, #e8f3ff, #bcd8f4); }
-.background__image { opacity: 0; background-size: cover; background-position: center; transform-origin: center; transition: opacity 1.2s ease, background-position .25s ease, transform .25s ease; }
+.background__image { opacity: 0; transition: opacity 1.2s ease; }
 .background__image--active { opacity: 1; }
-.background__image img { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.background__asset { position: absolute; top: 0; left: 0; display: block; width: 100%; height: 100%; max-width: none; object-fit: cover; pointer-events: none; user-select: none; transition: top .25s ease, left .25s ease, width .25s ease, height .25s ease; }
 .background__overlay { background: #f1f7ff; transition: opacity .25s ease; }
 .background__gesture { z-index: 1; cursor: grab; pointer-events: none; touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; overscroll-behavior: none; }
 .background--editing .background__gesture { pointer-events: auto; }
 .background__gesture:active { cursor: grabbing; }
-.background--gesturing .background__image { transition: opacity 1.2s ease; }
+.background--gesturing .background__asset { transition: none; }
 .background-editor__toolbar { position: fixed; z-index: 3; top: max(18px, env(safe-area-inset-top)); left: max(18px, env(safe-area-inset-left)); right: max(18px, env(safe-area-inset-right)); display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 14px 12px 18px; color: #fff; border: 1px solid rgba(255,255,255,.35); border-radius: 18px; background: rgba(20, 34, 54, .6); box-shadow: 0 12px 32px rgba(11, 25, 44, .2), inset 0 1px rgba(255,255,255,.16); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
 .background-editor__toolbar > div { display: grid; gap: 2px; }
 .background-editor__eyebrow { color: rgba(255,255,255,.72); font-size: 10px; font-weight: 800; letter-spacing: .14em; }
@@ -60,6 +60,8 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .app-shell--background-editing > .toast,
 .app-shell--background-editing > .settings-button { visibility: hidden; pointer-events: none; }
 .app-shell--background-editing { touch-action: none; }
+html.focusboard-background-editing,
+body.focusboard-background-editing { overscroll-behavior: none; touch-action: none; }
 
 .dashboard { position: absolute; inset: 0; padding: max(32px, env(safe-area-inset-top)) max(32px, env(safe-area-inset-right)) max(32px, env(safe-area-inset-bottom)) max(32px, env(safe-area-inset-left)); }
 .slot { position: absolute; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: clamp(14px, 2vh, 24px); width: min(92vw, 900px); color: inherit; text-align: center; }
