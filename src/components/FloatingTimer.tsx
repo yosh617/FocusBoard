@@ -16,6 +16,7 @@ export function FloatingTimer({ timer, onStart, onPause, onReset, onPositionChan
   const [isCompact, setIsCompact] = useState(false);
   const [position, setPosition] = useState(timer.floatingPosition);
   const positionRef = useRef(timer.floatingPosition);
+  const dragElementRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ pointerX: number; pointerY: number; position: FloatingPosition; moved: boolean } | null>(null);
   const suppressClickRef = useRef(false);
   const elapsedMs = Math.max(0, timer.durationMs - timer.remainingMs);
@@ -31,28 +32,35 @@ export function FloatingTimer({ timer, onStart, onPause, onReset, onPositionChan
   }, [timer.floatingPosition]);
 
   const clampPosition = (x: number, y: number): FloatingPosition => {
-    const xMargin = Math.min(.22, 120 / window.innerWidth);
-    const yMargin = Math.min(.24, 120 / window.innerHeight);
+    const rect = dragElementRef.current?.getBoundingClientRect();
+    const width = rect?.width || (isCompact ? 88 : 224);
+    const height = rect?.height || (isCompact ? 88 : 224);
+    const edgeGap = 8;
+    const xMargin = (width / 2 + edgeGap) / window.innerWidth;
+    const yMargin = (height / 2 + edgeGap) / window.innerHeight;
     return {
-      x: Math.max(xMargin, Math.min(1 - xMargin, x)),
-      y: Math.max(yMargin, Math.min(1 - yMargin, y))
+      x: Math.max(Math.min(.5, xMargin), Math.min(1 - Math.min(.5, xMargin), x)),
+      y: Math.max(Math.min(.5, yMargin), Math.min(1 - Math.min(.5, yMargin), y))
     };
   };
 
   useEffect(() => {
     const keepInsideViewport = () => {
-      const next = clampPosition(positionRef.current.x, positionRef.current.y);
+      const current = positionRef.current;
+      const next = clampPosition(current.x, current.y);
+      if (next.x === current.x && next.y === current.y) return;
       positionRef.current = next;
       setPosition(next);
       onPositionChange(next);
     };
+    keepInsideViewport();
     window.addEventListener("resize", keepInsideViewport);
     return () => window.removeEventListener("resize", keepInsideViewport);
-  }, [onPositionChange]);
+  }, [isCompact, onPositionChange]);
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if ((event.target as Element).closest("button")) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
     suppressClickRef.current = false;
     dragRef.current = { pointerX: event.clientX, pointerY: event.clientY, position, moved: false };
   };
@@ -105,6 +113,7 @@ export function FloatingTimer({ timer, onStart, onPause, onReset, onPositionChan
     >
       <div
         className="floating-timer__drag"
+        ref={dragElementRef}
         role="button"
         aria-pressed={isCompact}
         tabIndex={0}

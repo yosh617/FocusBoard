@@ -33,9 +33,52 @@ export function ClockWidget({ now, settings, onChange, onMessage }: Props) {
   const displayRef = useRef<HTMLButtonElement>(null);
   const editorRef = useRef<HTMLElement>(null);
   const pointerStart = useRef<{ x: number; y: number; position: FreePosition } | null>(null);
+  const position = settings.clockDatePosition;
+  const positionRef = useRef(position);
   const hintTimeoutRef = useRef<number | null>(null);
   const moved = useRef(false);
-  const position = settings.clockDatePosition;
+  positionRef.current = position;
+
+  const getPositionBounds = () => {
+    const displayRect = displayRef.current?.getBoundingClientRect();
+    const displayWidth = displayRect?.width || Math.min(window.innerWidth * .86, 900);
+    const displayHeight = displayRect?.height || 120;
+    const edgeGap = 12;
+    const xMargin = settings.clockDateAlignment === "center"
+      ? (displayWidth / 2 + edgeGap) / window.innerWidth
+      : displayWidth / window.innerWidth + edgeGap / window.innerWidth;
+    const yMargin = (displayHeight / 2 + edgeGap) / window.innerHeight;
+    return settings.clockDateAlignment === "left"
+      ? { minX: edgeGap / window.innerWidth, maxX: 1 - xMargin, minY: yMargin, maxY: 1 - yMargin }
+      : settings.clockDateAlignment === "right"
+        ? { minX: xMargin, maxX: 1 - edgeGap / window.innerWidth, minY: yMargin, maxY: 1 - yMargin }
+        : { minX: xMargin, maxX: 1 - xMargin, minY: yMargin, maxY: 1 - yMargin };
+  };
+
+  const clampPosition = (x: number, y: number): FreePosition => {
+    const bounds = getPositionBounds();
+    return {
+      x: clamp(x, bounds.minX, bounds.maxX),
+      y: clamp(y, bounds.minY, bounds.maxY)
+    };
+  };
+
+  useLayoutEffect(() => {
+    const keepInsideViewport = () => {
+      const current = positionRef.current;
+      const next = clampPosition(current.x, current.y);
+      if (next.x === current.x && next.y === current.y) return;
+      onChange({ clockDatePosition: next });
+    };
+    keepInsideViewport();
+    window.addEventListener("resize", keepInsideViewport);
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(keepInsideViewport);
+    if (observer && displayRef.current) observer.observe(displayRef.current);
+    return () => {
+      window.removeEventListener("resize", keepInsideViewport);
+      observer?.disconnect();
+    };
+  }, [onChange, settings.clockDateAlignment, settings.clockFontSize, settings.dateFontSize, settings.dateFormat, settings.showClock, settings.showDate, settings.showSeconds]);
 
   useEffect(() => {
     if (!open) return;
@@ -81,7 +124,7 @@ export function ClockWidget({ now, settings, onChange, onMessage }: Props) {
     if (hintTimeoutRef.current !== null) window.clearTimeout(hintTimeoutRef.current);
   }, []);
 
-  const moveBy = (x: number, y: number) => onChange({ clockDatePosition: { x: clamp(x, .06, .94), y: clamp(y, .08, .92) } });
+  const moveBy = (x: number, y: number) => onChange({ clockDatePosition: clampPosition(x, y) });
   const showHint = () => {
     if (hintTimeoutRef.current !== null) window.clearTimeout(hintTimeoutRef.current);
     setHintVisible(true);

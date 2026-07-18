@@ -93,7 +93,24 @@ export function SettingsPanel({ open, settings, saveState, onChange: applySettin
       {category === "timer" && <><Range id="timer-size" label="タイマーサイズ" value={settings.timerFontSize} {...settingRanges.timerFontSize} unit="" formatValue={(value) => describeFontSize(value, defaultSettings.timerFontSize, settingRanges.timerFontSize.min, settingRanges.timerFontSize.max)} rangeText="小さめから大きめまで調整できます。" initial={defaultSettings.timerFontSize} onChange={(timerFontSize) => onChange({ timerFontSize })} /><Range id="timer-opacity" label="タイマー背景の不透明度" value={Math.round(settings.timerBackgroundOpacity * 100)} {...settingRanges.timerBackgroundOpacity} initial={Math.round(defaultSettings.timerBackgroundOpacity * 100)} onChange={(value) => onChange({ timerBackgroundOpacity: value / 100 })} /><PositionGrid label="開始前タイマーの配置" value={settings.timerPosition} onChange={(timerPosition) => onChange({ timerPosition })} /></>}
       {category === "pomodoro" && <><Range id="work" label="作業時間" value={settings.workMinutes} {...settingRanges.workMinutes} initial={defaultSettings.workMinutes} onChange={(workMinutes) => onChange({ workMinutes })} /><Range id="short-break" label="短い休憩" value={settings.shortBreakMinutes} {...settingRanges.shortBreakMinutes} initial={defaultSettings.shortBreakMinutes} onChange={(shortBreakMinutes) => onChange({ shortBreakMinutes })} /><Range id="long-break" label="長い休憩" value={settings.longBreakMinutes} {...settingRanges.longBreakMinutes} initial={defaultSettings.longBreakMinutes} onChange={(longBreakMinutes) => onChange({ longBreakMinutes })} /><Toggle id="sound" label="終了音" checked={settings.soundEnabled} onChange={(soundEnabled) => onChange({ soundEnabled })} /></>}
       {category === "accessibility" && <div className="settings-callout"><strong>見やすさと操作性</strong><span>キーボード操作、44px以上の操作領域、フォーカス表示、アニメーション軽減設定を常に適用しています。端末の「視差効果を減らす」設定にも追従します。</span></div>}
-      {category === "data" && <><div className="settings-callout"><strong>設定はこの端末だけに保存</strong><span>背景画像はIndexedDB、設定はLocalStorageへ保存されます。</span></div><div className="settings-callout settings-callout--export"><strong>設定をバックアップ</strong><span>時計・背景・タイマーなどの設定をJSONファイルに保存します。背景画像ファイルと進行中のタイマー状態は含みません。</span><button className="secondary-button" type="button" onClick={exportSettings}>設定をエクスポート</button></div><div className="settings-callout settings-callout--version"><strong>FocusBoard</strong><span>バージョン v{appVersion}</span></div><button className="secondary-button" type="button" onClick={() => onUndo() ? onMessage("直前の変更を元に戻しました。") : onMessage("元に戻せる変更はありません。")}>直前の変更を元に戻す</button><ResetPanel onResetSettings={onResetSettings} onClearTimer={onClearTimer} onMessage={onMessage} /></>}
+      {category === "data" && <>
+        <div className="data-summary" role="note">
+          <span className="data-summary__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7.5h16v11H4zM7 7.5V5h10v2.5M8 12h8M8 15h5" /></svg></span>
+          <div><strong>この端末に保存</strong><span>設定はLocalStorage、背景画像はIndexedDBに保存されます。外部へ送信されません。</span></div>
+        </div>
+        <div className="data-cards">
+          <section className="data-card data-card--primary" aria-labelledby="data-export-heading">
+            <div className="data-card__body"><span className="data-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 20h14" /></svg></span><div><h4 id="data-export-heading">設定をバックアップ</h4><p>時計・背景・タイマー設定をJSONで保存できます。背景画像と進行中のタイマー状態は含みません。</p></div></div>
+            <button className="primary-button" type="button" onClick={exportSettings}>設定をエクスポート</button>
+          </section>
+          <section className="data-card" aria-labelledby="data-version-heading">
+            <div className="data-card__body"><span className="data-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5" /></svg></span><div><h4 id="data-version-heading">アプリ情報</h4><p>不具合の報告や確認に利用できます。</p></div></div>
+            <output className="data-card__version">v{appVersion}</output>
+          </section>
+        </div>
+        <div className="data-undo"><div><strong>変更履歴</strong><span>直前の設定変更だけ元に戻せます。</span></div><button className="secondary-button" type="button" onClick={() => onUndo() ? onMessage("直前の変更を元に戻しました。") : onMessage("元に戻せる変更はありません。")}>元に戻す</button></div>
+        <ResetPanel onResetSettings={onResetSettings} onClearTimer={onClearTimer} onMessage={onMessage} />
+      </>}
     </section></div>
   </aside></div>;
 }

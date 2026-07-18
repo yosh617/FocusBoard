@@ -86,6 +86,52 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "リセットして設定へ戻る" })).toBeTruthy();
   });
 
+  it("reclamps the floating timer when expanding from a compact edge position", () => {
+    const originalWidth = window.innerWidth;
+    const originalHeight = window.innerHeight;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 320 });
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 568 });
+    try {
+      render(<App />);
+      fireEvent.click(screen.getByRole("button", { name: /Start timer/i }));
+      const timer = screen.getByRole("button", { name: /クリックでミニ表示にする/ });
+      Object.defineProperty(timer, "getBoundingClientRect", {
+        configurable: true,
+        value: () => ({ width: timer.closest(".floating-timer")?.classList.contains("floating-timer--compact") ? 80 : 224, height: timer.closest(".floating-timer")?.classList.contains("floating-timer--compact") ? 80 : 224 })
+      });
+      fireEvent.click(timer);
+      for (let index = 0; index < 12; index += 1) fireEvent.keyDown(timer, { key: "ArrowLeft" });
+      fireEvent.click(screen.getByRole("button", { name: /クリックで通常表示に戻す/ }));
+      act(() => {});
+      expect(Number.parseFloat(document.querySelector<HTMLElement>(".floating-timer")?.style.left ?? "0")).toBeGreaterThanOrEqual(37.5);
+    } finally {
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: originalWidth });
+      Object.defineProperty(window, "innerHeight", { configurable: true, value: originalHeight });
+    }
+  });
+
+  it("keeps the right-aligned clock display inside the viewport", () => {
+    const originalWidth = window.innerWidth;
+    const originalHeight = window.innerHeight;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1000 });
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 800 });
+    try {
+      render(<App />);
+      const display = screen.getByRole("button", { name: "時計とカレンダーの表示設定を開く" });
+      Object.defineProperty(display, "getBoundingClientRect", {
+        configurable: true,
+        value: () => ({ left: 60, right: 340, top: 520, bottom: 670, width: 280, height: 150 })
+      });
+      fireEvent.pointerDown(display, { pointerId: 1, clientX: 100, clientY: 600 });
+      fireEvent.pointerUp(display, { pointerId: 1, clientX: 100, clientY: 600 });
+      fireEvent.click(screen.getByRole("radio", { name: "右" }));
+      expect(Number.parseFloat(document.querySelector<HTMLElement>(".clock-widget")?.style.left ?? "0")).toBeGreaterThanOrEqual(29.2);
+    } finally {
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: originalWidth });
+      Object.defineProperty(window, "innerHeight", { configurable: true, value: originalHeight });
+    }
+  });
+
   it("shows the app version and exports settings from data management", () => {
     const createObjectURL = vi.fn(() => "blob:focusboard-settings");
     const revokeObjectURL = vi.fn();
@@ -97,7 +143,8 @@ describe("App", () => {
       revealSettings();
       fireEvent.click(screen.getByRole("button", { name: "設定" }));
       fireEvent.click(screen.getByRole("tab", { name: "データ管理" }));
-      expect(screen.getByText(/^バージョン v/)).toBeTruthy();
+      expect(screen.getByText(/^v(?:\d+\.\d+\.\d+|開発版)$/)).toBeTruthy();
+      expect(screen.getByRole("heading", { name: "設定をバックアップ" })).toBeTruthy();
       fireEvent.click(screen.getByRole("button", { name: "設定をエクスポート" }));
       expect(createObjectURL).toHaveBeenCalledTimes(1);
       expect(click).toHaveBeenCalledTimes(1);
