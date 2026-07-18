@@ -9,7 +9,7 @@ import { useLocalStorageSettings } from "./hooks/useLocalStorageSettings";
 import { usePomodoroTimer } from "./hooks/usePomodoroTimer";
 import { useCustomBackgrounds } from "./hooks/useCustomBackgrounds";
 import { useFullscreen } from "./hooks/useFullscreen";
-import { fontOptions, positionPresets, type PositionPreset } from "./types/settings";
+import { defaultSettings, fontOptions, positionPresets, type PositionPreset } from "./types/settings";
 import { getAdaptivePalette, fallbackBackgroundRgb, getStrongAccent, type AdaptivePalette } from "./utils/adaptiveColor";
 
 export default function App() {
@@ -32,9 +32,33 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsLauncherVisible, setSettingsLauncherVisible] = useState(false);
   const [backgroundEditing, setBackgroundEditing] = useState(false);
+  const [activeBackgroundId, setActiveBackgroundId] = useState<string>(() => settings.backgroundChoice === "slideshow" ? "bg1" : settings.backgroundChoice);
   const [adaptivePalette, setAdaptivePalette] = useState<AdaptivePalette>(() => getAdaptivePalette(fallbackBackgroundRgb, settings.overlayOpacity));
   const settingsLauncherTimeoutRef = useRef<number | null>(null);
   const now = useClock(settings.showSeconds);
+
+  const activeClockSetting = settings.clockBackgroundSettings[activeBackgroundId] ?? {
+    position: defaultSettings.clockDatePosition,
+    color: settings.clockColor
+  };
+  const clockDisplaySettings = useMemo(() => ({ ...settings, clockDatePosition: activeClockSetting.position, clockColor: activeClockSetting.color }), [activeClockSetting.color, activeClockSetting.position, settings]);
+  const updateClockSettings = useCallback((patch: Partial<typeof settings>) => {
+    const nextPosition = patch.clockDatePosition;
+    if (!nextPosition) {
+      updateSettings(patch);
+      return;
+    }
+    updateSettings((current) => {
+      const currentClock = current.clockBackgroundSettings[activeBackgroundId] ?? { position: defaultSettings.clockDatePosition, color: current.clockColor };
+      return {
+        clockDatePosition: nextPosition,
+        clockBackgroundSettings: {
+          ...current.clockBackgroundSettings,
+          [activeBackgroundId]: { ...currentClock, position: nextPosition }
+        }
+      };
+    });
+  }, [activeBackgroundId, updateSettings]);
 
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const startBackgroundEditing = useCallback(() => {
@@ -93,7 +117,7 @@ export default function App() {
   }, [settings, timer, start, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, updateSettings]);
 
   const liveMessage = backgroundMessage || announcement || storageMessage;
-  const clockColor = settings.matchBackgroundColors ? adaptivePalette.text : settings.clockColor;
+  const clockColor = settings.matchBackgroundColors ? adaptivePalette.text : activeClockSetting.color;
   const timerColor = settings.matchBackgroundColors ? adaptivePalette.accent : settings.timerColor;
   const appStyle = {
     color: clockColor,
@@ -134,7 +158,13 @@ export default function App() {
         overlayOpacity={settings.overlayOpacity}
         backgroundChoice={settings.backgroundChoice}
         customBackgrounds={backgrounds}
-        clockPosition={settings.clockDatePosition}
+        clockPosition={activeClockSetting.position}
+        clockFontSize={settings.clockFontSize}
+        dateFontSize={settings.dateFontSize}
+        showClock={settings.showClock}
+        showDate={settings.showDate}
+        showSeconds={settings.showSeconds}
+        dateFormat={settings.dateFormat}
         backgroundPosition={settings.backgroundPosition}
         backgroundScale={settings.backgroundScale}
         backgroundFrames={settings.backgroundFrames}
@@ -149,13 +179,14 @@ export default function App() {
           }
         }))}
         onPaletteChange={setAdaptivePalette}
+        onActiveBackgroundChange={setActiveBackgroundId}
       />
       <div className="dashboard" aria-label="FocusBoard ダッシュボード">
         {positionPresets.map((position) => (
           <div className={`slot slot--${position}`} key={position}>{slotContent[position]}</div>
         ))}
       </div>
-      {(settings.showClock || settings.showDate) && <ClockWidget now={now} settings={settings} textColor={clockColor} onChange={updateSettings} onMessage={showMessage} />}
+      {(settings.showClock || settings.showDate) && <ClockWidget now={now} settings={clockDisplaySettings} textColor={clockColor} onChange={updateClockSettings} onMessage={showMessage} />}
 
       {settings.showTimer && (timer.status !== "idle" || settings.timerSetupCollapsed) && (
         <FloatingTimer

@@ -1,4 +1,4 @@
-import { backgroundChoices, colorPresets, defaultSettings, fontOptions, isDateFormat, positionPresets, type AppSettings, type BackgroundChoice, type BackgroundFrames, type ClockDateAlignment, type ColorPreset, type PositionPreset } from "../types/settings";
+import { backgroundChoices, colorPresets, defaultSettings, fontOptions, isDateFormat, positionPresets, type AppSettings, type BackgroundChoice, type BackgroundFrames, type ClockBackgroundSettings, type ClockDateAlignment, type ColorPreset, type PositionPreset } from "../types/settings";
 import type { SessionCategory, TimerMode, TimerProgram, TimerState, TimerStatus } from "../types/timer";
 import { BACKGROUND_DB_NAME } from "./backgroundStorage";
 
@@ -37,18 +37,48 @@ const readBackgroundFrames = (value: unknown): BackgroundFrames => {
   }));
 };
 
+const readClockBackgroundSettings = (value: unknown, fallback: { position: { x: number; y: number }; color: string }): ClockBackgroundSettings => {
+  if (!isRecord(value)) return {};
+  return Object.fromEntries(Object.entries(value).flatMap(([id, setting]) => {
+    if (id === "slideshow" || !isBackgroundChoice(id) || !isRecord(setting) || !isRecord(setting.position)) return [];
+    return [[id, {
+      position: {
+        x: numberValue(setting.position.x, fallback.position.x, .06, .94),
+        y: numberValue(setting.position.y, fallback.position.y, .08, .92)
+      },
+      color: colorValue(setting.color, fallback.color)
+    }]];
+  })) as ClockBackgroundSettings;
+};
+
 export function migrateSettings(value: unknown): AppSettings {
-  if (!isRecord(value) || value.version !== 1) return { ...defaultSettings };
+  if (!isRecord(value) || (value.version !== 1 && value.version !== 2)) return { ...defaultSettings };
   const isLegacyTheme = !("backgroundChoice" in value);
-  const isLegacyLayout = value.uiRevision !== 3;
+  const isLegacyLayout = value.version === 1 || value.uiRevision !== 4;
   const savedClockDatePosition = isRecord(value.clockDatePosition) ? value.clockDatePosition : {};
   const savedBackgroundPosition = isRecord(value.backgroundPosition) ? value.backgroundPosition : {};
-  const savedClockColor = colorValue(value.clockColor, colorValue(value.textColor, defaultSettings.clockColor));
-  const savedTimerColor = colorValue(value.timerColor, colorValue(value.accentColor, defaultSettings.timerColor));
+  const sharedColor = colorValue(value.color, colorValue(value.textColor, defaultSettings.clockColor));
+  const savedClockColor = colorValue(value.clockColor, sharedColor);
+  const savedTimerColor = colorValue(value.timerColor, colorValue(value.accentColor, ""));
+  const resolvedTimerColor = savedTimerColor === "" ? ("color" in value || "textColor" in value ? sharedColor : defaultSettings.timerColor) : savedTimerColor;
+  const legacyClockPosition = {
+    x: numberValue(savedClockDatePosition.x, defaultSettings.clockDatePosition.x, .06, .94),
+    y: numberValue(savedClockDatePosition.y, defaultSettings.clockDatePosition.y, .08, .92)
+  };
+  const legacyClockBackgroundSettings: ClockBackgroundSettings = {};
+  if (isLegacyLayout || !("clockBackgroundSettings" in value)) {
+    const ids = new Set<string>(["bg1", "bg2", "bg3"]);
+    if (isBackgroundChoice(value.backgroundChoice) && value.backgroundChoice !== "slideshow") ids.add(value.backgroundChoice);
+    if (isRecord(value.backgroundFrames)) Object.keys(value.backgroundFrames).forEach((id) => {
+      if (isBackgroundChoice(id) && id !== "slideshow") ids.add(id);
+    });
+    ids.forEach((id) => { legacyClockBackgroundSettings[id] = { position: legacyClockPosition, color: savedClockColor }; });
+  }
+  const clockBackgroundSettings = readClockBackgroundSettings(value.clockBackgroundSettings, { position: legacyClockPosition, color: savedClockColor });
 
   return {
-    version: 1,
-    uiRevision: 3,
+    version: 2,
+    uiRevision: 4,
     showClock: booleanValue(value.showClock, defaultSettings.showClock),
     showDate: booleanValue(value.showDate, defaultSettings.showDate),
     showTimer: booleanValue(value.showTimer, defaultSettings.showTimer),
@@ -66,7 +96,7 @@ export function migrateSettings(value: unknown): AppSettings {
       : defaultSettings.fontFamily,
     colorPreset: isColorPreset(value.colorPreset) ? value.colorPreset : defaultSettings.colorPreset,
     clockColor: isLegacyTheme && savedClockColor.toLowerCase() === "#f8fafc" ? defaultSettings.clockColor : savedClockColor,
-    timerColor: savedTimerColor,
+    timerColor: resolvedTimerColor,
     matchBackgroundColors: booleanValue(value.matchBackgroundColors, defaultSettings.matchBackgroundColors),
     overlayOpacity: isLegacyTheme && value.overlayOpacity === 0.42
       ? defaultSettings.overlayOpacity
@@ -77,15 +107,13 @@ export function migrateSettings(value: unknown): AppSettings {
       y: numberValue(savedBackgroundPosition.y, defaultSettings.backgroundPosition.y, 0, 1)
     },
     backgroundFrames: readBackgroundFrames(value.backgroundFrames),
+    clockBackgroundSettings: Object.keys(clockBackgroundSettings).length > 0 ? clockBackgroundSettings : legacyClockBackgroundSettings,
     slideshowIntervalSec: numberValue(value.slideshowIntervalSec, defaultSettings.slideshowIntervalSec, 10, 600),
     backgroundChoice: isBackgroundChoice(value.backgroundChoice) ? value.backgroundChoice : defaultSettings.backgroundChoice,
     clockPosition: isLegacyLayout ? defaultSettings.clockPosition : isPosition(value.clockPosition) ? value.clockPosition : defaultSettings.clockPosition,
     datePosition: isLegacyLayout ? defaultSettings.datePosition : isPosition(value.datePosition) ? value.datePosition : defaultSettings.datePosition,
     timerPosition: isPosition(value.timerPosition) ? value.timerPosition : defaultSettings.timerPosition,
-    clockDatePosition: isLegacyLayout ? defaultSettings.clockDatePosition : {
-      x: numberValue(savedClockDatePosition.x, defaultSettings.clockDatePosition.x, .06, .94),
-      y: numberValue(savedClockDatePosition.y, defaultSettings.clockDatePosition.y, .08, .92)
-    },
+    clockDatePosition: legacyClockPosition,
     clockDateAlignment: isLegacyLayout ? defaultSettings.clockDateAlignment : isAlignment(value.clockDateAlignment) ? value.clockDateAlignment : defaultSettings.clockDateAlignment,
     workMinutes: numberValue(value.workMinutes, defaultSettings.workMinutes, 1, 180),
     shortBreakMinutes: numberValue(value.shortBreakMinutes, defaultSettings.shortBreakMinutes, 1, 60),

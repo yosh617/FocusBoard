@@ -69,6 +69,31 @@ describe("settings storage", () => {
     expect(result.timerColor).toBe("#aabbcc");
   });
 
+  it("migrates the old shared color and clock position into each known background", () => {
+    const legacy = {
+      version: 1,
+      uiRevision: 3,
+      textColor: "#112233",
+      clockDatePosition: { x: .2, y: .8 },
+      timerPosition: "top-right"
+    };
+    const result = migrateSettings(legacy);
+    expect(result.version).toBe(2);
+    expect(result.clockColor).toBe("#112233");
+    expect(result.timerColor).toBe("#112233");
+    expect(result.matchBackgroundColors).toBe(false);
+    expect(result.clockBackgroundSettings.bg1).toEqual({ position: { x: .2, y: .8 }, color: "#112233" });
+    expect(result.clockBackgroundSettings.bg3).toEqual({ position: { x: .2, y: .8 }, color: "#112233" });
+    expect(result.timerPosition).toBe("top-right");
+  });
+
+  it("preserves the shared auto-color switch while migrating", () => {
+    const result = migrateSettings({ version: 1, uiRevision: 3, matchBackgroundColors: true, textColor: "#445566" });
+    expect(result.matchBackgroundColors).toBe(true);
+    expect(result.clockBackgroundSettings.bg2.color).toBe("#445566");
+    expect(result.timerColor).toBe("#445566");
+  });
+
   it("migrates legacy layouts and validates free clock positions", () => {
     const legacy = migrateSettings({ ...defaultSettings, uiRevision: 2 });
     expect(legacy.clockDatePosition).toEqual(defaultSettings.clockDatePosition);

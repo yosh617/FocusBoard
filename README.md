@@ -72,7 +72,7 @@ Actionsではリポジトリ名から`VITE_BASE_PATH`を設定するため、Pro
 
 ## 保存と初期化
 
-設定は`focusboard:settings`、タイマーは`focusboard:timer`としてlocalStorageへ保存します。アップロードした背景画像は`focusboard-backgrounds`というIndexedDBへ端末内保存します。設定データはversionを持ち、不正データや保存機能が利用できない場合も初期値で起動します。
+設定は`focusboard:settings`、タイマーは`focusboard:timer`としてlocalStorageへ保存します。アップロードした背景画像は`focusboard-backgrounds`というIndexedDBへ端末内保存します。時計・日付の色と位置は背景ファイルIDごと、タイマーの色と開始前位置は共通設定として保存します。設定データはversionを持ち、不正データや保存機能が利用できない場合も初期値で起動します。旧設定の共有色と自動調整状態は、新しい時計・タイマー設定へ移行されます。
 
 設定のエクスポートは「設定 → データ管理」から実行できます。出力ファイルには時計・背景・タイマーなどの設定だけが含まれ、端末内の背景画像ファイルと進行中のタイマー状態は含まれません。
 

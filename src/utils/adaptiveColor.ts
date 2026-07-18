@@ -1,5 +1,6 @@
 export type Rgb = { r: number; g: number; b: number };
 export type ImageSampleRegion = { x: number; y: number; width: number; height: number };
+export type ImageColorProfile = { average: Rgb; samples: Rgb[] };
 
 export type AdaptivePalette = {
   text: string;
@@ -79,6 +80,15 @@ export function getReadableTextColor(background: Rgb) {
   return contrastRatio(background, blackText) >= contrastRatio(background, whiteText) ? "#000000" : "#ffffff";
 }
 
+export function getReadableTextColorFromSamples(samples: Rgb[]) {
+  if (!samples.length) return getReadableTextColor(fallbackBackgroundRgb);
+  const score = (candidate: Rgb) => samples.reduce((total, sample) => total + contrastRatio(sample, candidate), 0) / samples.length;
+  const darkScore = score(darkText);
+  const lightScore = score(lightText);
+  if (Math.max(darkScore, lightScore) >= 4.5) return darkScore >= lightScore ? "#122a4c" : "#f7fbff";
+  return score(blackText) >= score(whiteText) ? "#000000" : "#ffffff";
+}
+
 export function getStrongAccent(accent: string) {
   const source = hexToRgb(accent);
   if (!source) return "#315f98";
@@ -113,7 +123,28 @@ export function getAdaptivePalette(source: Rgb, overlayOpacity: number): Adaptiv
   };
 }
 
-export function sampleImageRgb(image: HTMLImageElement, region?: ImageSampleRegion): Rgb | null {
+export function getAdaptivePaletteFromSamples(samples: Rgb[], overlayOpacity: number): AdaptivePalette {
+  if (!samples.length) return getAdaptivePalette(fallbackBackgroundRgb, overlayOpacity);
+  const source = samples.reduce((total, sample) => ({
+    r: total.r + sample.r / samples.length,
+    g: total.g + sample.g / samples.length,
+    b: total.b + sample.b / samples.length
+  }), { r: 0, g: 0, b: 0 });
+  const opacity = clamp(overlayOpacity, 0, .85);
+  const overlay: Rgb = { r: 241, g: 247, b: 255 };
+  const overlaidSamples = samples.map((sample) => ({
+    r: sample.r * (1 - opacity) + overlay.r * opacity,
+    g: sample.g * (1 - opacity) + overlay.g * opacity,
+    b: sample.b * (1 - opacity) + overlay.b * opacity
+  }));
+  return {
+    text: getReadableTextColorFromSamples(overlaidSamples),
+    accent: hslToHex(rgbToHue(source), 88, 61),
+    accentStrong: hslToHex(rgbToHue(source), 72, 39)
+  };
+}
+
+export function sampleImageColorProfile(image: HTMLImageElement, region?: ImageSampleRegion): ImageColorProfile | null {
   if (!image.naturalWidth || !image.naturalHeight) return null;
   try {
     const canvas = document.createElement("canvas");
@@ -131,16 +162,23 @@ export function sampleImageRgb(image: HTMLImageElement, region?: ImageSampleRegi
     let green = 0;
     let blue = 0;
     let weight = 0;
+    const samples: Rgb[] = [];
     for (let index = 0; index < pixels.length; index += 4) {
       const alpha = pixels[index + 3] / 255;
       if (alpha < .08) continue;
-      red += pixels[index] * alpha;
-      green += pixels[index + 1] * alpha;
-      blue += pixels[index + 2] * alpha;
+      const sample = { r: pixels[index], g: pixels[index + 1], b: pixels[index + 2] };
+      samples.push(sample);
+      red += sample.r * alpha;
+      green += sample.g * alpha;
+      blue += sample.b * alpha;
       weight += alpha;
     }
-    return weight ? { r: red / weight, g: green / weight, b: blue / weight } : null;
+    return weight ? { average: { r: red / weight, g: green / weight, b: blue / weight }, samples } : null;
   } catch {
     return null;
   }
+}
+
+export function sampleImageRgb(image: HTMLImageElement, region?: ImageSampleRegion): Rgb | null {
+  return sampleImageColorProfile(image, region)?.average ?? null;
 }

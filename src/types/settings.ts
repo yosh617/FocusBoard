@@ -15,6 +15,8 @@ export type ClockDateAlignment = "left" | "center" | "right";
 export type FreePosition = { x: number; y: number };
 export type BackgroundFrame = { scale: number; position: FreePosition };
 export type BackgroundFrames = Record<string, BackgroundFrame>;
+export type ClockBackgroundSetting = { position: FreePosition; color: string };
+export type ClockBackgroundSettings = Record<string, ClockBackgroundSetting>;
 export type DateFormat = string;
 
 export const dateFormatPresets = [
@@ -49,8 +51,8 @@ export const colorPresets = {
 export type ColorPreset = keyof typeof colorPresets | "custom";
 
 export type AppSettings = {
-  version: 1;
-  uiRevision: 3;
+  version: 2;
+  uiRevision: 4;
   showClock: boolean;
   showDate: boolean;
   showTimer: boolean;
@@ -72,6 +74,7 @@ export type AppSettings = {
   backgroundScale: number;
   backgroundPosition: FreePosition;
   backgroundFrames: BackgroundFrames;
+  clockBackgroundSettings: ClockBackgroundSettings;
   slideshowIntervalSec: number;
   backgroundChoice: BackgroundChoice;
   clockPosition: PositionPreset;
@@ -99,8 +102,8 @@ export const settingRanges = {
 } as const;
 
 export const defaultSettings: AppSettings = {
-  version: 1,
-  uiRevision: 3,
+  version: 2,
+  uiRevision: 4,
   showClock: true,
   showDate: true,
   showTimer: true,
@@ -122,6 +125,7 @@ export const defaultSettings: AppSettings = {
   backgroundScale: 100,
   backgroundPosition: { x: 0.5, y: 0.5 },
   backgroundFrames: {},
+  clockBackgroundSettings: {},
   slideshowIntervalSec: 60,
   backgroundChoice: "slideshow",
   clockPosition: "bottom-left",

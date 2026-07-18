@@ -1,6 +1,8 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { defaultSettings } from "./types/settings";
+import { SETTINGS_KEY } from "./utils/storage";
 
 describe("App", () => {
   beforeEach(() => localStorage.clear());
@@ -214,6 +216,42 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("tab", { name: "時計と日付" }));
     expect((screen.getByLabelText("時計・日付の色") as HTMLInputElement).disabled).toBe(true);
     expect(adaptiveToggle.checked).toBe(true);
+  });
+
+  it("disables both manual color inputs with the shared adaptive switch", () => {
+    render(<App />);
+    revealSettings();
+    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    fireEvent.click(screen.getByLabelText("背景に合わせて自動調整"));
+    fireEvent.click(screen.getByRole("tab", { name: "時計と日付" }));
+    expect((screen.getByLabelText("時計・日付の色") as HTMLInputElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("tab", { name: "タイマー" }));
+    expect((screen.getByLabelText("タイマーのアクセント色") as HTMLInputElement).disabled).toBe(true);
+  });
+
+  it("restores clock position and manual color for each background without moving the timer", () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+      ...defaultSettings,
+      backgroundChoice: "bg1",
+      timerPosition: "top-right",
+      clockBackgroundSettings: {
+        bg1: { position: { x: .06, y: .22 }, color: "#112233" },
+        bg2: { position: { x: .1, y: .68 }, color: "#aabbcc" }
+      }
+    }));
+    render(<App />);
+    expect(document.querySelector<HTMLElement>(".clock-widget")?.style.left).toBe("6%");
+    expect(screen.getByRole("button", { name: "時計とカレンダーの表示設定を開く" }).style.color).toBe("rgb(17, 34, 51)");
+    expect(document.querySelector(".slot--top-right .timer-setup")).not.toBeNull();
+
+    revealSettings();
+    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    fireEvent.click(screen.getByRole("tab", { name: "背景" }));
+    fireEvent.click(screen.getByRole("radio", { name: "ラベンダー" }));
+    expect(document.querySelector<HTMLElement>(".clock-widget")?.style.left).toBe("10%");
+    expect(document.querySelector<HTMLElement>(".clock-widget")?.style.top).toBe("68%");
+    expect(screen.getByRole("button", { name: "時計とカレンダーの表示設定を開く" }).style.color).toBe("rgb(170, 187, 204)");
+    expect(document.querySelector(".slot--top-right .timer-setup")).not.toBeNull();
   });
 
   it("applies the selected theme color to the clock and date", () => {

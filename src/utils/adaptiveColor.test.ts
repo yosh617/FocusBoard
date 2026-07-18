@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { getAdaptivePalette, getReadableTextColor, getStrongAccent, sampleImageRgb } from "./adaptiveColor";
+import { getAdaptivePalette, getAdaptivePaletteFromSamples, getReadableTextColor, getReadableTextColorFromSamples, getStrongAccent, sampleImageRgb } from "./adaptiveColor";
 
 describe("adaptive background palette", () => {
   it("chooses dark text for a light background", () => {
@@ -8,6 +8,15 @@ describe("adaptive background palette", () => {
 
   it("chooses light text for a dark background", () => {
     expect(getAdaptivePalette({ r: 12, g: 20, b: 35 }, 0).text).toBe("#f7fbff");
+  });
+
+  it("evaluates the whole display region when the background has mixed brightness", () => {
+    const samples = [
+      ...Array.from({ length: 7 }, () => ({ r: 12, g: 20, b: 35 })),
+      ...Array.from({ length: 3 }, () => ({ r: 242, g: 245, b: 250 }))
+    ];
+    expect(getReadableTextColorFromSamples(samples)).toBe("#f7fbff");
+    expect(getAdaptivePaletteFromSamples(samples, 0).text).toBe("#f7fbff");
   });
 
   it("falls back to a stronger neutral when neither theme text color is readable enough", () => {

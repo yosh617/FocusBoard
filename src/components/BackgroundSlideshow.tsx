@@ -2,7 +2,7 @@ import { memo, useEffect, useMemo, useRef, useState, type KeyboardEvent, type Po
 import type { BackgroundChoice, BackgroundFrame, BackgroundFrames, FreePosition } from "../types/settings";
 import type { CustomBackground } from "../utils/backgroundStorage";
 import { getBackgroundImageLayout } from "../utils/backgroundFrame";
-import { fallbackBackgroundRgb, getAdaptivePalette, sampleImageRgb, type AdaptivePalette, type ImageSampleRegion } from "../utils/adaptiveColor";
+import { fallbackBackgroundRgb, getAdaptivePaletteFromSamples, sampleImageColorProfile, type AdaptivePalette, type ImageSampleRegion, type Rgb } from "../utils/adaptiveColor";
 
 export const defaultBackgrounds = ["backgrounds/bg1.svg", "backgrounds/bg2.svg", "backgrounds/bg3.svg"];
 
@@ -12,6 +12,12 @@ type Props = {
   backgroundChoice: BackgroundChoice;
   customBackgrounds: CustomBackground[];
   clockPosition?: FreePosition;
+  clockFontSize?: number;
+  dateFontSize?: number;
+  showClock?: boolean;
+  showDate?: boolean;
+  showSeconds?: boolean;
+  dateFormat?: string;
   backgroundPosition?: FreePosition;
   backgroundScale?: number;
   backgroundFrames?: BackgroundFrames;
@@ -19,6 +25,7 @@ type Props = {
   onEditModeChange?: (editing: boolean) => void;
   onFrameChange?: (backgroundId: string, position: FreePosition, scale: number) => void;
   onPaletteChange?: (palette: AdaptivePalette) => void;
+  onActiveBackgroundChange?: (backgroundId: string) => void;
 };
 
 const defaultClockPosition: FreePosition = { x: .06, y: .74 };
@@ -46,26 +53,32 @@ function getFocusedSampleRegion(
   width: number,
   height: number,
   clockPosition: FreePosition,
-  frame: BackgroundFrame
+  frame: BackgroundFrame,
+  clockFontSize: number,
+  dateFontSize: number,
+  showClock: boolean,
+  showDate: boolean
 ): ImageSampleRegion {
   const layout = getBackgroundImageLayout(image.naturalWidth, image.naturalHeight, width, height, frame);
   if (!layout) return { x: 0, y: 0, width: image.naturalWidth, height: image.naturalHeight };
   const imageScale = layout.width / image.naturalWidth;
   const imageX = (clockPosition.x * width - layout.left) / imageScale;
   const imageY = (clockPosition.y * height - layout.top) / imageScale;
-  const sampleWidth = Math.max(1, width * .16 / imageScale);
-  const sampleHeight = Math.max(1, height * .16 / imageScale);
+  const displayWidth = Math.max(width * .16, showClock ? clockFontSize * 4.2 : 0, showDate ? dateFontSize * 12 : 0);
+  const displayHeight = Math.max(height * .16, (showClock ? clockFontSize : 0) + (showDate ? dateFontSize : 0) * 1.8);
+  const sampleWidth = Math.max(1, displayWidth / imageScale);
+  const sampleHeight = Math.max(1, displayHeight / imageScale);
   return { x: imageX - sampleWidth / 2, y: imageY - sampleHeight / 2, width: sampleWidth, height: sampleHeight };
 }
 
-function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundChoice, customBackgrounds, clockPosition = defaultClockPosition, backgroundPosition = defaultBackgroundPosition, backgroundScale = minBackgroundScale, backgroundFrames = {}, editing = false, onEditModeChange, onFrameChange, onPaletteChange }: Props) {
+function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundChoice, customBackgrounds, clockPosition = defaultClockPosition, clockFontSize = 104, dateFontSize = 20, showClock = true, showDate = true, showSeconds = false, dateFormat = "", backgroundPosition = defaultBackgroundPosition, backgroundScale = minBackgroundScale, backgroundFrames = {}, editing = false, onEditModeChange, onFrameChange, onPaletteChange, onActiveBackgroundChange }: Props) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [failed, setFailed] = useState<Set<string>>(() => new Set());
   const [imageRevision, setImageRevision] = useState(0);
   const [viewportRevision, setViewportRevision] = useState(0);
   const [gestureActive, setGestureActive] = useState(false);
   const [draftFrame, setDraftFrame] = useState<DraftFrame | null>(null);
-  const [selectedColor, setSelectedColor] = useState(fallbackBackgroundRgb);
+  const [selectedSamples, setSelectedSamples] = useState<Rgb[]>([fallbackBackgroundRgb]);
   const backgroundRef = useRef<HTMLDivElement>(null);
   const gestureAreaRef = useRef<HTMLDivElement>(null);
   const imageRefs = useRef<Record<string, HTMLImageElement>>({});
@@ -142,6 +155,8 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
   const persistedSelectedFrame = getPersistedFrame(selectedId);
   const selectedFrame = draftFrame?.id === selectedId ? draftFrame : persistedSelectedFrame;
 
+  useEffect(() => onActiveBackgroundChange?.(selectedId), [onActiveBackgroundChange, selectedId]);
+
   useEffect(() => {
     if (frameAnimationRef.current !== null) window.cancelAnimationFrame(frameAnimationRef.current);
     frameAnimationRef.current = null;
@@ -155,18 +170,19 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
       const image = imageRefs.current[selectedId];
       const bounds = backgroundRef.current?.getBoundingClientRect();
       if (!image || !bounds?.width || !bounds.height) {
-        setSelectedColor(fallbackBackgroundRgb);
+        setSelectedSamples([fallbackBackgroundRgb]);
         return;
       }
-      const region = getFocusedSampleRegion(image, bounds.width, bounds.height, clockPosition, persistedSelectedFrame);
-      setSelectedColor(sampleImageRgb(image, region) ?? fallbackBackgroundRgb);
+      const region = getFocusedSampleRegion(image, bounds.width, bounds.height, clockPosition, persistedSelectedFrame, clockFontSize, dateFontSize, showClock, showDate);
+      const profile = sampleImageColorProfile(image, region);
+      setSelectedSamples(profile?.samples.length ? profile.samples : [fallbackBackgroundRgb]);
     });
     return () => window.cancelAnimationFrame(animation);
-  }, [editing, selectedId, imageRevision, viewportRevision, clockPosition.x, clockPosition.y, persistedSelectedFrame.position.x, persistedSelectedFrame.position.y, persistedSelectedFrame.scale]);
+  }, [editing, selectedId, imageRevision, viewportRevision, clockPosition.x, clockPosition.y, persistedSelectedFrame.position.x, persistedSelectedFrame.position.y, persistedSelectedFrame.scale, clockFontSize, dateFontSize, showClock, showDate, showSeconds, dateFormat]);
 
   const palette = useMemo(
-    () => getAdaptivePalette(selectedColor, overlayOpacity),
-    [selectedColor, overlayOpacity]
+    () => getAdaptivePaletteFromSamples(selectedSamples, overlayOpacity),
+    [selectedSamples, overlayOpacity]
   );
 
   useEffect(() => onPaletteChange?.(palette), [onPaletteChange, palette]);
