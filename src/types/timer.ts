@@ -9,7 +9,7 @@ export type FloatingPosition = {
 };
 
 export type TimerState = {
-  version: 2;
+  version: 3;
   program: TimerProgram;
   mode: TimerMode;
   category: SessionCategory;
@@ -20,4 +20,19 @@ export type TimerState = {
   endAt: number | null;
   completedWorkSessions: number;
   floatingPosition: FloatingPosition;
+  activeTaskId: string | null;
+  activeSessionId: string | null;
+  sessionStartedAt: number | null;
+};
+
+export type TimerSessionEvent = {
+  id: string;
+  taskId: string | null;
+  program: TimerProgram;
+  mode: TimerMode;
+  result: "completed" | "cancelled";
+  startedAt: number;
+  endedAt: number;
+  plannedDurationMs: number;
+  focusedDurationMs: number;
 };

@@ -1,6 +1,38 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+
+vi.mock("./hooks/useTasks", () => ({
+  useTasks: () => ({
+    tasks: [],
+    projects: [],
+    sessions: [],
+    loading: false,
+    storageAvailable: true,
+    taskMessage: "",
+    setTaskMessage: vi.fn(),
+    canUndo: false,
+    addTask: vi.fn().mockResolvedValue(true),
+    updateTask: vi.fn().mockResolvedValue(true),
+    toggleTask: vi.fn().mockResolvedValue(true),
+    archiveTask: vi.fn().mockResolvedValue(true),
+    moveTask: vi.fn().mockResolvedValue(true),
+    addProject: vi.fn().mockResolvedValue(true),
+    archiveProject: vi.fn().mockResolvedValue(true),
+    undo: vi.fn().mockResolvedValue(true),
+    recordTimerSession: vi.fn(),
+    importProductivityBackup: vi.fn().mockResolvedValue(true)
+  })
+}));
+
+vi.mock("./hooks/useTaskReminders", () => ({
+  useTaskReminders: () => ({
+    reminderMessage: "",
+    setReminderMessage: vi.fn(),
+    notificationPermission: "unsupported",
+    requestNotificationPermission: vi.fn().mockResolvedValue(false)
+  })
+}));
 
 describe("App", () => {
   beforeEach(() => localStorage.clear());
@@ -147,5 +179,15 @@ describe("App", () => {
     expect(screen.queryByRole("button", { name: "設定" })).toBeNull();
     revealSettings();
     expect(screen.getByRole("button", { name: "設定" })).toBeTruthy();
+  });
+
+  it("opens the task workspace from a persistent touch-sized launcher", async () => {
+    render(<App />);
+    const launcher = screen.getByRole("button", { name: /タスクを開く/ });
+    fireEvent.click(launcher);
+    expect(screen.getByRole("dialog", { name: "タスク" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "タスクを閉じる" }));
+    expect(screen.queryByRole("dialog", { name: "タスク" })).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(launcher));
   });
 });

@@ -72,4 +72,32 @@ describe("usePomodoroTimer", () => {
     act(() => result.current.setFloatingPosition({ x: 0.2, y: 0.7 }));
     expect(result.current.timer.floatingPosition).toEqual({ x: 0.2, y: 0.7 });
   });
+
+  it("links a task to a completed work session and emits it once", async () => {
+    const onSessionEnd = vi.fn();
+    const settings = { ...defaultSettings, workMinutes: 1, soundEnabled: false };
+    const { result } = renderHook(() => usePomodoroTimer(settings, onSessionEnd));
+    act(() => result.current.start("task-1"));
+    expect(result.current.timer).toMatchObject({ activeTaskId: "task-1", status: "running" });
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_250); });
+    expect(onSessionEnd).toHaveBeenCalledTimes(1);
+    expect(onSessionEnd).toHaveBeenCalledWith(expect.objectContaining({
+      taskId: "task-1",
+      mode: "work",
+      result: "completed",
+      plannedDurationMs: 60_000,
+      focusedDurationMs: 60_000
+    }));
+    expect(result.current.timer).toMatchObject({ mode: "shortBreak", activeTaskId: "task-1", activeSessionId: null });
+  });
+
+  it("records a reset running session as cancelled", () => {
+    const onSessionEnd = vi.fn();
+    const { result } = renderHook(() => usePomodoroTimer({ ...defaultSettings, soundEnabled: false }, onSessionEnd));
+    act(() => result.current.start("task-1"));
+    act(() => vi.advanceTimersByTime(5_000));
+    act(() => result.current.reset());
+    expect(onSessionEnd).toHaveBeenCalledWith(expect.objectContaining({ taskId: "task-1", result: "cancelled", focusedDurationMs: 5_000 }));
+    expect(result.current.timer).toMatchObject({ status: "idle", activeTaskId: null, activeSessionId: null });
+  });
 });

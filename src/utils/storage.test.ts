@@ -80,4 +80,52 @@ describe("timer storage", () => {
     }));
     expect(loadTimerState(25).status).toBe("paused");
   });
+
+  it("migrates version 2 timers to task-aware version 3 without losing elapsed state", () => {
+    localStorage.setItem(TIMER_KEY, JSON.stringify({
+      version: 2,
+      program: "countdown",
+      mode: "work",
+      category: "focus",
+      status: "paused",
+      durationMs: 600_000,
+      customDurationMs: 600_000,
+      remainingMs: 420_000,
+      endAt: null,
+      completedWorkSessions: 2,
+      floatingPosition: { x: .3, y: .4 }
+    }));
+    expect(loadTimerState(25)).toMatchObject({
+      version: 3,
+      program: "countdown",
+      remainingMs: 420_000,
+      completedWorkSessions: 2,
+      activeTaskId: null,
+      activeSessionId: null,
+      sessionStartedAt: null
+    });
+  });
+
+  it("keeps a valid active task session and drops incomplete session metadata", () => {
+    const base = {
+      version: 3,
+      program: "pomodoro",
+      mode: "work",
+      category: "focus",
+      status: "paused",
+      durationMs: 1_500_000,
+      customDurationMs: 1_800_000,
+      remainingMs: 1_200_000,
+      endAt: null,
+      completedWorkSessions: 0,
+      floatingPosition: { x: .3, y: .4 },
+      activeTaskId: "task-1",
+      activeSessionId: "session-1",
+      sessionStartedAt: 100
+    };
+    localStorage.setItem(TIMER_KEY, JSON.stringify(base));
+    expect(loadTimerState(25)).toMatchObject({ activeTaskId: "task-1", activeSessionId: "session-1", sessionStartedAt: 100 });
+    localStorage.setItem(TIMER_KEY, JSON.stringify({ ...base, sessionStartedAt: null }));
+    expect(loadTimerState(25)).toMatchObject({ activeTaskId: "task-1", activeSessionId: null, sessionStartedAt: null });
+  });
 });

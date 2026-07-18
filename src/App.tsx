@@ -4,16 +4,49 @@ import { ClockWidget } from "./components/ClockWidget";
 import { PomodoroTimer } from "./components/PomodoroTimer";
 import { FloatingTimer } from "./components/FloatingTimer";
 import { SettingsPanel } from "./components/SettingsPanel";
+import { TaskDrawer } from "./components/tasks/TaskDrawer";
+import { TaskLauncher } from "./components/tasks/TaskLauncher";
+import { SessionCompleteDialog } from "./components/tasks/SessionCompleteDialog";
 import { useClock } from "./hooks/useClock";
 import { useLocalStorageSettings } from "./hooks/useLocalStorageSettings";
 import { usePomodoroTimer } from "./hooks/usePomodoroTimer";
 import { useCustomBackgrounds } from "./hooks/useCustomBackgrounds";
 import { useFullscreen } from "./hooks/useFullscreen";
+import { useTasks } from "./hooks/useTasks";
+import { useTaskReminders } from "./hooks/useTaskReminders";
 import { colorPresets, fontOptions, positionPresets, type PositionPreset } from "./types/settings";
+import type { TimerSessionEvent } from "./types/timer";
 import { getAdaptivePalette, fallbackBackgroundRgb, getStrongAccent, type AdaptivePalette } from "./utils/adaptiveColor";
+import { toLocalDateKey } from "./utils/taskQueries";
 
 export default function App() {
   const { settings, updateSettings, undoSettings, resetSettings, storageMessage, setStorageMessage, saveState } = useLocalStorageSettings();
+  const {
+    tasks,
+    projects,
+    sessions,
+    loading: tasksLoading,
+    storageAvailable: taskStorageAvailable,
+    taskMessage,
+    setTaskMessage,
+    canUndo: canUndoTask,
+    addTask,
+    updateTask,
+    toggleTask,
+    archiveTask,
+    moveTask,
+    addProject,
+    archiveProject,
+    undo: undoTask,
+    recordTimerSession,
+    importProductivityBackup
+  } = useTasks();
+  const { reminderMessage, setReminderMessage, notificationPermission, requestNotificationPermission } = useTaskReminders(tasks);
+  const [completedSession, setCompletedSession] = useState<TimerSessionEvent | null>(null);
+  const handleSessionEnd = useCallback((event: TimerSessionEvent) => {
+    recordTimerSession(event);
+    if (event.result === "completed" && event.mode === "work" && event.taskId) setCompletedSession(event);
+  }, [recordTimerSession]);
   const {
     timer,
     announcement,
@@ -27,16 +60,30 @@ export default function App() {
     setCustomDurationMinutes,
     setFloatingPosition,
     clearTimer
-  } = usePomodoroTimer(settings);
+  } = usePomodoroTimer(settings, handleSessionEnd);
   const { backgrounds, addBackgrounds, removeBackground, reorderBackgrounds, backgroundMessage, setBackgroundMessage } = useCustomBackgrounds();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [tasksOpen, setTasksOpen] = useState(false);
   const [settingsLauncherVisible, setSettingsLauncherVisible] = useState(false);
   const [adaptivePalette, setAdaptivePalette] = useState<AdaptivePalette>(() => getAdaptivePalette(fallbackBackgroundRgb, settings.overlayOpacity));
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
+  const taskLauncherRef = useRef<HTMLButtonElement>(null);
   const settingsLauncherTimeoutRef = useRef<number | null>(null);
   const now = useClock(settings.showSeconds);
+  const todayKey = toLocalDateKey(now);
+  const activeTask = timer.activeTaskId ? tasks.find((task) => task.id === timer.activeTaskId) ?? null : null;
+  const completedTask = completedSession?.taskId ? tasks.find((task) => task.id === completedSession.taskId) ?? null : null;
 
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
+  const closeTasks = useCallback(() => {
+    setTasksOpen(false);
+    window.setTimeout(() => taskLauncherRef.current?.focus(), 0);
+  }, []);
+  const startTask = useCallback((taskId: string) => {
+    setTaskMessage("");
+    start(taskId);
+    setTasksOpen(false);
+  }, [setTaskMessage, start]);
   const hideSettingsLauncher = useCallback(() => {
     if (settingsLauncherTimeoutRef.current !== null) window.clearTimeout(settingsLauncherTimeoutRef.current);
     settingsLauncherTimeoutRef.current = null;
@@ -54,7 +101,9 @@ export default function App() {
     setStorageMessage(message);
     setAnnouncement("");
     setBackgroundMessage("");
-  }, [setAnnouncement, setStorageMessage, setBackgroundMessage]);
+    setTaskMessage("");
+    setReminderMessage("");
+  }, [setAnnouncement, setStorageMessage, setBackgroundMessage, setTaskMessage, setReminderMessage]);
   const { isFullscreen, isSupported: fullscreenSupported, setFullscreen } = useFullscreen();
   const handleFullscreenToggle = useCallback(async (enabled: boolean) => {
     const changed = await setFullscreen(enabled);
@@ -87,7 +136,7 @@ export default function App() {
     return slots;
   }, [now, settings, timer, start, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, updateSettings]);
 
-  const liveMessage = backgroundMessage || announcement || storageMessage;
+  const liveMessage = reminderMessage || taskMessage || backgroundMessage || announcement || storageMessage;
   const selectedPalette = settings.colorPreset === "custom"
     ? { text: settings.textColor, accent: settings.accentColor, accentStrong: getStrongAccent(settings.accentColor) }
     : colorPresets[settings.colorPreset];
@@ -106,16 +155,18 @@ export default function App() {
       setAnnouncement("");
       setStorageMessage("");
       setBackgroundMessage("");
+      setTaskMessage("");
+      setReminderMessage("");
     }, 7_000);
     return () => window.clearTimeout(timeout);
-  }, [liveMessage, setAnnouncement, setStorageMessage, setBackgroundMessage]);
+  }, [liveMessage, setAnnouncement, setStorageMessage, setBackgroundMessage, setTaskMessage, setReminderMessage]);
 
   useEffect(() => () => {
     if (settingsLauncherTimeoutRef.current !== null) window.clearTimeout(settingsLauncherTimeoutRef.current);
   }, []);
 
   const handleShellPointerUp = (event: PointerEvent<HTMLElement>) => {
-    if (settingsOpen || !(event.target instanceof Element)) return;
+    if (settingsOpen || tasksOpen || !(event.target instanceof Element)) return;
     const interactiveTarget = event.target.closest("button, input, select, textarea, a, [role='dialog'], .clock-widget, .floating-timer, .timer-card");
     if (!interactiveTarget) showSettingsLauncher();
   };
@@ -146,6 +197,7 @@ export default function App() {
       {settings.showTimer && (timer.status !== "idle" || settings.timerSetupCollapsed) && (
         <FloatingTimer
           timer={timer}
+          taskTitle={activeTask?.title ?? null}
           onStart={start}
           onPause={pause}
           onReset={() => {
@@ -157,6 +209,14 @@ export default function App() {
       )}
 
       {liveMessage && <div className="toast" role="status" aria-live="polite">{liveMessage}</div>}
+      <TaskLauncher
+        todayCount={tasks.filter((task) => task.status === "open" && task.parentTaskId === null && task.dueDate !== null && task.dueDate <= todayKey).length}
+        onClick={() => {
+          setSettingsOpen(false);
+          setTasksOpen(true);
+        }}
+        ref={taskLauncherRef}
+      />
       <button className="visually-hidden settings-reveal-shortcut" type="button" onClick={() => setSettingsOpen(true)}>設定を開く</button>
       {settingsLauncherVisible && (
         <button
@@ -195,6 +255,52 @@ export default function App() {
           if (removed && settings.backgroundChoice === `custom:${id}`) updateSettings({ backgroundChoice: "slideshow" });
         }}
         onReorderBackgrounds={reorderBackgrounds}
+      />
+      <TaskDrawer
+        open={tasksOpen}
+        tasks={tasks}
+        projects={projects}
+        sessions={sessions}
+        loading={tasksLoading}
+        storageAvailable={taskStorageAvailable}
+        canUndo={canUndoTask}
+        onClose={closeTasks}
+        onAddTask={addTask}
+        onUpdateTask={updateTask}
+        onToggleTask={toggleTask}
+        onArchiveTask={archiveTask}
+        onMoveTask={moveTask}
+        onAddProject={addProject}
+        onArchiveProject={archiveProject}
+        onUndo={undoTask}
+        timerStatus={timer.status}
+        activeTaskId={timer.activeTaskId}
+        workMinutes={settings.workMinutes}
+        onStartTask={startTask}
+        notificationPermission={notificationPermission}
+        onRequestNotification={requestNotificationPermission}
+        onImportBackup={importProductivityBackup}
+      />
+      <SessionCompleteDialog
+        open={completedSession !== null && completedTask !== null}
+        taskTitle={completedTask?.title ?? "タスク"}
+        onStartBreak={() => {
+          setCompletedSession(null);
+          start();
+        }}
+        onContinueTask={() => {
+          const taskId = completedSession?.taskId;
+          setCompletedSession(null);
+          if (!taskId) return;
+          selectMode("work");
+          start(taskId);
+        }}
+        onCompleteTask={() => {
+          const task = completedTask;
+          setCompletedSession(null);
+          if (task?.status === "open") void toggleTask(task.id);
+        }}
+        onClose={() => setCompletedSession(null)}
       />
     </main>
   );

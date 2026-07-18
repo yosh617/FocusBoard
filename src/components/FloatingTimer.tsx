@@ -4,6 +4,7 @@ import { formatDuration, modeLabels } from "../utils/time";
 
 type Props = {
   timer: TimerState;
+  taskTitle: string | null;
   onStart: () => void;
   onPause: () => void;
   onReset: () => void;
@@ -12,7 +13,7 @@ type Props = {
 
 const programLabels = { pomodoro: "POMODORO", countdown: "COUNTDOWN", countup: "COUNT UP" } as const;
 
-export function FloatingTimer({ timer, onStart, onPause, onReset, onPositionChange }: Props) {
+export function FloatingTimer({ timer, taskTitle, onStart, onPause, onReset, onPositionChange }: Props) {
   const [position, setPosition] = useState(timer.floatingPosition);
   const positionRef = useRef(timer.floatingPosition);
   const dragRef = useRef<{ pointerX: number; pointerY: number; position: FloatingPosition } | null>(null);
@@ -109,6 +110,7 @@ export function FloatingTimer({ timer, onStart, onPause, onReset, onPositionChan
               ? `SESSION ${(timer.completedWorkSessions % 4) + 1} / 4`
               : programLabels[timer.program]}
           </span>
+          {taskTitle && <span className="floating-timer__task" title={taskTitle}>{taskTitle}</span>}
           <span className="floating-timer__session">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 8v4l3 2" /></svg>
             {sessionLabel}

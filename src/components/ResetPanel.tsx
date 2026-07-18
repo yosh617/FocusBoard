@@ -13,7 +13,7 @@ export function ResetPanel({ onResetSettings, onClearTimer, onMessage }: Props) 
   const [busy, setBusy] = useState(false);
 
   const clearEverything = async () => {
-    if (!window.confirm("設定とタイマー状態をすべて削除します。この操作は元に戻せません。続けますか？")) return;
+    if (!window.confirm("設定、タイマー、背景画像、タスク、プロジェクト、集中履歴をすべて削除します。この操作は元に戻せません。続けますか？")) return;
     setBusy(true);
     clearAppLocalData();
     await clearAppIndexedDb().catch(() => undefined);
@@ -56,7 +56,7 @@ export function ResetPanel({ onResetSettings, onClearTimer, onMessage }: Props) 
             <li>「ブックマークを削除」または「Appを削除」を選びます。</li>
             <li>必要であれば、Safariの設定からWebサイトデータも削除します。</li>
           </ol>
-          <p>アプリ内の「すべてのローカルデータを削除」では、保存済みの設定とタイマー状態を初期化できます。</p>
+          <p>アプリ内の「すべてのローカルデータを削除」では、設定、タイマー、背景画像、タスク、プロジェクト、集中履歴を削除できます。</p>
         </div>
       )}
     </section>

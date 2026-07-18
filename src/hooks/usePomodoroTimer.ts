@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AppSettings } from "../types/settings";
-import type { FloatingPosition, SessionCategory, TimerMode, TimerProgram, TimerState } from "../types/timer";
+import type { FloatingPosition, SessionCategory, TimerMode, TimerProgram, TimerSessionEvent, TimerState } from "../types/timer";
 import { createInitialTimerState, loadTimerState, removeTimerState, saveTimerState } from "../utils/storage";
 import { getDurationMs, modeLabels } from "../utils/time";
 
@@ -33,13 +33,34 @@ function playChime() {
 }
 
 const categoryLabel: Record<SessionCategory, string> = { focus: "実施中", break: "休憩" };
+const createId = () => globalThis.crypto?.randomUUID?.() ?? `session-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-export function usePomodoroTimer(settings: AppSettings) {
+export function usePomodoroTimer(settings: AppSettings, onSessionEnd?: (event: TimerSessionEvent) => void) {
   const [timer, setTimer] = useState<TimerState>(() => loadTimerState(settings.workMinutes));
   const [announcement, setAnnouncement] = useState("");
   const settingsRef = useRef(settings);
+  const timerRef = useRef(timer);
   const skipNextSaveRef = useRef(false);
   settingsRef.current = settings;
+  timerRef.current = timer;
+
+  const emitSession = useCallback((current: TimerState, result: TimerSessionEvent["result"], endedAt: number) => {
+    if (!current.activeSessionId || current.sessionStartedAt === null) return;
+    const remainingMs = current.status === "running" && current.endAt !== null
+      ? Math.max(0, current.endAt - endedAt)
+      : current.remainingMs;
+    onSessionEnd?.({
+      id: current.activeSessionId,
+      taskId: current.mode === "work" ? current.activeTaskId : null,
+      program: current.program,
+      mode: current.mode,
+      result,
+      startedAt: current.sessionStartedAt,
+      endedAt,
+      plannedDurationMs: current.durationMs,
+      focusedDurationMs: Math.max(0, Math.min(current.durationMs, current.durationMs - remainingMs))
+    });
+  }, [onSessionEnd]);
 
   useEffect(() => {
     if (skipNextSaveRef.current) {
@@ -72,11 +93,15 @@ export function usePomodoroTimer(settings: AppSettings) {
 
   useEffect(() => {
     if (timer.status !== "completed") return;
+    emitSession(timer, "completed", Date.now());
     if (settingsRef.current.soundEnabled) playChime();
 
     if (timer.program !== "pomodoro") {
       const direction = timer.program === "countup" ? "カウントアップ" : "カウントダウン";
       setAnnouncement(`${categoryLabel[timer.category]}の${direction}が完了しました。`);
+      setTimer((current) => current.activeSessionId === null && current.sessionStartedAt === null
+        ? current
+        : { ...current, activeSessionId: null, sessionStartedAt: null });
       return;
     }
 
@@ -91,24 +116,35 @@ export function usePomodoroTimer(settings: AppSettings) {
     setAnnouncement(`${modeLabels[timer.mode]}が終了しました。次は${modeLabels[nextMode]}です。`);
     setTimer((current) => ({
       ...current,
-      version: 2,
+      version: 3,
       mode: nextMode,
       category: nextMode === "work" ? "focus" : "break",
       status: "paused",
       durationMs,
       remainingMs: durationMs,
       endAt: null,
-      completedWorkSessions
+      completedWorkSessions,
+      activeSessionId: null,
+      sessionStartedAt: null
     }));
-  }, [timer.status, timer.program, timer.mode, timer.category, timer.completedWorkSessions]);
+  }, [emitSession, timer.status, timer.program, timer.mode, timer.category, timer.completedWorkSessions, timer.activeSessionId, timer.sessionStartedAt]);
 
-  const start = useCallback(() => {
+  const start = useCallback((taskId?: string | null) => {
     if (settingsRef.current.soundEnabled) prepareAudio();
     setAnnouncement("");
     setTimer((current) => {
       if (current.status === "running" || current.status === "completed") return current;
       const remainingMs = current.remainingMs > 0 ? current.remainingMs : current.durationMs;
-      return { ...current, status: "running", remainingMs, endAt: Date.now() + remainingMs };
+      const now = Date.now();
+      return {
+        ...current,
+        status: "running",
+        remainingMs,
+        endAt: now + remainingMs,
+        activeTaskId: taskId === undefined ? current.activeTaskId : taskId,
+        activeSessionId: current.activeSessionId ?? createId(),
+        sessionStartedAt: current.sessionStartedAt ?? now
+      };
     });
   }, []);
 
@@ -121,14 +157,16 @@ export function usePomodoroTimer(settings: AppSettings) {
   }, []);
 
   const reset = useCallback(() => {
+    const current = timerRef.current;
+    if (current.activeSessionId) emitSession(current, "cancelled", Date.now());
     setAnnouncement("");
-    setTimer((current) => {
-      const durationMs = current.program === "pomodoro"
-        ? getDurationMs(current.mode, settingsRef.current)
-        : current.customDurationMs;
-      return { ...current, status: "idle", durationMs, remainingMs: durationMs, endAt: null };
+    setTimer((state) => {
+      const durationMs = state.program === "pomodoro"
+        ? getDurationMs(state.mode, settingsRef.current)
+        : state.customDurationMs;
+      return { ...state, status: "idle", durationMs, remainingMs: durationMs, endAt: null, activeTaskId: null, activeSessionId: null, sessionStartedAt: null };
     });
-  }, []);
+  }, [emitSession]);
 
   const selectMode = useCallback((mode: TimerMode) => {
     const durationMs = getDurationMs(mode, settingsRef.current);
@@ -141,7 +179,10 @@ export function usePomodoroTimer(settings: AppSettings) {
       status: "idle",
       durationMs,
       remainingMs: durationMs,
-      endAt: null
+      endAt: null,
+      activeTaskId: null,
+      activeSessionId: null,
+      sessionStartedAt: null
     }));
   }, []);
 
@@ -159,7 +200,10 @@ export function usePomodoroTimer(settings: AppSettings) {
         status: "idle",
         durationMs,
         remainingMs: durationMs,
-        endAt: null
+        endAt: null,
+        activeTaskId: null,
+        activeSessionId: null,
+        sessionStartedAt: null
       };
     });
   }, []);

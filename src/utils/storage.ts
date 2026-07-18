@@ -1,6 +1,8 @@
 import { backgroundChoices, colorPresets, defaultSettings, fontOptions, positionPresets, type AppSettings, type BackgroundChoice, type ClockDateAlignment, type ColorPreset, type PositionPreset } from "../types/settings";
 import type { SessionCategory, TimerMode, TimerProgram, TimerState, TimerStatus } from "../types/timer";
 import { BACKGROUND_DB_NAME } from "./backgroundStorage";
+import { PRODUCTIVITY_DB_NAME } from "./productivityStorage";
+import { isEntityId } from "./taskValidation";
 
 export const SETTINGS_KEY = "focusboard:settings";
 export const TIMER_KEY = "focusboard:timer";
@@ -104,7 +106,7 @@ const sessionCategories: SessionCategory[] = ["focus", "break"];
 export function createInitialTimerState(workMinutes: number): TimerState {
   const durationMs = workMinutes * 60_000;
   return {
-    version: 2,
+    version: 3,
     program: "pomodoro",
     mode: "work",
     category: "focus",
@@ -114,14 +116,17 @@ export function createInitialTimerState(workMinutes: number): TimerState {
     remainingMs: durationMs,
     endAt: null,
     completedWorkSessions: 0,
-    floatingPosition: { x: 0.18, y: 0.38 }
+    floatingPosition: { x: 0.18, y: 0.38 },
+    activeTaskId: null,
+    activeSessionId: null,
+    sessionStartedAt: null
   };
 }
 
 export function loadTimerState(workMinutes: number): TimerState {
   try {
     const parsed: unknown = JSON.parse(localStorage.getItem(TIMER_KEY) ?? "null");
-    if (!isRecord(parsed) || (parsed.version !== 1 && parsed.version !== 2)) return createInitialTimerState(workMinutes);
+    if (!isRecord(parsed) || (parsed.version !== 1 && parsed.version !== 2 && parsed.version !== 3)) return createInitialTimerState(workMinutes);
     if (!timerModes.includes(parsed.mode as TimerMode) || !timerStatuses.includes(parsed.status as TimerStatus)) {
       return createInitialTimerState(workMinutes);
     }
@@ -147,8 +152,15 @@ export function loadTimerState(workMinutes: number): TimerState {
     const category = sessionCategories.includes(parsed.category as SessionCategory) ? parsed.category as SessionCategory : "focus";
     const position = isRecord(parsed.floatingPosition) ? parsed.floatingPosition : {};
     const usesOldDefaultPosition = position.x === 0.84 && position.y === 0.22;
+    const activeTaskId = parsed.version === 3 && isEntityId(parsed.activeTaskId) ? parsed.activeTaskId : null;
+    const savedSessionId = parsed.version === 3 && isEntityId(parsed.activeSessionId) ? parsed.activeSessionId : null;
+    const savedSessionStartedAt = parsed.version === 3 && typeof parsed.sessionStartedAt === "number" && Number.isFinite(parsed.sessionStartedAt) && parsed.sessionStartedAt >= 0
+      ? parsed.sessionStartedAt
+      : null;
+    const activeSessionId = savedSessionId && savedSessionStartedAt !== null ? savedSessionId : null;
+    const sessionStartedAt = activeSessionId ? savedSessionStartedAt : null;
     return {
-      version: 2,
+      version: 3,
       program,
       mode: parsed.mode as TimerMode,
       category,
@@ -161,7 +173,10 @@ export function loadTimerState(workMinutes: number): TimerState {
       floatingPosition: {
         x: usesOldDefaultPosition ? 0.18 : numberValue(position.x, 0.18, 0.06, 0.94),
         y: usesOldDefaultPosition ? 0.38 : numberValue(position.y, 0.38, 0.08, 0.92)
-      }
+      },
+      activeTaskId,
+      activeSessionId,
+      sessionStartedAt
     };
   } catch {
     return createInitialTimerState(workMinutes);
@@ -189,7 +204,7 @@ export function clearAppLocalData() {
 
 export async function clearAppIndexedDb() {
   if (!("indexedDB" in window)) return;
-  const names = new Set<string>([BACKGROUND_DB_NAME]);
+  const names = new Set<string>([BACKGROUND_DB_NAME, PRODUCTIVITY_DB_NAME]);
   if ("databases" in indexedDB) {
     const databases = await indexedDB.databases();
     for (const { name } of databases) if (name?.startsWith("focusboard")) names.add(name);
