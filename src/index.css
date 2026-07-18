@@ -246,6 +246,7 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .color-input:disabled { cursor: not-allowed; filter: grayscale(.7); opacity: .42; }
 .settings-help { margin: 10px 0 0; color: var(--ink-muted); font-size: 13px; line-height: 1.6; }
 .settings-callout { display:grid; gap:4px; padding:14px; margin-top:10px; border:1px solid rgba(63,111,171,.2); border-radius:16px; background:#e7f2ff; }.settings-callout strong { font-size:14px; }.settings-callout span { color:var(--ink-muted); font-size:12px; line-height:1.55; }
+.settings-callout--export { margin-bottom: 18px; }.settings-callout--export button { width: 100%; margin-top: 8px; }.settings-callout--version { background: rgba(255,255,255,.58); }.settings-callout--version span { font-variant-numeric: tabular-nums; }
 .background-help--touch { display: none; }
 .settings-advanced { cursor:pointer; }.settings-advanced summary { color:var(--blue-deep); font-size:16px; font-weight:800; }.settings-advanced__content { padding-top:20px; cursor:default; }.settings-advanced h3 { margin-top:22px; }
 .settings-section--danger { border-bottom: 0; }

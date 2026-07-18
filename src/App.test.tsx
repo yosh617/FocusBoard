@@ -73,6 +73,29 @@ describe("App", () => {
     expect(document.querySelector(".date")?.textContent).toMatch(/^\d{2}\/\d{2} /);
   });
 
+  it("shows the app version and exports settings from data management", () => {
+    const createObjectURL = vi.fn(() => "blob:focusboard-settings");
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: createObjectURL });
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: revokeObjectURL });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    try {
+      render(<App />);
+      revealSettings();
+      fireEvent.click(screen.getByRole("button", { name: "設定" }));
+      fireEvent.click(screen.getByRole("tab", { name: "データ管理" }));
+      expect(screen.getByText(/^バージョン v/)).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "設定をエクスポート" }));
+      expect(createObjectURL).toHaveBeenCalledTimes(1);
+      expect(click).toHaveBeenCalledTimes(1);
+      expect(revokeObjectURL).toHaveBeenCalledWith("blob:focusboard-settings");
+    } finally {
+      click.mockRestore();
+      Reflect.deleteProperty(URL, "createObjectURL");
+      Reflect.deleteProperty(URL, "revokeObjectURL");
+    }
+  });
+
   it("uses the rounded font picker and enables adaptive colors", () => {
     render(<App />);
     revealSettings();

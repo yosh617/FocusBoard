@@ -4,6 +4,8 @@ import type { CustomBackground } from "../utils/backgroundStorage";
 import { MAX_BACKGROUND_FILE_SIZE, MAX_CUSTOM_BACKGROUNDS } from "../utils/backgroundStorage";
 import { defaultBackgrounds } from "./BackgroundSlideshow";
 import { ResetPanel } from "./ResetPanel";
+import { downloadSettingsExport } from "../utils/settingsExport";
+import { appVersion } from "../utils/appVersion";
 
 type Category = "display" | "background" | "clock" | "timer" | "pomodoro" | "accessibility" | "data";
 type Props = {
@@ -44,6 +46,7 @@ export function SettingsPanel({ open, settings, saveState, onChange, onUndo, onC
   if (!open) return null;
   const uploads = async (files: FileList | null) => { if (!files?.length) return; const created = await onAddBackgrounds([...files]); if (created[0]) onChange({ backgroundChoice: `custom:${created[0].id}` }); };
   const resetSection = (patch: Partial<AppSettings>) => { onChange(category === "clock" ? { ...patch, dateFormat: defaultSettings.dateFormat } : patch); onMessage("この項目を初期値に戻しました。"); };
+  const exportSettings = () => { onMessage(downloadSettingsExport(settings) ? "設定をJSONファイルに保存しました。" : "設定をエクスポートできませんでした。"); };
   const customSize = customBackgrounds.reduce((total, item) => total + item.blob.size, 0);
   const move = (index: number, amount: number) => { const next = [...customBackgrounds]; const target = index + amount; if (target < 0 || target >= next.length) return; [next[index], next[target]] = [next[target], next[index]]; void onReorderBackgrounds(next.map((item) => item.id)); };
   const sectionTitle = categories.find((item) => item.id === category)?.label;
@@ -57,7 +60,7 @@ export function SettingsPanel({ open, settings, saveState, onChange, onUndo, onC
       {category === "timer" && <><Range id="timer-size" label="タイマーサイズ" value={settings.timerFontSize} {...settingRanges.timerFontSize} unit="" formatValue={(value) => describeFontSize(value, defaultSettings.timerFontSize, settingRanges.timerFontSize.min, settingRanges.timerFontSize.max)} rangeText="小さめから大きめまで調整できます。" initial={defaultSettings.timerFontSize} onChange={(timerFontSize) => onChange({ timerFontSize })} /><Range id="timer-opacity" label="タイマー背景の不透明度" value={Math.round(settings.timerBackgroundOpacity * 100)} {...settingRanges.timerBackgroundOpacity} initial={Math.round(defaultSettings.timerBackgroundOpacity * 100)} onChange={(value) => onChange({ timerBackgroundOpacity: value / 100 })} /><PositionGrid label="開始前タイマーの配置" value={settings.timerPosition} onChange={(timerPosition) => onChange({ timerPosition })} /></>}
       {category === "pomodoro" && <><Range id="work" label="作業時間" value={settings.workMinutes} {...settingRanges.workMinutes} initial={defaultSettings.workMinutes} onChange={(workMinutes) => onChange({ workMinutes })} /><Range id="short-break" label="短い休憩" value={settings.shortBreakMinutes} {...settingRanges.shortBreakMinutes} initial={defaultSettings.shortBreakMinutes} onChange={(shortBreakMinutes) => onChange({ shortBreakMinutes })} /><Range id="long-break" label="長い休憩" value={settings.longBreakMinutes} {...settingRanges.longBreakMinutes} initial={defaultSettings.longBreakMinutes} onChange={(longBreakMinutes) => onChange({ longBreakMinutes })} /><Toggle id="sound" label="終了音" checked={settings.soundEnabled} onChange={(soundEnabled) => onChange({ soundEnabled })} /></>}
       {category === "accessibility" && <div className="settings-callout"><strong>見やすさと操作性</strong><span>キーボード操作、44px以上の操作領域、フォーカス表示、アニメーション軽減設定を常に適用しています。端末の「視差効果を減らす」設定にも追従します。</span></div>}
-      {category === "data" && <><div className="settings-callout"><strong>設定はこの端末だけに保存</strong><span>背景画像はIndexedDB、設定はLocalStorageへ保存されます。</span></div><button className="secondary-button" type="button" onClick={() => onUndo() ? onMessage("直前の変更を元に戻しました。") : onMessage("元に戻せる変更はありません。")}>直前の変更を元に戻す</button><ResetPanel onResetSettings={onResetSettings} onClearTimer={onClearTimer} onMessage={onMessage} /></>}
+      {category === "data" && <><div className="settings-callout"><strong>設定はこの端末だけに保存</strong><span>背景画像はIndexedDB、設定はLocalStorageへ保存されます。</span></div><div className="settings-callout settings-callout--export"><strong>設定をバックアップ</strong><span>時計・背景・タイマーなどの設定をJSONファイルに保存します。背景画像ファイルと進行中のタイマー状態は含みません。</span><button className="secondary-button" type="button" onClick={exportSettings}>設定をエクスポート</button></div><div className="settings-callout settings-callout--version"><strong>FocusBoard</strong><span>バージョン v{appVersion}</span></div><button className="secondary-button" type="button" onClick={() => onUndo() ? onMessage("直前の変更を元に戻しました。") : onMessage("元に戻せる変更はありません。")}>直前の変更を元に戻す</button><ResetPanel onResetSettings={onResetSettings} onClearTimer={onClearTimer} onMessage={onMessage} /></>}
     </section></div>
   </aside></div>;
 }
