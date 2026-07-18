@@ -61,6 +61,7 @@ export function migrateSettings(value: unknown): AppSettings {
   const savedClockColor = colorValue(value.clockColor, sharedColor);
   const savedTimerColor = colorValue(value.timerColor, colorValue(value.accentColor, ""));
   const resolvedTimerColor = savedTimerColor === "" ? ("color" in value || "textColor" in value ? sharedColor : defaultSettings.timerColor) : savedTimerColor;
+  const legacyAutoColors = booleanValue(value.matchBackgroundColors, defaultSettings.matchBackgroundColors);
   const legacyClockPosition = {
     x: numberValue(savedClockDatePosition.x, defaultSettings.clockDatePosition.x, .06, .94),
     y: numberValue(savedClockDatePosition.y, defaultSettings.clockDatePosition.y, .08, .92)
@@ -97,7 +98,9 @@ export function migrateSettings(value: unknown): AppSettings {
     colorPreset: isColorPreset(value.colorPreset) ? value.colorPreset : defaultSettings.colorPreset,
     clockColor: isLegacyTheme && savedClockColor.toLowerCase() === "#f8fafc" ? defaultSettings.clockColor : savedClockColor,
     timerColor: resolvedTimerColor,
-    matchBackgroundColors: booleanValue(value.matchBackgroundColors, defaultSettings.matchBackgroundColors),
+    matchClockBackgroundColors: booleanValue(value.matchClockBackgroundColors, legacyAutoColors),
+    matchTimerBackgroundColors: booleanValue(value.matchTimerBackgroundColors, legacyAutoColors),
+    matchBackgroundColors: legacyAutoColors,
     overlayOpacity: isLegacyTheme && value.overlayOpacity === 0.42
       ? defaultSettings.overlayOpacity
       : numberValue(value.overlayOpacity, defaultSettings.overlayOpacity, 0, 0.85),

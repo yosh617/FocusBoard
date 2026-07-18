@@ -90,8 +90,16 @@ describe("settings storage", () => {
   it("preserves the shared auto-color switch while migrating", () => {
     const result = migrateSettings({ version: 1, uiRevision: 3, matchBackgroundColors: true, textColor: "#445566" });
     expect(result.matchBackgroundColors).toBe(true);
+    expect(result.matchClockBackgroundColors).toBe(true);
+    expect(result.matchTimerBackgroundColors).toBe(true);
     expect(result.clockBackgroundSettings.bg2.color).toBe("#445566");
     expect(result.timerColor).toBe("#445566");
+  });
+
+  it("preserves independent auto-color switches in the new format", () => {
+    const result = migrateSettings({ ...defaultSettings, matchClockBackgroundColors: true, matchTimerBackgroundColors: false, matchBackgroundColors: true });
+    expect(result.matchClockBackgroundColors).toBe(true);
+    expect(result.matchTimerBackgroundColors).toBe(false);
   });
 
   it("migrates legacy layouts and validates free clock positions", () => {

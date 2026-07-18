@@ -87,7 +87,7 @@ describe("App", () => {
     revealSettings();
     fireEvent.click(screen.getByRole("button", { name: "設定" }));
     fireEvent.click(screen.getByRole("tab", { name: "背景" }));
-    fireEvent.change(screen.getByLabelText("配置を調整する背景"), { target: { value: "bg2" } });
+    fireEvent.click(within(screen.getByRole("radiogroup", { name: "背景を選択" })).getByRole("radio", { name: "ラベンダー" }));
     expect(screen.getByRole("button", { name: "設定を閉じて画面上で調整" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "設定を閉じて画面上で調整" }));
     expect(screen.queryByRole("dialog", { name: "設定" })).toBeNull();
@@ -185,7 +185,7 @@ describe("App", () => {
     }
   });
 
-  it("uses the rounded font picker and enables adaptive colors", () => {
+  it("uses the rounded font picker and keeps clock and timer colors independent", () => {
     render(<App />);
     revealSettings();
     fireEvent.click(screen.getByRole("button", { name: "設定" }));
@@ -209,24 +209,30 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "時計とカレンダーの表示設定を開く" }).style.color).toBe("rgb(17, 34, 51)");
     expect(document.querySelector<HTMLElement>(".app-shell")?.style.getPropertyValue("--timer-accent")).toBe("#aabbcc");
 
-    fireEvent.click(screen.getByRole("tab", { name: "表示" }));
-    const adaptiveToggle = screen.getByLabelText("背景に合わせて自動調整") as HTMLInputElement;
-    fireEvent.click(adaptiveToggle);
-    expect(adaptiveToggle.checked).toBe(true);
     fireEvent.click(screen.getByRole("tab", { name: "時計と日付" }));
-    expect((screen.getByLabelText("時計・日付の色") as HTMLInputElement).disabled).toBe(true);
-    expect(adaptiveToggle.checked).toBe(true);
+    const clockAutoToggle = screen.getByLabelText("背景に合わせて自動調整") as HTMLInputElement;
+    fireEvent.click(clockAutoToggle);
+    expect(clockAutoToggle.checked).toBe(true);
+    expect(screen.queryByLabelText("時計・日付の色")).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: "タイマー" }));
+    expect(screen.getByLabelText("タイマーのアクセント色")).toBeTruthy();
   });
 
-  it("disables both manual color inputs with the shared adaptive switch", () => {
+  it("allows clock and timer adaptive colors to be toggled separately", () => {
     render(<App />);
     revealSettings();
     fireEvent.click(screen.getByRole("button", { name: "設定" }));
-    fireEvent.click(screen.getByLabelText("背景に合わせて自動調整"));
     fireEvent.click(screen.getByRole("tab", { name: "時計と日付" }));
-    expect((screen.getByLabelText("時計・日付の色") as HTMLInputElement).disabled).toBe(true);
+    const clockAutoToggle = screen.getByLabelText("背景に合わせて自動調整") as HTMLInputElement;
+    fireEvent.click(clockAutoToggle);
+    expect(screen.queryByLabelText("時計・日付の色")).toBeNull();
     fireEvent.click(screen.getByRole("tab", { name: "タイマー" }));
-    expect((screen.getByLabelText("タイマーのアクセント色") as HTMLInputElement).disabled).toBe(true);
+    expect(screen.getByLabelText("タイマーのアクセント色")).toBeTruthy();
+    const timerAutoToggle = screen.getByLabelText("背景に合わせて自動調整") as HTMLInputElement;
+    fireEvent.click(timerAutoToggle);
+    expect(screen.queryByLabelText("タイマーのアクセント色")).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: "時計と日付" }));
+    expect((screen.getByLabelText("背景に合わせて自動調整") as HTMLInputElement).checked).toBe(true);
   });
 
   it("restores clock position and manual color for each background without moving the timer", () => {
@@ -247,7 +253,7 @@ describe("App", () => {
     revealSettings();
     fireEvent.click(screen.getByRole("button", { name: "設定" }));
     fireEvent.click(screen.getByRole("tab", { name: "背景" }));
-    fireEvent.click(screen.getByRole("radio", { name: "ラベンダー" }));
+    fireEvent.click(within(screen.getByRole("radiogroup", { name: "背景を選択" })).getByRole("radio", { name: "ラベンダー" }));
     expect(document.querySelector<HTMLElement>(".clock-widget")?.style.left).toBe("10%");
     expect(document.querySelector<HTMLElement>(".clock-widget")?.style.top).toBe("68%");
     expect(screen.getByRole("button", { name: "時計とカレンダーの表示設定を開く" }).style.color).toBe("rgb(170, 187, 204)");

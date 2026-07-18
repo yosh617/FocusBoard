@@ -82,11 +82,16 @@ export function getReadableTextColor(background: Rgb) {
 
 export function getReadableTextColorFromSamples(samples: Rgb[]) {
   if (!samples.length) return getReadableTextColor(fallbackBackgroundRgb);
-  const score = (candidate: Rgb) => samples.reduce((total, sample) => total + contrastRatio(sample, candidate), 0) / samples.length;
-  const darkScore = score(darkText);
-  const lightScore = score(lightText);
+  const weakestContrast = (candidate: Rgb) => samples.reduce(
+    (minimum, sample) => Math.min(minimum, contrastRatio(sample, candidate)),
+    Number.POSITIVE_INFINITY
+  );
+  const darkScore = weakestContrast(darkText);
+  const lightScore = weakestContrast(lightText);
   if (Math.max(darkScore, lightScore) >= 4.5) return darkScore >= lightScore ? "#122a4c" : "#f7fbff";
-  return score(blackText) >= score(whiteText) ? "#000000" : "#ffffff";
+  const blackScore = weakestContrast(blackText);
+  const whiteScore = weakestContrast(whiteText);
+  return blackScore >= whiteScore ? "#000000" : "#ffffff";
 }
 
 export function getStrongAccent(accent: string) {

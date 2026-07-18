@@ -10,13 +10,13 @@ describe("adaptive background palette", () => {
     expect(getAdaptivePalette({ r: 12, g: 20, b: 35 }, 0).text).toBe("#f7fbff");
   });
 
-  it("evaluates the whole display region when the background has mixed brightness", () => {
+  it("prioritizes the weakest contrast in a mixed-brightness display region", () => {
     const samples = [
       ...Array.from({ length: 7 }, () => ({ r: 12, g: 20, b: 35 })),
       ...Array.from({ length: 3 }, () => ({ r: 242, g: 245, b: 250 }))
     ];
-    expect(getReadableTextColorFromSamples(samples)).toBe("#f7fbff");
-    expect(getAdaptivePaletteFromSamples(samples, 0).text).toBe("#f7fbff");
+    expect(getReadableTextColorFromSamples(samples)).toBe("#000000");
+    expect(getAdaptivePaletteFromSamples(samples, 0).text).toBe("#000000");
   });
 
   it("falls back to a stronger neutral when neither theme text color is readable enough", () => {

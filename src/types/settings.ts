@@ -69,6 +69,9 @@ export type AppSettings = {
   colorPreset: ColorPreset;
   clockColor: string;
   timerColor: string;
+  matchClockBackgroundColors: boolean;
+  matchTimerBackgroundColors: boolean;
+  /** @deprecated Used only when migrating settings created before separate auto-color switches. */
   matchBackgroundColors: boolean;
   overlayOpacity: number;
   backgroundScale: number;
@@ -120,6 +123,8 @@ export const defaultSettings: AppSettings = {
   colorPreset: "sky",
   clockColor: "#17345f",
   timerColor: "#91bde8",
+  matchClockBackgroundColors: false,
+  matchTimerBackgroundColors: false,
   matchBackgroundColors: false,
   overlayOpacity: 0.16,
   backgroundScale: 100,

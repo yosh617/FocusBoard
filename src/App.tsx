@@ -117,8 +117,8 @@ export default function App() {
   }, [settings, timer, start, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, updateSettings]);
 
   const liveMessage = backgroundMessage || announcement || storageMessage;
-  const clockColor = settings.matchBackgroundColors ? adaptivePalette.text : activeClockSetting.color;
-  const timerColor = settings.matchBackgroundColors ? adaptivePalette.accent : settings.timerColor;
+  const clockColor = settings.matchClockBackgroundColors ? adaptivePalette.text : activeClockSetting.color;
+  const timerColor = settings.matchTimerBackgroundColors ? adaptivePalette.accent : settings.timerColor;
   const appStyle = {
     color: clockColor,
     fontFamily: fontOptions[settings.fontFamily as keyof typeof fontOptions] ?? fontOptions.system,
