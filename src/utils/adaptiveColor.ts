@@ -1,4 +1,5 @@
 export type Rgb = { r: number; g: number; b: number };
+export type ImageSampleRegion = { x: number; y: number; width: number; height: number };
 
 export type AdaptivePalette = {
   text: string;
@@ -100,7 +101,7 @@ export function getAdaptivePalette(source: Rgb, overlayOpacity: number): Adaptiv
   };
 }
 
-export function sampleImageRgb(image: HTMLImageElement): Rgb | null {
+export function sampleImageRgb(image: HTMLImageElement, region?: ImageSampleRegion): Rgb | null {
   if (!image.naturalWidth || !image.naturalHeight) return null;
   try {
     const canvas = document.createElement("canvas");
@@ -108,7 +109,11 @@ export function sampleImageRgb(image: HTMLImageElement): Rgb | null {
     canvas.height = 24;
     const context = canvas.getContext("2d", { willReadFrequently: true });
     if (!context) return null;
-    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const sourceX = region ? clamp(region.x, 0, image.naturalWidth - 1) : 0;
+    const sourceY = region ? clamp(region.y, 0, image.naturalHeight - 1) : 0;
+    const sourceWidth = region ? clamp(region.width, 1, image.naturalWidth - sourceX) : image.naturalWidth;
+    const sourceHeight = region ? clamp(region.height, 1, image.naturalHeight - sourceY) : image.naturalHeight;
+    context.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height);
     const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
     let red = 0;
     let green = 0;

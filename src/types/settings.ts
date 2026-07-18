@@ -33,6 +33,7 @@ export type AppSettings = {
   showClock: boolean;
   showDate: boolean;
   showTimer: boolean;
+  fullscreen: boolean;
   timerSetupCollapsed: boolean;
   showSeconds: boolean;
   use12Hour: boolean;
@@ -46,6 +47,8 @@ export type AppSettings = {
   accentColor: string;
   matchBackgroundColors: boolean;
   overlayOpacity: number;
+  backgroundScale: number;
+  backgroundPosition: FreePosition;
   slideshowIntervalSec: number;
   backgroundChoice: BackgroundChoice;
   clockPosition: PositionPreset;
@@ -65,6 +68,7 @@ export const settingRanges = {
   timerFontSize: { min: 36, max: 120, step: 1, unit: "px" },
   timerBackgroundOpacity: { min: 60, max: 100, step: 1, unit: "%" },
   overlayOpacity: { min: 0, max: 70, step: 1, unit: "%" },
+  backgroundScale: { min: 100, max: 220, step: 1, unit: "%" },
   slideshowIntervalSec: { min: 10, max: 600, step: 10, unit: "秒" },
   workMinutes: { min: 1, max: 180, step: 1, unit: "分" },
   shortBreakMinutes: { min: 1, max: 60, step: 1, unit: "分" },
@@ -77,6 +81,7 @@ export const defaultSettings: AppSettings = {
   showClock: true,
   showDate: true,
   showTimer: true,
+  fullscreen: false,
   timerSetupCollapsed: false,
   showSeconds: false,
   use12Hour: false,
@@ -90,6 +95,8 @@ export const defaultSettings: AppSettings = {
   accentColor: "#91bde8",
   matchBackgroundColors: false,
   overlayOpacity: 0.16,
+  backgroundScale: 100,
+  backgroundPosition: { x: 0.5, y: 0.5 },
   slideshowIntervalSec: 60,
   backgroundChoice: "slideshow",
   clockPosition: "bottom-left",
@@ -111,3 +118,11 @@ export const fontOptions = {
 } as const;
 
 export type FontOption = keyof typeof fontOptions;
+
+export function describeFontSize(value: number, initial: number, min: number, max: number) {
+  const smallThreshold = initial - (initial - min) * .5;
+  const largeThreshold = initial + (max - initial) * .5;
+  if (value < smallThreshold) return "小さめ";
+  if (value > largeThreshold) return "大きめ";
+  return "標準";
+}

@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { getAdaptivePalette, getStrongAccent } from "./adaptiveColor";
+import { describe, expect, it, vi } from "vitest";
+import { getAdaptivePalette, getStrongAccent, sampleImageRgb } from "./adaptiveColor";
 
 describe("adaptive background palette", () => {
   it("chooses dark text for a light background", () => {
@@ -20,5 +20,20 @@ describe("adaptive background palette", () => {
   it("darkens a custom pastel accent enough for white button text", () => {
     expect(getStrongAccent("#d7c8ff")).not.toBe("#d7c8ff");
     expect(getStrongAccent("invalid")).toBe("#315f98");
+  });
+
+  it("accepts a focused image sample region", () => {
+    const image = new Image();
+    Object.defineProperty(image, "naturalWidth", { configurable: true, value: 100 });
+    Object.defineProperty(image, "naturalHeight", { configurable: true, value: 100 });
+    const context = { drawImage: vi.fn(), getImageData: vi.fn(() => ({ data: new Uint8ClampedArray([20, 30, 40, 255]) })) };
+    const createElement = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation((tagName, options) => {
+      if (tagName === "canvas") return { width: 0, height: 0, getContext: () => context } as unknown as HTMLCanvasElement;
+      return createElement(tagName, options);
+    });
+    sampleImageRgb(image, { x: 40, y: 30, width: 20, height: 25 });
+    expect(context.drawImage).toHaveBeenCalledWith(image, 40, 30, 20, 25, 0, 0, 24, 24);
+    vi.restoreAllMocks();
   });
 });

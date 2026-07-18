@@ -20,6 +20,18 @@ describe("settings storage", () => {
     expect(result.timerBackgroundOpacity).toBe(.6);
   });
 
+  it("keeps the fullscreen setting backward compatible", () => {
+    const legacy = { ...defaultSettings } as Record<string, unknown>;
+    Reflect.deleteProperty(legacy, "fullscreen");
+    expect(migrateSettings(legacy).fullscreen).toBe(false);
+  });
+
+  it("clamps background framing settings", () => {
+    const result = migrateSettings({ ...defaultSettings, backgroundScale: 999, backgroundPosition: { x: -1, y: 2 } });
+    expect(result.backgroundScale).toBe(220);
+    expect(result.backgroundPosition).toEqual({ x: 0, y: 1 });
+  });
+
   it("migrates the previous dark default to the pastel theme", () => {
     const legacy = { ...defaultSettings, textColor: "#f8fafc", overlayOpacity: 0.42 } as Record<string, unknown>;
     delete legacy.backgroundChoice;

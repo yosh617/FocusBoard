@@ -28,6 +28,7 @@ export function migrateSettings(value: unknown): AppSettings {
   const isLegacyTheme = !("backgroundChoice" in value);
   const isLegacyLayout = value.uiRevision !== 3;
   const savedClockDatePosition = isRecord(value.clockDatePosition) ? value.clockDatePosition : {};
+  const savedBackgroundPosition = isRecord(value.backgroundPosition) ? value.backgroundPosition : {};
 
   return {
     version: 1,
@@ -35,6 +36,7 @@ export function migrateSettings(value: unknown): AppSettings {
     showClock: booleanValue(value.showClock, defaultSettings.showClock),
     showDate: booleanValue(value.showDate, defaultSettings.showDate),
     showTimer: booleanValue(value.showTimer, defaultSettings.showTimer),
+    fullscreen: booleanValue(value.fullscreen, defaultSettings.fullscreen),
     timerSetupCollapsed: booleanValue(value.timerSetupCollapsed, defaultSettings.timerSetupCollapsed),
     showSeconds: booleanValue(value.showSeconds, defaultSettings.showSeconds),
     use12Hour: booleanValue(value.use12Hour, defaultSettings.use12Hour),
@@ -54,6 +56,11 @@ export function migrateSettings(value: unknown): AppSettings {
     overlayOpacity: isLegacyTheme && value.overlayOpacity === 0.42
       ? defaultSettings.overlayOpacity
       : numberValue(value.overlayOpacity, defaultSettings.overlayOpacity, 0, 0.85),
+    backgroundScale: numberValue(value.backgroundScale, defaultSettings.backgroundScale, 100, 220),
+    backgroundPosition: {
+      x: numberValue(savedBackgroundPosition.x, defaultSettings.backgroundPosition.x, 0, 1),
+      y: numberValue(savedBackgroundPosition.y, defaultSettings.backgroundPosition.y, 0, 1)
+    },
     slideshowIntervalSec: numberValue(value.slideshowIntervalSec, defaultSettings.slideshowIntervalSec, 10, 600),
     backgroundChoice: isBackgroundChoice(value.backgroundChoice) ? value.backgroundChoice : defaultSettings.backgroundChoice,
     clockPosition: isLegacyLayout ? defaultSettings.clockPosition : isPosition(value.clockPosition) ? value.clockPosition : defaultSettings.clockPosition,

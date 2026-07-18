@@ -8,6 +8,7 @@ import { useClock } from "./hooks/useClock";
 import { useLocalStorageSettings } from "./hooks/useLocalStorageSettings";
 import { usePomodoroTimer } from "./hooks/usePomodoroTimer";
 import { useCustomBackgrounds } from "./hooks/useCustomBackgrounds";
+import { useFullscreen } from "./hooks/useFullscreen";
 import { colorPresets, fontOptions, positionPresets, type PositionPreset } from "./types/settings";
 import { getAdaptivePalette, fallbackBackgroundRgb, getStrongAccent, type AdaptivePalette } from "./utils/adaptiveColor";
 
@@ -54,6 +55,19 @@ export default function App() {
     setAnnouncement("");
     setBackgroundMessage("");
   }, [setAnnouncement, setStorageMessage, setBackgroundMessage]);
+  const { isFullscreen, isSupported: fullscreenSupported, setFullscreen } = useFullscreen();
+  const handleFullscreenToggle = useCallback(async (enabled: boolean) => {
+    const changed = await setFullscreen(enabled);
+    if (!changed) {
+      if (enabled) showMessage("このブラウザでは全画面表示を利用できません。");
+      return;
+    }
+    updateSettings({ fullscreen: enabled });
+  }, [setFullscreen, showMessage, updateSettings]);
+
+  useEffect(() => {
+    if (settings.fullscreen !== isFullscreen) updateSettings({ fullscreen: isFullscreen });
+  }, [isFullscreen, settings.fullscreen, updateSettings]);
 
   const slotContent = useMemo(() => {
     const slots = Object.fromEntries(positionPresets.map((position) => [position, [] as ReactNode[]])) as Record<PositionPreset, ReactNode[]>;
@@ -117,6 +131,9 @@ export default function App() {
         overlayOpacity={settings.overlayOpacity}
         backgroundChoice={settings.backgroundChoice}
         customBackgrounds={backgrounds}
+        clockPosition={settings.clockDatePosition}
+        backgroundPosition={settings.backgroundPosition}
+        backgroundScale={settings.backgroundScale}
         onPaletteChange={setAdaptivePalette}
       />
       <div className="dashboard" aria-label="FocusBoard ダッシュボード">
@@ -166,6 +183,8 @@ export default function App() {
         onChange={updateSettings}
         onUndo={undoSettings}
         onClose={closeSettings}
+        fullscreenSupported={fullscreenSupported}
+        onFullscreenToggle={handleFullscreenToggle}
         onResetSettings={() => { resetSettings(); showMessage("設定を初期値に戻しました。"); }}
         onClearTimer={clearTimer}
         onMessage={showMessage}

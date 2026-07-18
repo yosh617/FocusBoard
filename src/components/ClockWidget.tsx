@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { fontOptions, type AppSettings, type ClockDateAlignment, type FreePosition } from "../types/settings";
+import { defaultSettings, describeFontSize, fontOptions, settingRanges, type AppSettings, type ClockDateAlignment, type FreePosition } from "../types/settings";
 import { ClockDisplay } from "./ClockDisplay";
 import { DateDisplay } from "./DateDisplay";
 
@@ -162,7 +162,7 @@ export function ClockWidget({ now, settings, onChange, onMessage }: Props) {
             <label><input type="checkbox" checked={settings.showDate} onChange={(event) => onChange({ showDate: event.target.checked })} />日付</label>
             <label><input type="checkbox" checked={settings.showSeconds} onChange={(event) => onChange({ showSeconds: event.target.checked })} />秒</label>
           </div>
-          <label className="clock-editor__range">時計の大きさ <output>{settings.clockFontSize}px</output><input aria-label="時計の大きさ" type="range" min="56" max="220" value={settings.clockFontSize} onChange={(event) => onChange({ clockFontSize: Number(event.target.value) })} /></label>
+          <label className="clock-editor__range">時計の大きさ <output>{describeFontSize(settings.clockFontSize, defaultSettings.clockFontSize, settingRanges.clockFontSize.min, settingRanges.clockFontSize.max)}</output><input aria-label="時計の大きさ" type="range" min="56" max="220" value={settings.clockFontSize} onChange={(event) => onChange({ clockFontSize: Number(event.target.value) })} /></label>
           <button className="clock-editor__reset" type="button" onClick={() => { onChange({ clockDatePosition: { x: .5, y: .5 }, clockDateAlignment: "center" }); onMessage("時計とカレンダーを中央にそろえました。"); }}>中央に戻す</button>
         </section>,
         document.body

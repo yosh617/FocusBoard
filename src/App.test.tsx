@@ -37,6 +37,33 @@ describe("App", () => {
     expect(document.querySelector<HTMLElement>(".app-shell")?.style.getPropertyValue("--timer-background-opacity")).toBe("0.6");
   });
 
+  it("requests fullscreen from the display settings", async () => {
+    const requestFullscreen = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(document.documentElement, "requestFullscreen", { configurable: true, value: requestFullscreen });
+    try {
+      render(<App />);
+      revealSettings();
+      fireEvent.click(screen.getByRole("button", { name: "設定" }));
+      const fullscreen = screen.getByLabelText("全画面表示") as HTMLInputElement;
+      expect(fullscreen.disabled).toBe(false);
+      fireEvent.click(fullscreen);
+      await act(async () => {});
+      expect(requestFullscreen).toHaveBeenCalledTimes(1);
+      expect(fullscreen.checked).toBe(true);
+    } finally {
+      Reflect.deleteProperty(document.documentElement, "requestFullscreen");
+    }
+  });
+
+  it("shows readable size labels without pixel units", () => {
+    render(<App />);
+    revealSettings();
+    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    fireEvent.click(screen.getByRole("tab", { name: "時計と日付" }));
+    expect(screen.getAllByText("標準").length).toBe(2);
+    expect(screen.queryByText(/px/)).toBeNull();
+  });
+
   it("uses the rounded font picker and enables adaptive colors", () => {
     render(<App />);
     revealSettings();
@@ -57,7 +84,7 @@ describe("App", () => {
     expect(textColor.value).toBe("#112233");
     expect(accentColor.value).toBe("#aabbcc");
 
-    const adaptiveToggle = screen.getByLabelText("色を背景に合わせる") as HTMLInputElement;
+    const adaptiveToggle = screen.getByLabelText("時計の位置に合わせて色を調整") as HTMLInputElement;
     fireEvent.click(adaptiveToggle);
     expect(adaptiveToggle.checked).toBe(true);
     expect(screen.queryByLabelText("文字色")).toBeNull();
