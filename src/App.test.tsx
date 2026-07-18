@@ -73,6 +73,18 @@ describe("App", () => {
     expect(document.querySelector(".date")?.textContent).toMatch(/^\d{2}\/\d{2} /);
   });
 
+  it("shows a touch-friendly preview for each background image", () => {
+    render(<App />);
+    revealSettings();
+    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    fireEvent.click(screen.getByRole("tab", { name: "背景" }));
+    fireEvent.change(screen.getByLabelText("配置を調整する背景"), { target: { value: "bg2" } });
+    const preview = screen.getByRole("button", { name: /ラベンダーの表示位置と拡大率を調整/ });
+    expect(preview).toBeTruthy();
+    fireEvent.keyDown(preview, { key: "ArrowLeft" });
+    expect(document.querySelector<HTMLElement>(".background-frame-editor__image")?.style.backgroundPosition).toBe("53% 50%");
+  });
+
   it("can minimize the floating timer without losing its main controls", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: /Start timer/i }));
