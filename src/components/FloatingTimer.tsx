@@ -16,6 +16,8 @@ export function FloatingTimer({ timer, onStart, onPause, onReset, onPositionChan
   const [isCompact, setIsCompact] = useState(false);
   const [position, setPosition] = useState(timer.floatingPosition);
   const positionRef = useRef(timer.floatingPosition);
+  const compactPositionRef = useRef<FloatingPosition | null>(null);
+  const movedWhileExpandedRef = useRef(false);
   const dragElementRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ pointerX: number; pointerY: number; position: FloatingPosition; moved: boolean } | null>(null);
   const suppressClickRef = useRef(false);
@@ -69,6 +71,7 @@ export function FloatingTimer({ timer, onStart, onPause, onReset, onPositionChan
     if (!dragRef.current) return;
     if (Math.hypot(event.clientX - dragRef.current.pointerX, event.clientY - dragRef.current.pointerY) > 6) dragRef.current.moved = true;
     if (!dragRef.current.moved) return;
+    if (!isCompact) movedWhileExpandedRef.current = true;
     const next = clampPosition(
       dragRef.current.position.x + (event.clientX - dragRef.current.pointerX) / window.innerWidth,
       dragRef.current.position.y + (event.clientY - dragRef.current.pointerY) / window.innerHeight
@@ -95,14 +98,33 @@ export function FloatingTimer({ timer, onStart, onPause, onReset, onPositionChan
       suppressClickRef.current = false;
       return;
     }
-    setIsCompact((current) => !current);
+    toggleCompact();
   };
 
   const moveWithKeyboard = (x: number, y: number) => {
+    if (!isCompact) movedWhileExpandedRef.current = true;
     const next = clampPosition(position.x + x, position.y + y);
     positionRef.current = next;
     setPosition(next);
     onPositionChange(next);
+  };
+
+  const toggleCompact = () => {
+    if (isCompact) {
+      compactPositionRef.current = positionRef.current;
+      movedWhileExpandedRef.current = false;
+      setIsCompact(false);
+      return;
+    }
+
+    const compactPosition = compactPositionRef.current;
+    if (compactPosition && !movedWhileExpandedRef.current) {
+      positionRef.current = compactPosition;
+      setPosition(compactPosition);
+      onPositionChange(compactPosition);
+    }
+    compactPositionRef.current = null;
+    setIsCompact(true);
   };
 
   return (
@@ -126,7 +148,7 @@ export function FloatingTimer({ timer, onStart, onPause, onReset, onPositionChan
         onKeyDown={(event) => {
           const moves: Record<string, [number, number]> = { ArrowLeft: [-.02, 0], ArrowRight: [.02, 0], ArrowUp: [0, -.02], ArrowDown: [0, .02] };
           if (moves[event.key]) { event.preventDefault(); moveWithKeyboard(...moves[event.key]); }
-          if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setIsCompact((current) => !current); }
+          if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggleCompact(); }
         }}
       >
         <span className="floating-timer__grip" aria-hidden="true"><i /><i /><i /></span>

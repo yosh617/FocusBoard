@@ -48,4 +48,17 @@ describe("BackgroundSlideshow", () => {
     expect(position.y).toBeGreaterThan(.5);
     expect(scale).toBe(100);
   });
+
+  it("handles a two-finger touch as background zoom", () => {
+    const onFrameChange = vi.fn();
+    const { container } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="bg2" customBackgrounds={[]} onFrameChange={onFrameChange} />);
+    const gesture = container.querySelector<HTMLElement>(".background__gesture");
+    expect(gesture).not.toBeNull();
+    fireEvent.touchStart(gesture!, { touches: [{ identifier: 1, clientX: 100, clientY: 200 }, { identifier: 2, clientX: 200, clientY: 200 }] });
+    const moveEvent = new Event("touchmove", { bubbles: true, cancelable: true });
+    Object.defineProperty(moveEvent, "touches", { value: [{ identifier: 1, clientX: 75, clientY: 200 }, { identifier: 2, clientX: 225, clientY: 200 }] });
+    fireEvent(gesture!, moveEvent);
+    expect(moveEvent.defaultPrevented).toBe(true);
+    expect(onFrameChange.mock.calls.at(-1)?.[2]).toBe(150);
+  });
 });

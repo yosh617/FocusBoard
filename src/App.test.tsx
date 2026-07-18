@@ -98,7 +98,7 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "リセットして設定へ戻る" })).toBeTruthy();
   });
 
-  it("reclamps the floating timer when expanding from a compact edge position", () => {
+  it("reclamps on expansion and restores the compact edge position on shrink", () => {
     const originalWidth = window.innerWidth;
     const originalHeight = window.innerHeight;
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 320 });
@@ -116,6 +116,9 @@ describe("App", () => {
       fireEvent.click(screen.getByRole("button", { name: /クリックで通常表示に戻す/ }));
       act(() => {});
       expect(Number.parseFloat(document.querySelector<HTMLElement>(".floating-timer")?.style.left ?? "0")).toBeGreaterThanOrEqual(37.5);
+      fireEvent.click(screen.getByRole("button", { name: /クリックでミニ表示にする/ }));
+      act(() => {});
+      expect(Number.parseFloat(document.querySelector<HTMLElement>(".floating-timer")?.style.left ?? "0")).toBeCloseTo(15, 5);
     } finally {
       Object.defineProperty(window, "innerWidth", { configurable: true, value: originalWidth });
       Object.defineProperty(window, "innerHeight", { configurable: true, value: originalHeight });

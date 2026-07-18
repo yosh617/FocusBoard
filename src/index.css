@@ -43,7 +43,7 @@ button:disabled { cursor: not-allowed; opacity: .42; }
 .background__image--active { opacity: 1; }
 .background__image img { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .background__overlay { background: #f1f7ff; transition: opacity .25s ease; }
-.background__gesture { z-index: 1; cursor: grab; touch-action: none; overscroll-behavior: none; }
+.background__gesture { z-index: 1; cursor: grab; touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; overscroll-behavior: none; }
 .background__gesture:active { cursor: grabbing; }
 .background--gesturing .background__image { transition: opacity 1.2s ease; }
 

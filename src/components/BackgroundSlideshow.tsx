@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type TouchEvent as ReactTouchEvent, type WheelEvent } from "react";
 import type { BackgroundChoice, BackgroundFrames, FreePosition } from "../types/settings";
 import type { CustomBackground } from "../utils/backgroundStorage";
 import { fallbackBackgroundRgb, getAdaptivePalette, sampleImageRgb, type AdaptivePalette, type ImageSampleRegion } from "../utils/adaptiveColor";
@@ -24,6 +24,8 @@ const minBackgroundScale = 100;
 const maxBackgroundScale = 220;
 
 type GesturePoint = { x: number; y: number };
+type TouchLike = { identifier: number; clientX: number; clientY: number };
+type TouchCollection = { length: number; item?: (index: number) => TouchLike | null };
 type GestureState = {
   pointers: Map<number, GesturePoint>;
   startPointer: GesturePoint | null;
@@ -60,6 +62,8 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
   const [viewportRevision, setViewportRevision] = useState(0);
   const [gestureActive, setGestureActive] = useState(false);
   const backgroundRef = useRef<HTMLDivElement>(null);
+  const gestureAreaRef = useRef<HTMLDivElement>(null);
+  const pointerTouchActiveRef = useRef(false);
   const imageRefs = useRef<Record<string, HTMLImageElement>>({});
   const gestureRef = useRef<GestureState>({
     pointers: new Map(),
@@ -90,6 +94,15 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
     return () => window.removeEventListener("resize", updateViewport);
   }, []);
 
+  useEffect(() => {
+    const gestureArea = gestureAreaRef.current;
+    if (!gestureArea) return;
+    const preventNativeGesture = (event: Event) => event.preventDefault();
+    const nativeGestureEvents = ["touchstart", "touchmove", "gesturestart", "gesturechange", "gestureend"];
+    nativeGestureEvents.forEach((eventName) => gestureArea.addEventListener(eventName, preventNativeGesture, { passive: false }));
+    return () => nativeGestureEvents.forEach((eventName) => gestureArea.removeEventListener(eventName, preventNativeGesture));
+  }, []);
+
   const requestedId = backgroundChoice === "slideshow" ? slideshowLayers[activeIndex % slideshowLayers.length]?.id : backgroundChoice;
   const selectedId = allLayers.some(({ id }) => id === requestedId) ? requestedId : builtInLayers[0].id;
   const selectedFrame = backgroundFrames[selectedId] ?? { position: backgroundPosition, scale: backgroundScale };
@@ -118,16 +131,12 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
       clamp(scale, minBackgroundScale, maxBackgroundScale)
     );
   };
-  const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    const point = { x: event.clientX, y: event.clientY };
+  const startGesture = (pointers: Map<number, GesturePoint>) => {
     const gesture = gestureRef.current;
-    const pointers = new Map(gesture.pointers).set(event.pointerId, point);
     gesture.pointers = pointers;
     setGestureActive(true);
     if (pointers.size === 1) {
-      gesture.startPointer = point;
+      gesture.startPointer = pointers.values().next().value ?? null;
       gesture.startDistance = null;
       gesture.startMidpoint = null;
       gesture.startPosition = selectedFrame.position;
@@ -141,14 +150,13 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
       gesture.startScale = selectedFrame.scale;
     }
   };
-  const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+  const moveGesture = (pointers: Map<number, GesturePoint>) => {
     const gesture = gestureRef.current;
-    if (!gesture.pointers.has(event.pointerId)) return;
-    event.preventDefault();
-    gesture.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (!pointers.size) return;
+    gesture.pointers = pointers;
     const viewport = getViewport();
     if (gesture.pointers.size === 1 && gesture.startPointer) {
-      const point = gesture.pointers.get(event.pointerId) ?? gesture.startPointer;
+      const point = pointers.values().next().value ?? gesture.startPointer;
       updateFrame({
         x: gesture.startPosition.x - (point.x - gesture.startPointer.x) / viewport.width,
         y: gesture.startPosition.y - (point.y - gesture.startPointer.y) / viewport.height
@@ -162,16 +170,14 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
     updateFrame({
       x: gesture.startPosition.x - (currentMidpoint.x - gesture.startMidpoint.x) / viewport.width,
       y: gesture.startPosition.y - (currentMidpoint.y - gesture.startMidpoint.y) / viewport.height
-    }, gesture.startScale * zoom);
+      }, gesture.startScale * zoom);
   };
-  const onPointerEnd = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture?.(event.pointerId);
+  const endGesture = (pointers: Map<number, GesturePoint>) => {
     const gesture = gestureRef.current;
-    const pointers = new Map(gesture.pointers);
-    pointers.delete(event.pointerId);
     gesture.pointers = pointers;
     if (pointers.size === 1) {
-      const [point] = pointers.values();
+      const point = pointers.values().next().value;
+      if (!point) return;
       gesture.startPointer = point;
       gesture.startDistance = null;
       gesture.startMidpoint = null;
@@ -183,6 +189,46 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
       gesture.startMidpoint = null;
       setGestureActive(false);
     }
+  };
+  const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (event.pointerType === "touch") pointerTouchActiveRef.current = true;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    startGesture(new Map(gestureRef.current.pointers).set(event.pointerId, { x: event.clientX, y: event.clientY }));
+  };
+  const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    const gesture = gestureRef.current;
+    if (!gesture.pointers.has(event.pointerId)) return;
+    event.preventDefault();
+    moveGesture(new Map(gesture.pointers).set(event.pointerId, { x: event.clientX, y: event.clientY }));
+  };
+  const onPointerEnd = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture?.(event.pointerId);
+    const gesture = gestureRef.current;
+    const pointers = new Map(gesture.pointers);
+    pointers.delete(event.pointerId);
+    endGesture(pointers);
+    if (event.pointerType === "touch" && pointers.size === 0) pointerTouchActiveRef.current = false;
+  };
+  const getTouchPointers = (touches: TouchCollection) => {
+    const pointers = new Map<number, GesturePoint>();
+    for (let index = 0; index < touches.length; index += 1) {
+      const touch = touches.item?.(index) ?? (touches as unknown as { [index: number]: TouchLike | undefined })[index];
+      if (touch) pointers.set(touch.identifier, { x: touch.clientX, y: touch.clientY });
+    }
+    return pointers;
+  };
+  const onTouchStart = (event: ReactTouchEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (!pointerTouchActiveRef.current) startGesture(getTouchPointers(event.touches));
+  };
+  const onTouchMove = (event: ReactTouchEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (!pointerTouchActiveRef.current) moveGesture(getTouchPointers(event.touches));
+  };
+  const onTouchEnd = (event: ReactTouchEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (!pointerTouchActiveRef.current) endGesture(getTouchPointers(event.touches));
   };
   const onWheel = (event: WheelEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -229,6 +275,7 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
       <div className="background__overlay" style={{ opacity: overlayOpacity }} />
       <div
         className="background__gesture"
+        ref={gestureAreaRef}
         role="button"
         tabIndex={0}
         aria-label="背景をドラッグして移動。2本指またはホイールで拡大縮小"
@@ -236,6 +283,10 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
         onPointerMove={onPointerMove}
         onPointerUp={onPointerEnd}
         onPointerCancel={onPointerEnd}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchEnd}
         onWheel={onWheel}
         onKeyDown={onKeyDown}
       />
