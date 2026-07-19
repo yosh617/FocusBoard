@@ -75,8 +75,6 @@ function minimumContrastForSamples(samples: Rgb[], color: string) {
 
 const darkText: Rgb = { r: 18, g: 42, b: 76 };
 const lightText: Rgb = { r: 247, g: 251, b: 255 };
-const blackText: Rgb = { r: 0, g: 0, b: 0 };
-const whiteText: Rgb = { r: 255, g: 255, b: 255 };
 
 export function getReadableTextColor(background: Rgb) {
   const darkContrast = contrastRatio(background, darkText);
@@ -84,7 +82,7 @@ export function getReadableTextColor(background: Rgb) {
   if (Math.max(darkContrast, lightContrast) >= 4.5) {
     return darkContrast >= lightContrast ? "#122a4c" : "#f7fbff";
   }
-  return contrastRatio(background, blackText) >= contrastRatio(background, whiteText) ? "#000000" : "#ffffff";
+  return darkContrast >= lightContrast ? "#122a4c" : "#f7fbff";
 }
 
 export function getReadableTextColorFromSamples(samples: Rgb[]) {
@@ -96,9 +94,7 @@ export function getReadableTextColorFromSamples(samples: Rgb[]) {
   const darkScore = weakestContrast(darkText);
   const lightScore = weakestContrast(lightText);
   if (Math.max(darkScore, lightScore) >= 4.5) return darkScore >= lightScore ? "#122a4c" : "#f7fbff";
-  const blackScore = weakestContrast(blackText);
-  const whiteScore = weakestContrast(whiteText);
-  return blackScore >= whiteScore ? "#000000" : "#ffffff";
+  return darkScore >= lightScore ? "#122a4c" : "#f7fbff";
 }
 
 export function getStrongAccent(accent: string) {

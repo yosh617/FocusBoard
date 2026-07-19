@@ -15,12 +15,14 @@ describe("adaptive background palette", () => {
       ...Array.from({ length: 7 }, () => ({ r: 12, g: 20, b: 35 })),
       ...Array.from({ length: 3 }, () => ({ r: 242, g: 245, b: 250 }))
     ];
-    expect(getReadableTextColorFromSamples(samples)).toBe("#000000");
-    expect(getAdaptivePaletteFromSamples(samples, 0).text).toBe("#000000");
+    expect(["#000000", "#ffffff"]).not.toContain(getReadableTextColorFromSamples(samples));
+    expect(["#000000", "#ffffff"]).not.toContain(getAdaptivePaletteFromSamples(samples, 0).text);
   });
 
   it("falls back to a stronger neutral when neither theme text color is readable enough", () => {
-    expect(getReadableTextColor({ r: 117, g: 117, b: 117 })).toBe("#ffffff");
+    const color = getReadableTextColor({ r: 117, g: 117, b: 117 });
+    expect(color).toBe("#f7fbff");
+    expect(["#000000", "#ffffff"]).not.toContain(color);
   });
 
   it("derives the accent hue from the background", () => {
