@@ -10,7 +10,7 @@ type Props = {
   onPositionChange: (position: FloatingPosition) => void;
 };
 
-const programLabels = { pomodoro: "POMODORO", countdown: "COUNTDOWN", countup: "COUNT UP" } as const;
+const programLabels = { pomodoro: "ポモドーロ", countdown: "カウントダウン", countup: "カウントアップ" } as const;
 
 export function FloatingTimer({ timer, onStart, onPause, onReset, onPositionChange }: Props) {
   const [isCompact, setIsCompact] = useState(false);
@@ -176,15 +176,15 @@ export function FloatingTimer({ timer, onStart, onPause, onReset, onPositionChan
               <strong>{formatDuration(displayMs)}</strong>
               <div className="floating-timer__controls" onPointerDown={(event) => event.stopPropagation()}>
                 {timer.status === "running" ? (
-                  <button className="floating-timer__primary" type="button" onClick={onPause} aria-label="一時停止">
+                  <button className="floating-timer__primary" type="button" onClick={onPause} aria-label="一時停止" title="一時停止">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
                   </button>
                 ) : timer.status !== "completed" ? (
-                  <button className="floating-timer__primary" type="button" onClick={onStart} aria-label={timer.status === "idle" ? "開始" : "再開"}>
+                  <button className="floating-timer__primary" type="button" onClick={onStart} aria-label={timer.status === "idle" ? "開始" : "再開"} title={timer.status === "idle" ? "開始" : "再開"}>
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6V6Z" /></svg>
                   </button>
                 ) : <span className="floating-timer__done">完了</span>}
-                <button type="button" onClick={onReset} aria-label="リセットして設定へ戻る">
+                <button type="button" onClick={onReset} aria-label="リセットして設定へ戻る" title="リセットして設定へ戻る">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6M4 4v4.6h4.6" /></svg>
                 </button>
               </div>

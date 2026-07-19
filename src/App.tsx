@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { BackgroundSlideshow } from "./components/BackgroundSlideshow";
 import { ClockWidget } from "./components/ClockWidget";
 import { PomodoroTimer } from "./components/PomodoroTimer";
@@ -30,11 +30,9 @@ export default function App() {
   } = usePomodoroTimer(settings);
   const { backgrounds, addBackgrounds, removeBackground, reorderBackgrounds, backgroundMessage, setBackgroundMessage } = useCustomBackgrounds();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsLauncherVisible, setSettingsLauncherVisible] = useState(false);
   const [backgroundEditing, setBackgroundEditing] = useState(false);
   const [activeBackgroundId, setActiveBackgroundId] = useState<string>(() => settings.backgroundChoice === "slideshow" ? "bg1" : settings.backgroundChoice);
   const [adaptivePalette, setAdaptivePalette] = useState<AdaptivePalette>(() => getAdaptivePalette(fallbackBackgroundRgb, settings.overlayOpacity));
-  const settingsLauncherTimeoutRef = useRef<number | null>(null);
   const now = useClock(settings.showSeconds);
 
   const activeClockSetting = settings.clockBackgroundSettings[activeBackgroundId] ?? {
@@ -63,21 +61,7 @@ export default function App() {
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const startBackgroundEditing = useCallback(() => {
     setSettingsOpen(false);
-    setSettingsLauncherVisible(false);
     setBackgroundEditing(true);
-  }, []);
-  const hideSettingsLauncher = useCallback(() => {
-    if (settingsLauncherTimeoutRef.current !== null) window.clearTimeout(settingsLauncherTimeoutRef.current);
-    settingsLauncherTimeoutRef.current = null;
-    setSettingsLauncherVisible(false);
-  }, []);
-  const showSettingsLauncher = useCallback(() => {
-    if (settingsLauncherTimeoutRef.current !== null) window.clearTimeout(settingsLauncherTimeoutRef.current);
-    setSettingsLauncherVisible(true);
-    settingsLauncherTimeoutRef.current = window.setTimeout(() => {
-      settingsLauncherTimeoutRef.current = null;
-      setSettingsLauncherVisible(false);
-    }, 4_500);
   }, []);
   const showMessage = useCallback((message: string) => {
     setStorageMessage(message);
@@ -137,21 +121,10 @@ export default function App() {
     return () => window.clearTimeout(timeout);
   }, [liveMessage, setAnnouncement, setStorageMessage, setBackgroundMessage]);
 
-  useEffect(() => () => {
-    if (settingsLauncherTimeoutRef.current !== null) window.clearTimeout(settingsLauncherTimeoutRef.current);
-  }, []);
-
-  const handleShellPointerUp = (event: PointerEvent<HTMLElement>) => {
-    if (settingsOpen || backgroundEditing || !(event.target instanceof Element)) return;
-    const interactiveTarget = event.target.closest("button, input, select, textarea, a, [role='dialog'], .clock-widget, .floating-timer, .timer-card");
-    if (!interactiveTarget) showSettingsLauncher();
-  };
-
   return (
     <main
       className={`app-shell${backgroundEditing ? " app-shell--background-editing" : ""}`}
       style={appStyle}
-      onPointerUp={handleShellPointerUp}
     >
       <BackgroundSlideshow
         intervalSec={settings.slideshowIntervalSec}
@@ -202,23 +175,13 @@ export default function App() {
       )}
 
       {liveMessage && <div className="toast" role="status" aria-live="polite">{liveMessage}</div>}
-      <button className="visually-hidden settings-reveal-shortcut" type="button" onClick={() => setSettingsOpen(true)}>設定を開く</button>
-      {settingsLauncherVisible && (
-        <button
-          className="settings-button"
-          type="button"
-          onClick={() => {
-            hideSettingsLauncher();
-            setSettingsOpen(true);
-          }}
-        >
+      <button className="settings-button" type="button" aria-label="設定" title="設定を開く" onClick={() => setSettingsOpen(true)}>
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 15.3a3.3 3.3 0 1 0 0-6.6 3.3 3.3 0 0 0 0 6.6Z" />
             <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" />
           </svg>
           <span>設定</span>
-        </button>
-      )}
+      </button>
 
       <SettingsPanel
         open={settingsOpen}

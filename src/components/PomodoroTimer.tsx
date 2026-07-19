@@ -14,9 +14,9 @@ type Props = {
 
 const modes: TimerMode[] = ["work", "shortBreak", "longBreak"];
 const programs: { value: TimerProgram; label: string; caption: string }[] = [
-  { value: "pomodoro", label: "Pomodoro", caption: "集中と休憩を循環" },
-  { value: "countdown", label: "Countdown", caption: "残り時間を表示" },
-  { value: "countup", label: "Count up", caption: "経過時間を表示" }
+  { value: "pomodoro", label: "ポモドーロ", caption: "集中と休憩を循環" },
+  { value: "countdown", label: "カウントダウン", caption: "残り時間を表示" },
+  { value: "countup", label: "カウントアップ", caption: "経過時間を表示" }
 ];
 
 export function PomodoroTimer({
@@ -37,7 +37,7 @@ export function PomodoroTimer({
         <div><span>FOCUS TIMER</span><h2>時間をセット</h2></div>
         <div className="timer-setup__tools">
           {timer.program === "pomodoro" && <p>{timer.completedWorkSessions} sessions</p>}
-          <button className="timer-setup__collapse" type="button" aria-label="タイマー設定をしまう" onClick={onCollapse}>
+          <button className="timer-setup__collapse" type="button" aria-label="タイマー設定をしまう" title="タイマー設定をしまう" onClick={onCollapse}>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12" /></svg>
           </button>
         </div>
@@ -108,7 +108,7 @@ export function PomodoroTimer({
         </div>
         <button className="timer-start-button" type="button" onClick={onStart}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6V6Z" /></svg>
-          Start timer
+          開始
         </button>
       </div>
     </section>

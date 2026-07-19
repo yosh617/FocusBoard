@@ -12,7 +12,7 @@ describe("App", () => {
   it("starts in setup mode, collapses to a floating timer, and opens settings", () => {
     render(<App />);
     expect(screen.getByLabelText("タイマー設定")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /Start timer/i }));
+    fireEvent.click(screen.getByRole("button", { name: "開始" }));
     expect(screen.getByLabelText("集中タイマー")).toBeTruthy();
     expect(screen.queryByLabelText("タイマー設定")).toBeNull();
     revealSettings();
@@ -35,6 +35,7 @@ describe("App", () => {
     revealSettings();
     fireEvent.click(screen.getByRole("button", { name: "設定" }));
     fireEvent.click(screen.getByRole("tab", { name: "タイマー" }));
+    fireEvent.click(screen.getByText("タイマーの表示と配置"));
     fireEvent.change(screen.getByRole("slider", { name: /タイマー背景の不透明度/ }), { target: { value: "60" } });
     expect(document.querySelector<HTMLElement>(".app-shell")?.style.getPropertyValue("--timer-background-opacity")).toBe("0.6");
   });
@@ -61,7 +62,8 @@ describe("App", () => {
     render(<App />);
     revealSettings();
     fireEvent.click(screen.getByRole("button", { name: "設定" }));
-    fireEvent.click(screen.getByRole("tab", { name: "時計と日付" }));
+    fireEvent.click(screen.getByRole("tab", { name: "見た目" }));
+    fireEvent.click(screen.getByText("時計・日付の詳細設定"));
     expect(screen.getAllByText("標準").length).toBe(2);
     expect(screen.queryByText(/px/)).toBeNull();
   });
@@ -77,7 +79,8 @@ describe("App", () => {
     render(<App />);
     revealSettings();
     fireEvent.click(screen.getByRole("button", { name: "設定" }));
-    fireEvent.click(screen.getByRole("tab", { name: "時計と日付" }));
+    fireEvent.click(screen.getByRole("tab", { name: "見た目" }));
+    fireEvent.click(screen.getByText("時計・日付の詳細設定"));
     fireEvent.change(screen.getByLabelText("日付の形式"), { target: { value: "mm/dd weekday" } });
     expect(document.querySelector(".date")?.textContent).toMatch(/^\d{2}\/\d{2} /);
   });
@@ -86,7 +89,7 @@ describe("App", () => {
     render(<App />);
     revealSettings();
     fireEvent.click(screen.getByRole("button", { name: "設定" }));
-    fireEvent.click(screen.getByRole("tab", { name: "背景" }));
+    fireEvent.click(screen.getByRole("tab", { name: "見た目" }));
     fireEvent.click(within(screen.getByRole("radiogroup", { name: "背景を選択" })).getByRole("radio", { name: "ラベンダー" }));
     expect(screen.getByRole("button", { name: "設定を閉じて画面上で調整" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "設定を閉じて画面上で調整" }));
@@ -100,7 +103,7 @@ describe("App", () => {
 
   it("can minimize the floating timer without losing its main controls", () => {
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: /Start timer/i }));
+    fireEvent.click(screen.getByRole("button", { name: "開始" }));
     const timer = screen.getByLabelText(/クリックでミニ表示にする/);
     fireEvent.click(timer);
     expect(document.querySelector(".floating-timer--compact")).not.toBeNull();
@@ -118,7 +121,7 @@ describe("App", () => {
     Object.defineProperty(window, "innerHeight", { configurable: true, value: 568 });
     try {
       render(<App />);
-      fireEvent.click(screen.getByRole("button", { name: /Start timer/i }));
+      fireEvent.click(screen.getByRole("button", { name: "開始" }));
       const timer = screen.getByLabelText(/クリックでミニ表示にする/);
       Object.defineProperty(timer, "getBoundingClientRect", {
         configurable: true,
@@ -170,7 +173,7 @@ describe("App", () => {
       render(<App />);
       revealSettings();
       fireEvent.click(screen.getByRole("button", { name: "設定" }));
-      fireEvent.click(screen.getByRole("tab", { name: "データ管理" }));
+      fireEvent.click(screen.getByRole("tab", { name: "保存・リセット" }));
       expect(screen.getByText(/^v(?:\d+\.\d+\.\d+|開発版)$/)).toBeTruthy();
       expect(screen.getByRole("button", { name: "アプリを再読み込み" })).toBeTruthy();
       expect(screen.getByRole("heading", { name: "設定をバックアップ" })).toBeTruthy();
@@ -189,6 +192,7 @@ describe("App", () => {
     render(<App />);
     revealSettings();
     fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    fireEvent.click(screen.getByText("カラーテーマ"));
     fireEvent.click(screen.getByRole("radio", { name: "丸ゴシック" }));
     expect(screen.getByRole("radio", { name: "丸ゴシック" }).getAttribute("aria-checked")).toBe("true");
     expect(screen.getByRole("dialog", { name: "設定" })).toBeTruthy();
@@ -198,7 +202,8 @@ describe("App", () => {
     expect(document.querySelector<HTMLElement>(".app-shell")?.style.getPropertyValue("--timer-accent")).toBe("#baa9e3");
 
     fireEvent.click(colorThemes.getByRole("radio", { name: "カスタム" }));
-    fireEvent.click(screen.getByRole("tab", { name: "時計と日付" }));
+    fireEvent.click(screen.getByRole("tab", { name: "見た目" }));
+    fireEvent.click(screen.getByText("時計・日付の詳細設定"));
     const clockColor = screen.getByLabelText("時計・日付の色") as HTMLInputElement;
     fireEvent.change(clockColor, { target: { value: "#112233" } });
     fireEvent.click(screen.getByRole("tab", { name: "タイマー" }));
@@ -209,7 +214,8 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "時計とカレンダーの表示設定を開く" }).style.color).toBe("rgb(17, 34, 51)");
     expect(document.querySelector<HTMLElement>(".app-shell")?.style.getPropertyValue("--timer-accent")).toBe("#aabbcc");
 
-    fireEvent.click(screen.getByRole("tab", { name: "時計と日付" }));
+    fireEvent.click(screen.getByRole("tab", { name: "見た目" }));
+    fireEvent.click(screen.getByText("時計・日付の詳細設定"));
     const clockAutoToggle = screen.getByLabelText("背景に合わせて自動調整") as HTMLInputElement;
     fireEvent.click(clockAutoToggle);
     expect(clockAutoToggle.checked).toBe(true);
@@ -222,7 +228,8 @@ describe("App", () => {
     render(<App />);
     revealSettings();
     fireEvent.click(screen.getByRole("button", { name: "設定" }));
-    fireEvent.click(screen.getByRole("tab", { name: "時計と日付" }));
+    fireEvent.click(screen.getByRole("tab", { name: "見た目" }));
+    fireEvent.click(screen.getByText("時計・日付の詳細設定"));
     const clockAutoToggle = screen.getByLabelText("背景に合わせて自動調整") as HTMLInputElement;
     fireEvent.click(clockAutoToggle);
     expect(screen.queryByLabelText("時計・日付の色")).toBeNull();
@@ -231,7 +238,8 @@ describe("App", () => {
     const timerAutoToggle = screen.getByLabelText("背景に合わせて自動調整") as HTMLInputElement;
     fireEvent.click(timerAutoToggle);
     expect(screen.queryByLabelText("タイマーのアクセント色")).toBeNull();
-    fireEvent.click(screen.getByRole("tab", { name: "時計と日付" }));
+    fireEvent.click(screen.getByRole("tab", { name: "見た目" }));
+    fireEvent.click(screen.getByText("時計・日付の詳細設定"));
     expect((screen.getByLabelText("背景に合わせて自動調整") as HTMLInputElement).checked).toBe(true);
   });
 
@@ -252,7 +260,7 @@ describe("App", () => {
 
     revealSettings();
     fireEvent.click(screen.getByRole("button", { name: "設定" }));
-    fireEvent.click(screen.getByRole("tab", { name: "背景" }));
+    fireEvent.click(screen.getByRole("tab", { name: "見た目" }));
     fireEvent.click(within(screen.getByRole("radiogroup", { name: "背景を選択" })).getByRole("radio", { name: "ラベンダー" }));
     expect(document.querySelector<HTMLElement>(".clock-widget")?.style.left).toBe("10%");
     expect(document.querySelector<HTMLElement>(".clock-widget")?.style.top).toBe("68%");
@@ -265,6 +273,7 @@ describe("App", () => {
     const display = screen.getByRole("button", { name: "時計とカレンダーの表示設定を開く" });
     revealSettings();
     fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    fireEvent.click(screen.getByText("カラーテーマ"));
     const colorThemes = within(screen.getByRole("radiogroup", { name: "カラーテーマ" }));
     fireEvent.click(colorThemes.getByRole("radio", { name: "ローズ" }));
     expect(display.style.color).toBe("rgb(107, 64, 80)");
@@ -321,10 +330,13 @@ describe("App", () => {
     }
   });
 
-  it("keeps settings hidden until an empty area is tapped", () => {
+  it("keeps settings discoverable and groups settings into three clear categories", () => {
     render(<App />);
-    expect(screen.queryByRole("button", { name: "設定" })).toBeNull();
-    revealSettings();
     expect(screen.getByRole("button", { name: "設定" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    expect(screen.getByRole("tab", { name: "見た目" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "タイマー" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "保存・リセット" })).toBeTruthy();
+    expect(screen.getAllByRole("tab")).toHaveLength(3);
   });
 });
