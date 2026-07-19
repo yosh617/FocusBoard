@@ -276,10 +276,11 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .background-option--active { color: var(--blue-deep); }
 .background-option--active .background-option__preview { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(63,111,171,.12), 0 7px 16px rgba(62,96,140,.15); }
 .background-option__label { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.background-option__visibility { position: absolute; top: 2px; right: 2px; display: grid; place-items: center; width: 40px; height: 40px; padding: 0; color: #fff; border: 0; border-radius: 12px; background: rgba(39,79,136,.72); opacity: 0; transition: opacity .2s, background-color .2s; }
-.background-option-wrap:hover .background-option__visibility, .background-option__visibility:focus-visible { opacity: 1; }
+.background-option__visibility, .background-option__delete { position: absolute; top: 2px; right: 2px; display: grid; place-items: center; width: 40px; height: 40px; padding: 0; color: #fff; border: 0; border-radius: 12px; background: rgba(39,79,136,.72); opacity: 0; transition: opacity .2s, background-color .2s; }
+.background-option-wrap:hover .background-option__visibility, .background-option__visibility:focus-visible, .background-option-wrap:hover .background-option__delete, .background-option__delete:focus-visible { opacity: 1; }
 .background-option__visibility:hover { background: var(--blue-deep); }
-.background-option__visibility svg, .background-upload svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.background-option__delete:hover { background: #913b4e; }
+.background-option__visibility svg, .background-option__delete svg, .background-upload svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 .background-manager__item--hidden { opacity: .62; }
 .background-manager article span small { display: block; margin-top: 3px; color: var(--blue-deep); font-size: 11px; font-weight: 600; }
 .background-manager article > div { display: flex; gap: 4px; }
@@ -382,7 +383,7 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 }
 
 @media (hover: none) {
-  .background-option__visibility { opacity: 1; }
+  .background-option__visibility, .background-option__delete { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {

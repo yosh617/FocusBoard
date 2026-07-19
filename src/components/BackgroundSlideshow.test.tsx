@@ -28,11 +28,18 @@ describe("BackgroundSlideshow", () => {
     expect(layers[0].classList.contains("background__image--active")).toBe(false);
   });
 
-  it("does not include hidden custom backgrounds in the slideshow", () => {
+  it("keeps added backgrounds available even if old hidden state exists", () => {
     const custom = { id: "hidden-1", name: "study.jpg", type: "image/jpeg", blob: new Blob(), createdAt: 1, url: "blob:study" };
     const { container } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="slideshow" customBackgrounds={[custom]} hiddenBackgroundIds={[custom.id]} />);
-    expect(container.querySelectorAll(".background__image")).toHaveLength(3);
-    expect(container.querySelector('img[src="blob:study"]')).toBeNull();
+    expect(container.querySelectorAll(".background__image")).toHaveLength(4);
+    expect(container.querySelector('img[src="blob:study"]')).not.toBeNull();
+  });
+
+  it("does not include hidden built-in backgrounds in the slideshow", () => {
+    const { container } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="slideshow" customBackgrounds={[]} hiddenBackgroundIds={["bg1"]} />);
+    const layers = container.querySelectorAll(".background__image");
+    expect(layers).toHaveLength(2);
+    expect(layers[0].querySelector("img")?.src).toContain("backgrounds/bg2.svg");
   });
 
   it("creates horizontal and vertical pan space after zooming", () => {

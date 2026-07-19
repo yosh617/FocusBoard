@@ -103,11 +103,12 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
     startPosition: backgroundPosition,
     startScale: backgroundScale
   });
-  const builtInLayers = defaultBackgrounds.map((path, index) => ({ id: `bg${index + 1}`, path: `${import.meta.env.BASE_URL}${path}` }));
   const hiddenIds = new Set(hiddenBackgroundIds);
-  const customLayers = customBackgrounds.filter((background) => !hiddenIds.has(background.id)).map((background) => ({ id: `custom:${background.id}`, path: background.url }));
+  const builtInLayers = defaultBackgrounds.map((path, index) => ({ id: `bg${index + 1}`, path: `${import.meta.env.BASE_URL}${path}` })).filter((background) => !hiddenIds.has(background.id));
+  const customLayers = customBackgrounds.map((background) => ({ id: `custom:${background.id}`, path: background.url }));
   const slideshowLayers = [...builtInLayers, ...customLayers];
-  const allLayers = [...builtInLayers, ...customLayers];
+  const allLayers = slideshowLayers;
+  const fallbackLayer = allLayers[0] ?? { id: "bg1", path: `${import.meta.env.BASE_URL}${defaultBackgrounds[0]}` };
   const hasPerImageFrames = Object.keys(backgroundFrames).length > 0;
   const legacyFrame: BackgroundFrame = { position: backgroundPosition, scale: backgroundScale };
 
@@ -115,7 +116,7 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
     ?? (hasPerImageFrames ? { position: defaultBackgroundPosition, scale: minBackgroundScale } : legacyFrame);
 
   useEffect(() => {
-    if (backgroundChoice !== "slideshow") return;
+    if (backgroundChoice !== "slideshow" || slideshowLayers.length === 0) return;
     const interval = window.setInterval(() => {
       setActiveIndex((current) => (current + 1) % slideshowLayers.length);
     }, intervalSec * 1000);
@@ -137,8 +138,8 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
     if (gestureVisibilityTimeoutRef.current !== null) window.clearTimeout(gestureVisibilityTimeoutRef.current);
   }, []);
 
-  const requestedId = backgroundChoice === "slideshow" ? slideshowLayers[activeIndex % slideshowLayers.length]?.id : backgroundChoice;
-  const selectedId = allLayers.some(({ id }) => id === requestedId) ? requestedId : builtInLayers[0].id;
+  const requestedId = backgroundChoice === "slideshow" && slideshowLayers.length > 0 ? slideshowLayers[activeIndex % slideshowLayers.length]?.id : backgroundChoice;
+  const selectedId = requestedId && allLayers.some(({ id }) => id === requestedId) ? requestedId : fallbackLayer.id;
   const persistedSelectedFrame = getPersistedFrame(selectedId);
   const selectedFrame = draftFrame?.id === selectedId ? draftFrame : persistedSelectedFrame;
 
