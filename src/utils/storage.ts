@@ -1,4 +1,4 @@
-import { backgroundChoices, colorPresets, defaultSettings, fontOptions, isDateFormat, positionPresets, type AppSettings, type BackgroundChoice, type BackgroundFrames, type ClockBackgroundSettings, type ClockDateAlignment, type ColorPreset, type PositionPreset } from "../types/settings";
+import { backgroundChoices, colorPresets, defaultSettings, fontOptions, isDateFormat, orientations, positionPresets, type AppSettings, type BackgroundChoice, type BackgroundFrames, type ClockBackgroundSettings, type ClockDateAlignment, type ColorPreset, type Orientation, type OrientationPositions, type OrientationPositionPresets, type PositionPreset } from "../types/settings";
 import type { SessionCategory, TimerMode, TimerProgram, TimerState, TimerStatus } from "../types/timer";
 import { BACKGROUND_DB_NAME } from "./backgroundStorage";
 
@@ -41,15 +41,24 @@ const readBackgroundFrames = (value: unknown): BackgroundFrames => {
   }));
 };
 
-const readClockBackgroundSettings = (value: unknown, fallback: { position: { x: number; y: number }; color: string; matchColors: boolean }): ClockBackgroundSettings => {
+const readOrientationPositions = (value: unknown, fallback: OrientationPositions, minX: number, maxX: number, minY: number, maxY: number): OrientationPositions => {
+  const record = isRecord(value) ? value : {};
+  return Object.fromEntries(orientations.map((orientation) => {
+    const saved = isRecord(record[orientation]) ? record[orientation] : record;
+    return [orientation, {
+      x: numberValue(saved.x, fallback[orientation].x, minX, maxX),
+      y: numberValue(saved.y, fallback[orientation].y, minY, maxY)
+    }];
+  })) as OrientationPositions;
+};
+
+const readClockBackgroundSettings = (value: unknown, fallback: { positions: OrientationPositions; color: string; matchColors: boolean }): ClockBackgroundSettings => {
   if (!isRecord(value)) return {};
   return Object.fromEntries(Object.entries(value).flatMap(([id, setting]) => {
-    if (id === "slideshow" || !isBackgroundChoice(id) || !isRecord(setting) || !isRecord(setting.position)) return [];
+    if (id === "slideshow" || !isBackgroundChoice(id) || !isRecord(setting)) return [];
+    const legacyPosition = isRecord(setting.position) ? setting.position : undefined;
     return [[id, {
-      position: {
-        x: numberValue(setting.position.x, fallback.position.x, .06, .94),
-        y: numberValue(setting.position.y, fallback.position.y, .08, .92)
-      },
+      positions: readOrientationPositions(setting.positions ?? legacyPosition, fallback.positions, .06, .94, .08, .92),
       color: colorValue(setting.color, fallback.color),
       matchColors: booleanValue(setting.matchColors, fallback.matchColors)
     }]];
@@ -59,7 +68,7 @@ const readClockBackgroundSettings = (value: unknown, fallback: { position: { x: 
 export function migrateSettings(value: unknown): AppSettings {
   if (!isRecord(value) || (value.version !== 1 && value.version !== 2)) return { ...defaultSettings };
   const isLegacyTheme = !("backgroundChoice" in value);
-  const isLegacyLayout = value.version === 1 || value.uiRevision !== 4;
+  const isLegacyLayout = value.version === 1 || (value.uiRevision !== 4 && value.uiRevision !== 5);
   const savedClockDatePosition = isRecord(value.clockDatePosition) ? value.clockDatePosition : {};
   const savedBackgroundPosition = isRecord(value.backgroundPosition) ? value.backgroundPosition : {};
   const sharedColor = colorValue(value.color, colorValue(value.textColor, defaultSettings.clockColor));
@@ -72,6 +81,7 @@ export function migrateSettings(value: unknown): AppSettings {
     x: numberValue(savedClockDatePosition.x, defaultSettings.clockDatePosition.x, .06, .94),
     y: numberValue(savedClockDatePosition.y, defaultSettings.clockDatePosition.y, .08, .92)
   };
+  const legacyClockPositions: OrientationPositions = { portrait: legacyClockPosition, landscape: legacyClockPosition };
   const legacyClockBackgroundSettings: ClockBackgroundSettings = {};
   if (isLegacyLayout || !("clockBackgroundSettings" in value)) {
     const ids = new Set<string>(["bg1", "bg2", "bg3"]);
@@ -79,13 +89,23 @@ export function migrateSettings(value: unknown): AppSettings {
     if (isRecord(value.backgroundFrames)) Object.keys(value.backgroundFrames).forEach((id) => {
       if (isBackgroundChoice(id) && id !== "slideshow") ids.add(id);
     });
-    ids.forEach((id) => { legacyClockBackgroundSettings[id] = { position: legacyClockPosition, color: savedClockColor, matchColors: savedClockAutoColors }; });
+    ids.forEach((id) => { legacyClockBackgroundSettings[id] = { positions: legacyClockPositions, color: savedClockColor, matchColors: savedClockAutoColors }; });
   }
-  const clockBackgroundSettings = readClockBackgroundSettings(value.clockBackgroundSettings, { position: legacyClockPosition, color: savedClockColor, matchColors: savedClockAutoColors });
+  const clockBackgroundSettings = readClockBackgroundSettings(value.clockBackgroundSettings, { positions: legacyClockPositions, color: savedClockColor, matchColors: savedClockAutoColors });
+  const savedTimerPosition = isPosition(value.timerPosition) ? value.timerPosition : defaultSettings.timerPosition;
+  const savedTimerPositionsValue = isRecord(value.timerPositions) ? value.timerPositions : null;
+  const parsedTimerPositions = savedTimerPositionsValue
+    ? Object.fromEntries(orientations.map((orientation) => [orientation, isPosition(savedTimerPositionsValue[orientation]) ? savedTimerPositionsValue[orientation] : savedTimerPosition])) as OrientationPositionPresets
+    : { portrait: savedTimerPosition, landscape: savedTimerPosition };
+  const savedTimerPositions = savedTimerPosition !== defaultSettings.timerPosition
+    && parsedTimerPositions.portrait === defaultSettings.timerPositions.portrait
+    && parsedTimerPositions.landscape === defaultSettings.timerPositions.landscape
+    ? { portrait: savedTimerPosition, landscape: savedTimerPosition }
+    : parsedTimerPositions;
 
   return {
     version: 2,
-    uiRevision: 4,
+    uiRevision: 5,
     showClock: booleanValue(value.showClock, defaultSettings.showClock),
     showDate: booleanValue(value.showDate, defaultSettings.showDate),
     showTimer: booleanValue(value.showTimer, defaultSettings.showTimer),
@@ -122,7 +142,8 @@ export function migrateSettings(value: unknown): AppSettings {
     backgroundChoice: isBackgroundChoice(value.backgroundChoice) ? value.backgroundChoice : defaultSettings.backgroundChoice,
     clockPosition: isLegacyLayout ? defaultSettings.clockPosition : isPosition(value.clockPosition) ? value.clockPosition : defaultSettings.clockPosition,
     datePosition: isLegacyLayout ? defaultSettings.datePosition : isPosition(value.datePosition) ? value.datePosition : defaultSettings.datePosition,
-    timerPosition: isPosition(value.timerPosition) ? value.timerPosition : defaultSettings.timerPosition,
+    timerPosition: savedTimerPosition,
+    timerPositions: savedTimerPositions,
     clockDatePosition: legacyClockPosition,
     clockDateAlignment: isLegacyLayout ? defaultSettings.clockDateAlignment : isAlignment(value.clockDateAlignment) ? value.clockDateAlignment : defaultSettings.clockDateAlignment,
     workMinutes: numberValue(value.workMinutes, defaultSettings.workMinutes, 1, 180),
@@ -155,10 +176,11 @@ const timerStatuses: TimerStatus[] = ["idle", "running", "paused", "completed"];
 const timerPrograms: TimerProgram[] = ["pomodoro", "countdown", "countup"];
 const sessionCategories: SessionCategory[] = ["focus", "break"];
 
-export function createInitialTimerState(workMinutes: number): TimerState {
+export function createInitialTimerState(workMinutes: number, orientation: Orientation = "portrait"): TimerState {
   const durationMs = workMinutes * 60_000;
+  const floatingPositions: OrientationPositions = { portrait: { x: 0.18, y: 0.38 }, landscape: { x: 0.18, y: 0.38 } };
   return {
-    version: 2,
+    version: 3,
     program: "pomodoro",
     mode: "work",
     category: "focus",
@@ -168,14 +190,27 @@ export function createInitialTimerState(workMinutes: number): TimerState {
     remainingMs: durationMs,
     endAt: null,
     completedWorkSessions: 0,
-    floatingPosition: { x: 0.18, y: 0.38 }
+    floatingPosition: floatingPositions[orientation],
+    floatingPositions
   };
 }
 
-export function loadTimerState(workMinutes: number): TimerState {
+const readFloatingPositions = (value: unknown): OrientationPositions => {
+  const fallback: OrientationPositions = { portrait: { x: 0.18, y: 0.38 }, landscape: { x: 0.18, y: 0.38 } };
+  const record = isRecord(value) ? value : {};
+  return Object.fromEntries(orientations.map((orientation) => {
+    const position = isRecord(record[orientation]) ? record[orientation] : {};
+    return [orientation, {
+      x: numberValue(position.x, fallback[orientation].x, 0.06, 0.94),
+      y: numberValue(position.y, fallback[orientation].y, 0.08, 0.92)
+    }];
+  })) as OrientationPositions;
+};
+
+export function loadTimerState(workMinutes: number, orientation: Orientation = "portrait"): TimerState {
   try {
     const parsed: unknown = JSON.parse(localStorage.getItem(TIMER_KEY) ?? "null");
-    if (!isRecord(parsed) || (parsed.version !== 1 && parsed.version !== 2)) return createInitialTimerState(workMinutes);
+    if (!isRecord(parsed) || (parsed.version !== 1 && parsed.version !== 2 && parsed.version !== 3)) return createInitialTimerState(workMinutes);
     if (!timerModes.includes(parsed.mode as TimerMode) || !timerStatuses.includes(parsed.status as TimerStatus)) {
       return createInitialTimerState(workMinutes);
     }
@@ -201,8 +236,15 @@ export function loadTimerState(workMinutes: number): TimerState {
     const category = sessionCategories.includes(parsed.category as SessionCategory) ? parsed.category as SessionCategory : "focus";
     const position = isRecord(parsed.floatingPosition) ? parsed.floatingPosition : {};
     const usesOldDefaultPosition = position.x === 0.84 && position.y === 0.22;
+    const legacyPosition = {
+      x: usesOldDefaultPosition ? 0.18 : numberValue(position.x, 0.18, 0.06, 0.94),
+      y: usesOldDefaultPosition ? 0.38 : numberValue(position.y, 0.38, 0.08, 0.92)
+    };
+    const floatingPositions = parsed.version === 3
+      ? readFloatingPositions(parsed.floatingPositions)
+      : { portrait: legacyPosition, landscape: legacyPosition };
     return {
-      version: 2,
+      version: 3,
       program,
       mode: parsed.mode as TimerMode,
       category,
@@ -212,10 +254,8 @@ export function loadTimerState(workMinutes: number): TimerState {
       remainingMs,
       endAt,
       completedWorkSessions: Math.floor(numberValue(parsed.completedWorkSessions, 0, 0, 9999)),
-      floatingPosition: {
-        x: usesOldDefaultPosition ? 0.18 : numberValue(position.x, 0.18, 0.06, 0.94),
-        y: usesOldDefaultPosition ? 0.38 : numberValue(position.y, 0.38, 0.08, 0.92)
-      }
+      floatingPosition: floatingPositions[orientation],
+      floatingPositions
     };
   } catch {
     return createInitialTimerState(workMinutes);

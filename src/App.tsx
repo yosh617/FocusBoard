@@ -9,11 +9,13 @@ import { useLocalStorageSettings } from "./hooks/useLocalStorageSettings";
 import { usePomodoroTimer } from "./hooks/usePomodoroTimer";
 import { useCustomBackgrounds } from "./hooks/useCustomBackgrounds";
 import { useFullscreen } from "./hooks/useFullscreen";
-import { defaultSettings, fontOptions, positionPresets, type PositionPreset } from "./types/settings";
+import { useOrientation } from "./hooks/useOrientation";
+import { defaultSettings, fontOptions, positionPresets, type OrientationPositions, type PositionPreset } from "./types/settings";
 import { getAdaptivePalette, fallbackBackgroundRgb, getStrongAccent, type AdaptivePalette } from "./utils/adaptiveColor";
 
 export default function App() {
   const { settings, updateSettings, undoSettings, resetSettings, storageMessage, setStorageMessage, saveState } = useLocalStorageSettings();
+  const orientation = useOrientation();
   const {
     timer,
     announcement,
@@ -27,7 +29,7 @@ export default function App() {
     setCustomDurationMinutes,
     setFloatingPosition,
     clearTimer
-  } = usePomodoroTimer(settings);
+  } = usePomodoroTimer(settings, orientation);
   const { backgrounds, addBackgrounds, removeBackground, reorderBackgrounds, backgroundMessage, setBackgroundMessage } = useCustomBackgrounds();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsButtonVisible, setSettingsButtonVisible] = useState(false);
@@ -37,11 +39,11 @@ export default function App() {
   const now = useClock(settings.showSeconds);
 
   const activeClockSetting = settings.clockBackgroundSettings[activeBackgroundId] ?? {
-    position: defaultSettings.clockDatePosition,
+    positions: { portrait: defaultSettings.clockDatePosition, landscape: defaultSettings.clockDatePosition } satisfies OrientationPositions,
     color: settings.clockColor,
     matchColors: settings.matchClockBackgroundColors
   };
-  const clockDisplaySettings = useMemo(() => ({ ...settings, clockDatePosition: activeClockSetting.position, clockColor: activeClockSetting.color, matchClockBackgroundColors: activeClockSetting.matchColors }), [activeClockSetting.color, activeClockSetting.matchColors, activeClockSetting.position, settings]);
+  const clockDisplaySettings = useMemo(() => ({ ...settings, clockDatePosition: activeClockSetting.positions[orientation], clockColor: activeClockSetting.color, matchClockBackgroundColors: activeClockSetting.matchColors }), [activeClockSetting.color, activeClockSetting.matchColors, activeClockSetting.positions, orientation, settings]);
   const updateClockSettings = useCallback((patch: Partial<typeof settings>) => {
     const updatesClockSetting = "clockDatePosition" in patch || "clockColor" in patch || "matchClockBackgroundColors" in patch;
     if (!updatesClockSetting) {
@@ -49,8 +51,8 @@ export default function App() {
       return;
     }
     updateSettings((current) => {
-      const currentClock = current.clockBackgroundSettings[activeBackgroundId] ?? { position: defaultSettings.clockDatePosition, color: current.clockColor, matchColors: current.matchClockBackgroundColors };
-      const nextPosition = patch.clockDatePosition ?? currentClock.position;
+      const currentClock = current.clockBackgroundSettings[activeBackgroundId] ?? { positions: { portrait: defaultSettings.clockDatePosition, landscape: defaultSettings.clockDatePosition }, color: current.clockColor, matchColors: current.matchClockBackgroundColors };
+      const nextPosition = patch.clockDatePosition ?? currentClock.positions[orientation];
       const nextColor = patch.clockColor ?? currentClock.color;
       const nextMatchColors = patch.matchClockBackgroundColors ?? currentClock.matchColors;
       return {
@@ -60,11 +62,11 @@ export default function App() {
         ...(patch.matchClockBackgroundColors !== undefined ? { matchClockBackgroundColors: nextMatchColors } : {}),
         clockBackgroundSettings: {
           ...current.clockBackgroundSettings,
-          [activeBackgroundId]: { ...currentClock, position: nextPosition, color: nextColor, matchColors: nextMatchColors }
+          [activeBackgroundId]: { ...currentClock, positions: { ...currentClock.positions, [orientation]: nextPosition }, color: nextColor, matchColors: nextMatchColors }
         }
       };
     });
-  }, [activeBackgroundId, updateSettings]);
+  }, [activeBackgroundId, orientation, updateSettings]);
 
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const revealSettingsButton = useCallback((event: ReactPointerEvent<HTMLElement>) => {
@@ -95,7 +97,7 @@ export default function App() {
 
   const slotContent = useMemo(() => {
     const slots = Object.fromEntries(positionPresets.map((position) => [position, [] as ReactNode[]])) as Record<PositionPreset, ReactNode[]>;
-    if (settings.showTimer && timer.status === "idle" && !settings.timerSetupCollapsed) slots[settings.timerPosition].push(
+    if (settings.showTimer && timer.status === "idle" && !settings.timerSetupCollapsed) slots[settings.timerPositions[orientation]].push(
       <PomodoroTimer
         timer={timer}
         fontSize={settings.timerFontSize}
@@ -109,7 +111,7 @@ export default function App() {
       />
     );
     return slots;
-  }, [settings, timer, start, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, updateSettings]);
+  }, [orientation, settings, timer, start, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, updateSettings]);
 
   const liveMessage = backgroundMessage || announcement || storageMessage;
   const clockColor = activeClockSetting.matchColors ? adaptivePalette.text : activeClockSetting.color;
@@ -144,7 +146,7 @@ export default function App() {
         backgroundChoice={settings.backgroundChoice}
         customBackgrounds={backgrounds}
         hiddenBackgroundIds={settings.hiddenBackgroundIds}
-        clockPosition={activeClockSetting.position}
+        clockPosition={activeClockSetting.positions[orientation]}
         clockFontSize={settings.clockFontSize}
         dateFontSize={settings.dateFontSize}
         showClock={settings.showClock}
@@ -173,7 +175,7 @@ export default function App() {
           <div className={`slot slot--${position}`} key={position}>{slotContent[position]}</div>
         ))}
       </div>
-      {(settings.showClock || settings.showDate) && <ClockWidget now={now} settings={clockDisplaySettings} textColor={clockColor} onChange={updateClockSettings} onMessage={showMessage} />}
+      {(settings.showClock || settings.showDate) && <ClockWidget now={now} settings={clockDisplaySettings} textColor={clockColor} onChange={updateClockSettings} onMessage={showMessage} orientation={orientation} />}
 
       {settings.showTimer && (timer.status !== "idle" || settings.timerSetupCollapsed) && (
         <FloatingTimer
@@ -185,6 +187,7 @@ export default function App() {
             updateSettings({ timerSetupCollapsed: false });
           }}
           onPositionChange={setFloatingPosition}
+          orientation={orientation}
         />
       )}
 
@@ -200,6 +203,7 @@ export default function App() {
       <SettingsPanel
         open={settingsOpen}
         settings={settings}
+        orientation={orientation}
         saveState={saveState}
         onChange={updateSettings}
         onUndo={undoSettings}

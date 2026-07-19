@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { AppSettings } from "../types/settings";
+import type { AppSettings, Orientation } from "../types/settings";
 import type { FloatingPosition, SessionCategory, TimerMode, TimerProgram, TimerState } from "../types/timer";
 import { createInitialTimerState, loadTimerState, removeTimerState, saveTimerState } from "../utils/storage";
 import { getDurationMs, modeLabels } from "../utils/time";
@@ -34,12 +34,21 @@ function playChime() {
 
 const categoryLabel: Record<SessionCategory, string> = { focus: "実施中", break: "休憩" };
 
-export function usePomodoroTimer(settings: AppSettings) {
-  const [timer, setTimer] = useState<TimerState>(() => loadTimerState(settings.workMinutes));
+export function usePomodoroTimer(settings: AppSettings, orientation: Orientation = "portrait") {
+  const [timer, setTimer] = useState<TimerState>(() => loadTimerState(settings.workMinutes, orientation));
   const [announcement, setAnnouncement] = useState("");
   const settingsRef = useRef(settings);
   const skipNextSaveRef = useRef(false);
   settingsRef.current = settings;
+
+  useEffect(() => {
+    setTimer((current) => {
+      const floatingPosition = current.floatingPositions[orientation] ?? current.floatingPosition;
+      return current.floatingPosition.x === floatingPosition.x && current.floatingPosition.y === floatingPosition.y
+        ? current
+        : { ...current, floatingPosition };
+    });
+  }, [orientation]);
 
   useEffect(() => {
     if (skipNextSaveRef.current) {
@@ -91,7 +100,7 @@ export function usePomodoroTimer(settings: AppSettings) {
     setAnnouncement(`${modeLabels[timer.mode]}が終了しました。次は${modeLabels[nextMode]}です。`);
     setTimer((current) => ({
       ...current,
-      version: 2,
+      version: 3,
       mode: nextMode,
       category: nextMode === "work" ? "focus" : "break",
       status: "paused",
@@ -181,15 +190,15 @@ export function usePomodoroTimer(settings: AppSettings) {
   }, []);
 
   const setFloatingPosition = useCallback((floatingPosition: FloatingPosition) => {
-    setTimer((current) => ({ ...current, floatingPosition }));
-  }, []);
+    setTimer((current) => ({ ...current, floatingPosition, floatingPositions: { ...current.floatingPositions, [orientation]: floatingPosition } }));
+  }, [orientation]);
 
   const clearTimer = useCallback(() => {
     removeTimerState();
     skipNextSaveRef.current = true;
     setAnnouncement("タイマー状態を削除しました。");
-    setTimer(createInitialTimerState(settingsRef.current.workMinutes));
-  }, []);
+    setTimer(createInitialTimerState(settingsRef.current.workMinutes, orientation));
+  }, [orientation]);
 
   return {
     timer,

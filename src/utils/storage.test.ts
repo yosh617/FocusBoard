@@ -88,8 +88,8 @@ describe("settings storage", () => {
     expect(result.clockColor).toBe("#112233");
     expect(result.timerColor).toBe("#112233");
     expect(result.matchBackgroundColors).toBe(false);
-    expect(result.clockBackgroundSettings.bg1).toEqual({ position: { x: .2, y: .8 }, color: "#112233", matchColors: false });
-    expect(result.clockBackgroundSettings.bg3).toEqual({ position: { x: .2, y: .8 }, color: "#112233", matchColors: false });
+    expect(result.clockBackgroundSettings.bg1).toEqual({ positions: { portrait: { x: .2, y: .8 }, landscape: { x: .2, y: .8 } }, color: "#112233", matchColors: false });
+    expect(result.clockBackgroundSettings.bg3).toEqual({ positions: { portrait: { x: .2, y: .8 }, landscape: { x: .2, y: .8 } }, color: "#112233", matchColors: false });
     expect(result.timerPosition).toBe("top-right");
   });
 
@@ -117,6 +117,28 @@ describe("settings storage", () => {
       }
     });
     expect(result.clockBackgroundSettings.bg1.matchColors).toBe(false);
+  });
+
+  it("keeps separate clock positions for each orientation", () => {
+    const result = migrateSettings({
+      ...defaultSettings,
+      clockBackgroundSettings: {
+        bg1: {
+          positions: {
+            portrait: { x: .12, y: .22 },
+            landscape: { x: .78, y: .68 }
+          },
+          color: "#112233",
+          matchColors: false
+        }
+      },
+      timerPositions: { portrait: "bottom-left", landscape: "top-right" }
+    });
+    expect(result.clockBackgroundSettings.bg1.positions).toEqual({
+      portrait: { x: .12, y: .22 },
+      landscape: { x: .78, y: .68 }
+    });
+    expect(result.timerPositions).toEqual({ portrait: "bottom-left", landscape: "top-right" });
   });
 
   it("migrates legacy layouts and validates free clock positions", () => {

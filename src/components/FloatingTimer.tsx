@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import type { FloatingPosition, TimerState } from "../types/timer";
+import type { Orientation } from "../types/settings";
+import { getOrientation } from "../hooks/useOrientation";
 import { formatDuration, modeLabels } from "../utils/time";
 
 type Props = {
@@ -8,11 +10,12 @@ type Props = {
   onPause: () => void;
   onReset: () => void;
   onPositionChange: (position: FloatingPosition) => void;
+  orientation: Orientation;
 };
 
 const programLabels = { pomodoro: "ポモドーロ", countdown: "カウントダウン", countup: "カウントアップ" } as const;
 
-export function FloatingTimer({ timer, onStart, onPause, onReset, onPositionChange }: Props) {
+export function FloatingTimer({ timer, onStart, onPause, onReset, onPositionChange, orientation }: Props) {
   const [isCompact, setIsCompact] = useState(false);
   const [position, setPosition] = useState(timer.floatingPosition);
   const positionRef = useRef(timer.floatingPosition);
@@ -48,6 +51,9 @@ export function FloatingTimer({ timer, onStart, onPause, onReset, onPositionChan
 
   useEffect(() => {
     const keepInsideViewport = () => {
+      if (getOrientation(window.innerWidth, window.innerHeight) !== orientation) return;
+      const orientationPosition = timer.floatingPositions[orientation];
+      if (orientationPosition && (timer.floatingPosition.x !== orientationPosition.x || timer.floatingPosition.y !== orientationPosition.y)) return;
       const current = positionRef.current;
       const next = clampPosition(current.x, current.y);
       if (next.x === current.x && next.y === current.y) return;
@@ -58,7 +64,7 @@ export function FloatingTimer({ timer, onStart, onPause, onReset, onPositionChan
     keepInsideViewport();
     window.addEventListener("resize", keepInsideViewport);
     return () => window.removeEventListener("resize", keepInsideViewport);
-  }, [isCompact, onPositionChange]);
+  }, [isCompact, onPositionChange, orientation, timer.floatingPosition.x, timer.floatingPosition.y, timer.floatingPositions]);
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if ((event.target as Element).closest("button")) return;

@@ -11,11 +11,15 @@ export const positionPresets = [
 ] as const;
 
 export type PositionPreset = (typeof positionPresets)[number];
+export const orientations = ["portrait", "landscape"] as const;
+export type Orientation = (typeof orientations)[number];
 export type ClockDateAlignment = "left" | "center" | "right";
 export type FreePosition = { x: number; y: number };
+export type OrientationPositions = Record<Orientation, FreePosition>;
+export type OrientationPositionPresets = Record<Orientation, PositionPreset>;
 export type BackgroundFrame = { scale: number; position: FreePosition };
 export type BackgroundFrames = Record<string, BackgroundFrame>;
-export type ClockBackgroundSetting = { position: FreePosition; color: string; matchColors: boolean };
+export type ClockBackgroundSetting = { positions: OrientationPositions; color: string; matchColors: boolean };
 export type ClockBackgroundSettings = Record<string, ClockBackgroundSetting>;
 export type DateFormat = string;
 
@@ -52,7 +56,7 @@ export type ColorPreset = keyof typeof colorPresets | "custom";
 
 export type AppSettings = {
   version: 2;
-  uiRevision: 4;
+  uiRevision: 5;
   showClock: boolean;
   showDate: boolean;
   showTimer: boolean;
@@ -84,6 +88,7 @@ export type AppSettings = {
   clockPosition: PositionPreset;
   datePosition: PositionPreset;
   timerPosition: PositionPreset;
+  timerPositions: OrientationPositionPresets;
   clockDatePosition: FreePosition;
   clockDateAlignment: ClockDateAlignment;
   workMinutes: number;
@@ -107,7 +112,7 @@ export const settingRanges = {
 
 export const defaultSettings: AppSettings = {
   version: 2,
-  uiRevision: 4,
+  uiRevision: 5,
   showClock: true,
   showDate: true,
   showTimer: true,
@@ -138,6 +143,7 @@ export const defaultSettings: AppSettings = {
   clockPosition: "bottom-left",
   datePosition: "bottom-left",
   timerPosition: "center",
+  timerPositions: { portrait: "center", landscape: "center" },
   clockDatePosition: { x: 0.06, y: 0.74 },
   clockDateAlignment: "left",
   workMinutes: 25,

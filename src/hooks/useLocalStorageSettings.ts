@@ -29,7 +29,7 @@ export function useLocalStorageSettings() {
     setSettings((current) => {
       const patch = typeof update === "function" ? update(current) : update;
       previousSettings.current = current;
-      return { ...current, ...patch, version: 2, uiRevision: 4 };
+      return { ...current, ...patch, version: 2, uiRevision: 5 };
     });
   }, []);
 

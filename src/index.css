@@ -304,6 +304,11 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .toggle:checked { background: var(--blue); }
 .toggle:checked::after { transform: translateX(21px); }
 .toggle:disabled { cursor: not-allowed; opacity: .48; }
+.orientation-picker { display: grid; gap: 8px; margin: 14px 0; }
+.orientation-picker > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.orientation-picker button { min-height: 42px; padding: 8px 10px; color: var(--ink-muted); border: 1px solid rgba(63,102,151,.2); border-radius: 11px; background: rgba(255,255,255,.62); font-size: 13px; font-weight: 750; }
+.orientation-picker button.is-selected { color: #fff; border-color: var(--blue-deep); background: var(--blue-deep); }
+.orientation-picker small { color: var(--ink-muted); font-size: 12px; line-height: 1.5; }
 .color-input { width: 54px; height: 40px; padding: 3px; border: 1px solid rgba(63,102,151,.22); border-radius: 11px; background: #fff; }
 .color-input:disabled { cursor: not-allowed; filter: grayscale(.7); opacity: .42; }
 .settings-help { margin: 10px 0 0; color: var(--ink-muted); font-size: 13px; line-height: 1.6; }

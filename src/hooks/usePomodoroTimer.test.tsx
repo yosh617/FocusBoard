@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defaultSettings } from "../types/settings";
+import type { Orientation } from "../types/settings";
 import { TIMER_KEY } from "../utils/storage";
 import { usePomodoroTimer } from "./usePomodoroTimer";
 
@@ -70,6 +71,16 @@ describe("usePomodoroTimer", () => {
   it("persists a normalized floating position", () => {
     const { result } = renderHook(() => usePomodoroTimer({ ...defaultSettings, soundEnabled: false }));
     act(() => result.current.setFloatingPosition({ x: 0.2, y: 0.7 }));
+    expect(result.current.timer.floatingPosition).toEqual({ x: 0.2, y: 0.7 });
+  });
+
+  it("restores a different floating position for each orientation", () => {
+    const { result, rerender } = renderHook(({ orientation }: { orientation: Orientation }) => usePomodoroTimer({ ...defaultSettings, soundEnabled: false }, orientation), { initialProps: { orientation: "portrait" as Orientation } });
+    act(() => result.current.setFloatingPosition({ x: 0.2, y: 0.7 }));
+    rerender({ orientation: "landscape" });
+    expect(result.current.timer.floatingPosition).toEqual({ x: 0.18, y: 0.38 });
+    act(() => result.current.setFloatingPosition({ x: 0.8, y: 0.25 }));
+    rerender({ orientation: "portrait" });
     expect(result.current.timer.floatingPosition).toEqual({ x: 0.2, y: 0.7 });
   });
 });

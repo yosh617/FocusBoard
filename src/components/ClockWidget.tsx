@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { defaultSettings, describeFontSize, fontOptions, settingRanges, type AppSettings, type ClockDateAlignment, type FreePosition } from "../types/settings";
+import { defaultSettings, describeFontSize, fontOptions, settingRanges, type AppSettings, type ClockDateAlignment, type FreePosition, type Orientation } from "../types/settings";
+import { getOrientation } from "../hooks/useOrientation";
 import { ClockDisplay } from "./ClockDisplay";
 import { DateDisplay } from "./DateDisplay";
 
@@ -10,6 +11,7 @@ type Props = {
   textColor: string;
   onChange: (patch: Partial<AppSettings>) => void;
   onMessage: (message: string) => void;
+  orientation: Orientation;
 };
 
 const alignments: { value: ClockDateAlignment; label: string }[] = [
@@ -26,7 +28,7 @@ type EditorPosition = {
   above: boolean;
 };
 
-export function ClockWidget({ now, settings, textColor, onChange, onMessage }: Props) {
+export function ClockWidget({ now, settings, textColor, onChange, onMessage, orientation }: Props) {
   const [open, setOpen] = useState(false);
   const [hintVisible, setHintVisible] = useState(false);
   const [editorPosition, setEditorPosition] = useState<EditorPosition | null>(null);
@@ -66,6 +68,7 @@ export function ClockWidget({ now, settings, textColor, onChange, onMessage }: P
 
   useLayoutEffect(() => {
     const keepInsideViewport = () => {
+      if (getOrientation(window.innerWidth, window.innerHeight) !== orientation) return;
       const current = positionRef.current;
       const next = clampPosition(current.x, current.y);
       if (next.x === current.x && next.y === current.y) return;
@@ -79,7 +82,7 @@ export function ClockWidget({ now, settings, textColor, onChange, onMessage }: P
       window.removeEventListener("resize", keepInsideViewport);
       observer?.disconnect();
     };
-  }, [onChange, settings.clockDateAlignment, settings.clockFontSize, settings.dateFontSize, settings.dateFormat, settings.showClock, settings.showDate, settings.showSeconds]);
+  }, [onChange, orientation, settings.clockDateAlignment, settings.clockFontSize, settings.dateFontSize, settings.dateFormat, settings.showClock, settings.showDate, settings.showSeconds]);
 
   useEffect(() => {
     if (!open) return;

@@ -1,3 +1,5 @@
+import type { OrientationPositions } from "./settings";
+
 export type TimerMode = "work" | "shortBreak" | "longBreak";
 export type TimerStatus = "idle" | "running" | "paused" | "completed";
 export type TimerProgram = "pomodoro" | "countdown" | "countup";
@@ -9,7 +11,7 @@ export type FloatingPosition = {
 };
 
 export type TimerState = {
-  version: 2;
+  version: 3;
   program: TimerProgram;
   mode: TimerMode;
   category: SessionCategory;
@@ -20,4 +22,5 @@ export type TimerState = {
   endAt: number | null;
   completedWorkSessions: number;
   floatingPosition: FloatingPosition;
+  floatingPositions: OrientationPositions;
 };
