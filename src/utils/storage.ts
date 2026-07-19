@@ -23,6 +23,10 @@ const isColorPreset = (value: unknown): value is ColorPreset =>
   value === "custom" || typeof value === "string" && value in colorPresets;
 const isAlignment = (value: unknown): value is ClockDateAlignment =>
   value === "left" || value === "center" || value === "right";
+const readHiddenBackgroundIds = (value: unknown) => {
+  if (!Array.isArray(value)) return [...defaultSettings.hiddenBackgroundIds];
+  return [...new Set(value.filter((id): id is string => typeof id === "string" && /^[a-zA-Z0-9_-]+$/.test(id)))];
+};
 const readBackgroundFrames = (value: unknown): BackgroundFrames => {
   if (!isRecord(value)) return {};
   return Object.fromEntries(Object.entries(value).flatMap(([id, frame]) => {
@@ -111,6 +115,7 @@ export function migrateSettings(value: unknown): AppSettings {
     },
     backgroundFrames: readBackgroundFrames(value.backgroundFrames),
     clockBackgroundSettings: Object.keys(clockBackgroundSettings).length > 0 ? clockBackgroundSettings : legacyClockBackgroundSettings,
+    hiddenBackgroundIds: readHiddenBackgroundIds(value.hiddenBackgroundIds),
     slideshowIntervalSec: numberValue(value.slideshowIntervalSec, defaultSettings.slideshowIntervalSec, 10, 600),
     backgroundChoice: isBackgroundChoice(value.backgroundChoice) ? value.backgroundChoice : defaultSettings.backgroundChoice,
     clockPosition: isLegacyLayout ? defaultSettings.clockPosition : isPosition(value.clockPosition) ? value.clockPosition : defaultSettings.clockPosition,

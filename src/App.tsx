@@ -28,7 +28,7 @@ export default function App() {
     setFloatingPosition,
     clearTimer
   } = usePomodoroTimer(settings);
-  const { backgrounds, addBackgrounds, removeBackground, reorderBackgrounds, backgroundMessage, setBackgroundMessage } = useCustomBackgrounds();
+  const { backgrounds, addBackgrounds, reorderBackgrounds, backgroundMessage, setBackgroundMessage } = useCustomBackgrounds();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsButtonVisible, setSettingsButtonVisible] = useState(false);
   const [backgroundEditing, setBackgroundEditing] = useState(false);
@@ -140,6 +140,7 @@ export default function App() {
         overlayOpacity={settings.overlayOpacity}
         backgroundChoice={settings.backgroundChoice}
         customBackgrounds={backgrounds}
+        hiddenBackgroundIds={settings.hiddenBackgroundIds}
         clockPosition={activeClockSetting.position}
         clockFontSize={settings.clockFontSize}
         dateFontSize={settings.dateFontSize}
@@ -209,10 +210,6 @@ export default function App() {
         onMessage={showMessage}
         customBackgrounds={backgrounds}
         onAddBackgrounds={addBackgrounds}
-        onRemoveBackground={async (id) => {
-          const removed = await removeBackground(id);
-          if (removed && settings.backgroundChoice === `custom:${id}`) updateSettings({ backgroundChoice: "slideshow" });
-        }}
         onReorderBackgrounds={reorderBackgrounds}
       />
     </main>

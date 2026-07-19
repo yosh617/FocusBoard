@@ -78,6 +78,7 @@ export type AppSettings = {
   backgroundPosition: FreePosition;
   backgroundFrames: BackgroundFrames;
   clockBackgroundSettings: ClockBackgroundSettings;
+  hiddenBackgroundIds: string[];
   slideshowIntervalSec: number;
   backgroundChoice: BackgroundChoice;
   clockPosition: PositionPreset;
@@ -131,6 +132,7 @@ export const defaultSettings: AppSettings = {
   backgroundPosition: { x: 0.5, y: 0.5 },
   backgroundFrames: {},
   clockBackgroundSettings: {},
+  hiddenBackgroundIds: [],
   slideshowIntervalSec: 60,
   backgroundChoice: "slideshow",
   clockPosition: "bottom-left",

@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
 import type { BackgroundChoice, BackgroundFrame, BackgroundFrames, FreePosition } from "../types/settings";
 import type { CustomBackground } from "../utils/backgroundStorage";
 import { getBackgroundImageLayout } from "../utils/backgroundFrame";
@@ -11,6 +11,7 @@ type Props = {
   overlayOpacity: number;
   backgroundChoice: BackgroundChoice;
   customBackgrounds: CustomBackground[];
+  hiddenBackgroundIds?: string[];
   clockPosition?: FreePosition;
   clockFontSize?: number;
   dateFontSize?: number;
@@ -33,6 +34,8 @@ const defaultClockPosition: FreePosition = { x: .06, y: .74 };
 const defaultBackgroundPosition: FreePosition = { x: .5, y: .5 };
 const minBackgroundScale = 100;
 const maxBackgroundScale = 220;
+const editorControlsHideDelayMs = 1_800;
+const editorCloseButtonSize = 44;
 
 type GesturePoint = { x: number; y: number };
 type GestureState = {
@@ -44,6 +47,7 @@ type GestureState = {
   startScale: number;
 };
 type DraftFrame = BackgroundFrame & { id: string };
+type EditorClosePosition = "top-right" | "bottom-right" | "top-left" | "bottom-left";
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const distance = (first: GesturePoint, second: GesturePoint) => Math.hypot(first.x - second.x, first.y - second.y);
@@ -72,13 +76,14 @@ function getFocusedSampleRegion(
   return { x: imageX - sampleWidth / 2, y: imageY - sampleHeight / 2, width: sampleWidth, height: sampleHeight };
 }
 
-function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundChoice, customBackgrounds, clockPosition = defaultClockPosition, clockFontSize = 104, dateFontSize = 20, showClock = true, showDate = true, showSeconds = false, dateFormat = "", backgroundPosition = defaultBackgroundPosition, backgroundScale = minBackgroundScale, backgroundFrames = {}, editing = false, onEditModeChange, onFramePreview, onFrameChange, onPaletteChange, onActiveBackgroundChange }: Props) {
+function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundChoice, customBackgrounds, hiddenBackgroundIds = [], clockPosition = defaultClockPosition, clockFontSize = 104, dateFontSize = 20, showClock = true, showDate = true, showSeconds = false, dateFormat = "", backgroundPosition = defaultBackgroundPosition, backgroundScale = minBackgroundScale, backgroundFrames = {}, editing = false, onEditModeChange, onFramePreview, onFrameChange, onPaletteChange, onActiveBackgroundChange }: Props) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [failed, setFailed] = useState<Set<string>>(() => new Set());
   const [imageRevision, setImageRevision] = useState(0);
   const [viewportRevision, setViewportRevision] = useState(0);
   const [gestureActive, setGestureActive] = useState(false);
   const [editorControlsVisible, setEditorControlsVisible] = useState(false);
+  const [editorClosePosition, setEditorClosePosition] = useState<EditorClosePosition>("top-right");
   const [draftFrame, setDraftFrame] = useState<DraftFrame | null>(null);
   const [selectedSamples, setSelectedSamples] = useState<Rgb[]>([fallbackBackgroundRgb]);
   const backgroundRef = useRef<HTMLDivElement>(null);
@@ -99,7 +104,8 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
     startScale: backgroundScale
   });
   const builtInLayers = defaultBackgrounds.map((path, index) => ({ id: `bg${index + 1}`, path: `${import.meta.env.BASE_URL}${path}` }));
-  const customLayers = customBackgrounds.map((background) => ({ id: `custom:${background.id}`, path: background.url }));
+  const hiddenIds = new Set(hiddenBackgroundIds);
+  const customLayers = customBackgrounds.filter((background) => !hiddenIds.has(background.id)).map((background) => ({ id: `custom:${background.id}`, path: background.url }));
   const slideshowLayers = [...builtInLayers, ...customLayers];
   const allLayers = [...builtInLayers, ...customLayers];
   const hasPerImageFrames = Object.keys(backgroundFrames).length > 0;
@@ -116,7 +122,7 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
     return () => window.clearInterval(interval);
   }, [intervalSec, backgroundChoice, slideshowLayers.length]);
 
-  useEffect(() => setActiveIndex(0), [backgroundChoice, customBackgrounds.length]);
+  useEffect(() => setActiveIndex(0), [backgroundChoice, customBackgrounds.length, hiddenBackgroundIds]);
 
   useEffect(() => {
     const updateViewport = () => setViewportRevision((current) => current + 1);
@@ -144,6 +150,10 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
       setDraftFrame(null);
       setGestureActive(false);
       setEditorControlsVisible(false);
+      if (editorControlsTimeoutRef.current !== null) {
+        window.clearTimeout(editorControlsTimeoutRef.current);
+        editorControlsTimeoutRef.current = null;
+      }
       return;
     }
 
@@ -165,6 +175,36 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
       nativeGestureEvents.forEach((eventName) => document.removeEventListener(eventName, preventNativeGesture));
     };
   }, [editing, selectedId]);
+
+  useLayoutEffect(() => {
+    if (!editing) {
+      setEditorClosePosition("top-right");
+      return;
+    }
+
+    const updateEditorClosePosition = () => {
+      const clock = document.querySelector<HTMLElement>(".clock-widget__display, .clock-widget");
+      const clockRect = clock?.getBoundingClientRect();
+      const edgeGap = 16;
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const corners: { position: EditorClosePosition; left: number; top: number }[] = [
+        { position: "top-right", left: viewportWidth - edgeGap - editorCloseButtonSize, top: edgeGap },
+        { position: "bottom-right", left: viewportWidth - edgeGap - editorCloseButtonSize, top: viewportHeight - edgeGap - editorCloseButtonSize },
+        { position: "top-left", left: edgeGap, top: edgeGap },
+        { position: "bottom-left", left: edgeGap, top: viewportHeight - edgeGap - editorCloseButtonSize }
+      ];
+      const overlapsClock = (corner: typeof corners[number]) => Boolean(clockRect && (
+        corner.left < clockRect.right && corner.left + editorCloseButtonSize > clockRect.left
+        && corner.top < clockRect.bottom && corner.top + editorCloseButtonSize > clockRect.top
+      ));
+      setEditorClosePosition(corners.find((corner) => !overlapsClock(corner))?.position ?? "top-right");
+    };
+
+    updateEditorClosePosition();
+    window.addEventListener("resize", updateEditorClosePosition);
+    return () => window.removeEventListener("resize", updateEditorClosePosition);
+  }, [editing, clockPosition.x, clockPosition.y, clockFontSize, dateFontSize, showClock, showDate, showSeconds, dateFormat, viewportRevision]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("focusboard-background-gesturing", gestureActive);
@@ -413,7 +453,7 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
     editorControlsTimeoutRef.current = window.setTimeout(() => {
       editorControlsTimeoutRef.current = null;
       setEditorControlsVisible(false);
-    }, 4_000);
+    }, editorControlsHideDelayMs);
   };
 
   const viewport = getViewport();
@@ -451,6 +491,13 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
         );
       })}
       <div className="background__overlay" style={{ opacity: overlayOpacity }} />
+      {editing && <button
+        type="button"
+        className={`background-editor__close background-editor__close--${editorClosePosition}`}
+        aria-label="背景の調整を終了"
+        title="背景の調整を終了"
+        onClick={finishEditing}
+      >×</button>}
       {editing && editorControlsVisible && <>
         <div className="background-editor__toolbar" role="toolbar" aria-label="背景の調整">
           <div>
@@ -460,7 +507,6 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
           <div className="background-editor__actions">
             <button type="button" className="background-editor__secondary" onClick={resetFrame}>中央に戻す</button>
             <button type="button" className="background-editor__secondary" onClick={cancelEditing}>変更を取り消す</button>
-            <button type="button" className="background-editor__done" onClick={finishEditing}>完了</button>
           </div>
         </div>
         <div className="background-editor__zoom">

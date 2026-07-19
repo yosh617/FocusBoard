@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  deleteStoredBackground,
   loadStoredBackgrounds,
   saveStoredBackground,
   validateBackgroundFiles,
@@ -57,22 +56,6 @@ export function useCustomBackgrounds() {
     }
   }, []);
 
-  const removeBackground = useCallback(async (id: string) => {
-    try {
-      await deleteStoredBackground(id);
-      setBackgrounds((current) => {
-        const target = current.find((background) => background.id === id);
-        if (target) URL.revokeObjectURL(target.url);
-        return current.filter((background) => background.id !== id);
-      });
-      setMessage("背景画像を削除しました。");
-      return true;
-    } catch {
-      setMessage("背景画像を削除できませんでした。");
-      return false;
-    }
-  }, []);
-
   const reorderBackgrounds = useCallback(async (ids: string[]) => {
     const current = backgroundsRef.current;
     if (ids.length !== current.length || new Set(ids).size !== current.length) return;
@@ -90,5 +73,5 @@ export function useCustomBackgrounds() {
     }
   }, []);
 
-  return { backgrounds, addBackgrounds, removeBackground, reorderBackgrounds, backgroundMessage: message, setBackgroundMessage: setMessage };
+  return { backgrounds, addBackgrounds, reorderBackgrounds, backgroundMessage: message, setBackgroundMessage: setMessage };
 }

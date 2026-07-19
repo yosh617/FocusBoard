@@ -28,6 +28,13 @@ describe("BackgroundSlideshow", () => {
     expect(layers[0].classList.contains("background__image--active")).toBe(false);
   });
 
+  it("does not include hidden custom backgrounds in the slideshow", () => {
+    const custom = { id: "hidden-1", name: "study.jpg", type: "image/jpeg", blob: new Blob(), createdAt: 1, url: "blob:study" };
+    const { container } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="slideshow" customBackgrounds={[custom]} hiddenBackgroundIds={[custom.id]} />);
+    expect(container.querySelectorAll(".background__image")).toHaveLength(3);
+    expect(container.querySelector('img[src="blob:study"]')).toBeNull();
+  });
+
   it("creates horizontal and vertical pan space after zooming", () => {
     const layout = getBackgroundImageLayout(1_000, 500, 1_000, 500, { position: { x: .75, y: .25 }, scale: 150 });
     expect(layout).toEqual({ width: 1_500, height: 750, left: -375, top: -62.5 });
@@ -99,8 +106,22 @@ describe("BackgroundSlideshow", () => {
     expect(queryByText("背景を調整中")).toBeNull();
     fireEvent.pointerDown(container.querySelector<HTMLElement>(".background__gesture")!, { pointerId: 1, clientX: 200, clientY: 200 });
     expect(getByText("背景を調整中")).toBeTruthy();
-    fireEvent.click(getByRole("button", { name: "完了" }));
+    fireEvent.click(getByRole("button", { name: "背景の調整を終了" }));
     expect(onEditModeChange).toHaveBeenCalledWith(false);
+  });
+
+  it("keeps the close button visible and moves it away from the clock", () => {
+    const clock = document.createElement("div");
+    clock.className = "clock-widget";
+    clock.getBoundingClientRect = () => ({ left: 760, top: 10, right: 980, bottom: 130, width: 220, height: 120 } as DOMRect);
+    document.body.append(clock);
+    try {
+      const { getByRole } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="bg2" customBackgrounds={[]} editing />);
+      const closeButton = getByRole("button", { name: "背景の調整を終了" });
+      expect(closeButton.className).toContain("background-editor__close--bottom-right");
+    } finally {
+      clock.remove();
+    }
   });
 
   it("returns to the saved frame when changes are cancelled", () => {

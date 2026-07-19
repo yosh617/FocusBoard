@@ -20,6 +20,12 @@ describe("settings storage", () => {
     expect(result.timerBackgroundOpacity).toBe(.6);
   });
 
+  it("validates hidden background ids while keeping legacy settings compatible", () => {
+    const result = migrateSettings({ ...defaultSettings, hiddenBackgroundIds: ["custom-1", "custom-1", 42, "bad id"] });
+    expect(result.hiddenBackgroundIds).toEqual(["custom-1"]);
+    expect(migrateSettings({ ...defaultSettings, hiddenBackgroundIds: undefined }).hiddenBackgroundIds).toEqual([]);
+  });
+
   it("keeps the fullscreen setting backward compatible", () => {
     const legacy = { ...defaultSettings } as Record<string, unknown>;
     Reflect.deleteProperty(legacy, "fullscreen");
