@@ -23,6 +23,7 @@ type Props = {
   backgroundFrames?: BackgroundFrames;
   editing?: boolean;
   onEditModeChange?: (editing: boolean) => void;
+  onFramePreview?: (backgroundId: string, position: FreePosition, scale: number) => void;
   onFrameChange?: (backgroundId: string, position: FreePosition, scale: number) => void;
   onPaletteChange?: (palette: AdaptivePalette) => void;
   onActiveBackgroundChange?: (backgroundId: string) => void;
@@ -71,20 +72,24 @@ function getFocusedSampleRegion(
   return { x: imageX - sampleWidth / 2, y: imageY - sampleHeight / 2, width: sampleWidth, height: sampleHeight };
 }
 
-function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundChoice, customBackgrounds, clockPosition = defaultClockPosition, clockFontSize = 104, dateFontSize = 20, showClock = true, showDate = true, showSeconds = false, dateFormat = "", backgroundPosition = defaultBackgroundPosition, backgroundScale = minBackgroundScale, backgroundFrames = {}, editing = false, onEditModeChange, onFrameChange, onPaletteChange, onActiveBackgroundChange }: Props) {
+function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundChoice, customBackgrounds, clockPosition = defaultClockPosition, clockFontSize = 104, dateFontSize = 20, showClock = true, showDate = true, showSeconds = false, dateFormat = "", backgroundPosition = defaultBackgroundPosition, backgroundScale = minBackgroundScale, backgroundFrames = {}, editing = false, onEditModeChange, onFramePreview, onFrameChange, onPaletteChange, onActiveBackgroundChange }: Props) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [failed, setFailed] = useState<Set<string>>(() => new Set());
   const [imageRevision, setImageRevision] = useState(0);
   const [viewportRevision, setViewportRevision] = useState(0);
   const [gestureActive, setGestureActive] = useState(false);
+  const [editorControlsVisible, setEditorControlsVisible] = useState(false);
   const [draftFrame, setDraftFrame] = useState<DraftFrame | null>(null);
   const [selectedSamples, setSelectedSamples] = useState<Rgb[]>([fallbackBackgroundRgb]);
   const backgroundRef = useRef<HTMLDivElement>(null);
   const gestureAreaRef = useRef<HTMLDivElement>(null);
   const imageRefs = useRef<Record<string, HTMLImageElement>>({});
   const draftFrameRef = useRef<DraftFrame | null>(null);
+  const editingBaseFrameRef = useRef<BackgroundFrame | null>(null);
   const frameAnimationRef = useRef<number | null>(null);
   const wheelCommitTimeoutRef = useRef<number | null>(null);
+  const editorControlsTimeoutRef = useRef<number | null>(null);
+  const gestureVisibilityTimeoutRef = useRef<number | null>(null);
   const gestureRef = useRef<GestureState>({
     pointers: new Map(),
     startPointer: null,
@@ -119,15 +124,31 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
     return () => window.removeEventListener("resize", updateViewport);
   }, []);
 
+  useEffect(() => () => {
+    if (frameAnimationRef.current !== null) window.cancelAnimationFrame(frameAnimationRef.current);
+    if (wheelCommitTimeoutRef.current !== null) window.clearTimeout(wheelCommitTimeoutRef.current);
+    if (editorControlsTimeoutRef.current !== null) window.clearTimeout(editorControlsTimeoutRef.current);
+    if (gestureVisibilityTimeoutRef.current !== null) window.clearTimeout(gestureVisibilityTimeoutRef.current);
+  }, []);
+
+  const requestedId = backgroundChoice === "slideshow" ? slideshowLayers[activeIndex % slideshowLayers.length]?.id : backgroundChoice;
+  const selectedId = allLayers.some(({ id }) => id === requestedId) ? requestedId : builtInLayers[0].id;
+  const persistedSelectedFrame = getPersistedFrame(selectedId);
+  const selectedFrame = draftFrame?.id === selectedId ? draftFrame : persistedSelectedFrame;
+
   useEffect(() => {
     if (!editing) {
       gestureRef.current.pointers = new Map();
       draftFrameRef.current = null;
+      editingBaseFrameRef.current = null;
       setDraftFrame(null);
       setGestureActive(false);
+      setEditorControlsVisible(false);
       return;
     }
 
+    const baseFrame = getPersistedFrame(selectedId);
+    editingBaseFrameRef.current = { ...baseFrame, position: { ...baseFrame.position } };
     gestureAreaRef.current?.focus({ preventScroll: true });
     document.documentElement.classList.add("focusboard-background-editing");
     document.body.classList.add("focusboard-background-editing");
@@ -143,17 +164,16 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
       document.body.classList.remove("focusboard-background-editing");
       nativeGestureEvents.forEach((eventName) => document.removeEventListener(eventName, preventNativeGesture));
     };
-  }, [editing]);
+  }, [editing, selectedId]);
 
-  useEffect(() => () => {
-    if (frameAnimationRef.current !== null) window.cancelAnimationFrame(frameAnimationRef.current);
-    if (wheelCommitTimeoutRef.current !== null) window.clearTimeout(wheelCommitTimeoutRef.current);
-  }, []);
-
-  const requestedId = backgroundChoice === "slideshow" ? slideshowLayers[activeIndex % slideshowLayers.length]?.id : backgroundChoice;
-  const selectedId = allLayers.some(({ id }) => id === requestedId) ? requestedId : builtInLayers[0].id;
-  const persistedSelectedFrame = getPersistedFrame(selectedId);
-  const selectedFrame = draftFrame?.id === selectedId ? draftFrame : persistedSelectedFrame;
+  useEffect(() => {
+    document.documentElement.classList.toggle("focusboard-background-gesturing", gestureActive);
+    document.body.classList.toggle("focusboard-background-gesturing", gestureActive);
+    return () => {
+      document.documentElement.classList.remove("focusboard-background-gesturing");
+      document.body.classList.remove("focusboard-background-gesturing");
+    };
+  }, [gestureActive]);
 
   useEffect(() => onActiveBackgroundChange?.(selectedId), [onActiveBackgroundChange, selectedId]);
 
@@ -209,6 +229,10 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
   const commitDraftFrame = (frame = draftFrameRef.current) => {
     if (!frame || frame.id !== selectedId) return;
     onFrameChange?.(frame.id, frame.position, frame.scale);
+  };
+  const previewDraftFrame = (frame = draftFrameRef.current) => {
+    if (!frame || frame.id !== selectedId) return;
+    (onFramePreview ?? onFrameChange)?.(frame.id, frame.position, frame.scale);
   };
   const startGesture = (pointers: Map<number, GesturePoint>) => {
     const gesture = gestureRef.current;
@@ -292,11 +316,16 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
       gesture.startDistance = null;
       gesture.startMidpoint = null;
       setGestureActive(false);
-      commitDraftFrame();
+      if (gestureVisibilityTimeoutRef.current !== null) {
+        window.clearTimeout(gestureVisibilityTimeoutRef.current);
+        gestureVisibilityTimeoutRef.current = null;
+      }
+      previewDraftFrame();
     }
   };
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (!editing) return;
+    revealEditorControls();
     event.preventDefault();
     event.currentTarget.setPointerCapture?.(event.pointerId);
     startGesture(new Map(gestureRef.current.pointers).set(event.pointerId, { x: event.clientX, y: event.clientY }));
@@ -308,6 +337,7 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
   };
   const onPointerEnd = (event: PointerEvent<HTMLDivElement>) => {
     if (!editing) return;
+    revealEditorControls();
     event.preventDefault();
     if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture?.(event.pointerId);
     const pointers = new Map(gestureRef.current.pointers);
@@ -316,17 +346,21 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
   };
   const onWheel = (event: WheelEvent<HTMLDivElement>) => {
     if (!editing) return;
+    setTransientGestureActive();
+    revealEditorControls();
     event.preventDefault();
     const frame = getCurrentFrame();
     scheduleDraftFrame(frame.position, frame.scale + (event.deltaY < 0 ? 5 : -5));
     if (wheelCommitTimeoutRef.current !== null) window.clearTimeout(wheelCommitTimeoutRef.current);
     wheelCommitTimeoutRef.current = window.setTimeout(() => {
       wheelCommitTimeoutRef.current = null;
-      commitDraftFrame();
+      previewDraftFrame();
     }, 180);
   };
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (!editing) return;
+    setTransientGestureActive();
+    revealEditorControls();
     const frame = getCurrentFrame();
     const positionStep = event.shiftKey ? .1 : .03;
     let next: DraftFrame | null = null;
@@ -340,11 +374,46 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
       event.preventDefault();
       next = scheduleDraftFrame(frame.position, frame.scale + (event.key === "+" || event.key === "=" ? positionStep * 100 : -positionStep * 100));
     }
-    if (next) commitDraftFrame(next);
+    if (next) previewDraftFrame(next);
   };
   const finishEditing = () => {
     commitDraftFrame();
     onEditModeChange?.(false);
+  };
+  const cancelEditing = () => {
+    const baseFrame = editingBaseFrameRef.current;
+    if (baseFrame && !onFramePreview) onFrameChange?.(selectedId, baseFrame.position, baseFrame.scale);
+    draftFrameRef.current = null;
+    setDraftFrame(null);
+    onEditModeChange?.(false);
+  };
+  const resetFrame = () => {
+    setTransientGestureActive();
+    const next = scheduleDraftFrame(defaultBackgroundPosition, minBackgroundScale);
+    if (next) previewDraftFrame(next);
+  };
+  const setEditorScale = (scale: number) => {
+    setTransientGestureActive();
+    const frame = getCurrentFrame();
+    const next = scheduleDraftFrame(frame.position, scale);
+    if (next) previewDraftFrame(next);
+  };
+  const setTransientGestureActive = () => {
+    setGestureActive(true);
+    if (gestureVisibilityTimeoutRef.current !== null) window.clearTimeout(gestureVisibilityTimeoutRef.current);
+    gestureVisibilityTimeoutRef.current = window.setTimeout(() => {
+      gestureVisibilityTimeoutRef.current = null;
+      setGestureActive(false);
+    }, 220);
+  };
+  const revealEditorControls = () => {
+    if (!editing) return;
+    setEditorControlsVisible(true);
+    if (editorControlsTimeoutRef.current !== null) window.clearTimeout(editorControlsTimeoutRef.current);
+    editorControlsTimeoutRef.current = window.setTimeout(() => {
+      editorControlsTimeoutRef.current = null;
+      setEditorControlsVisible(false);
+    }, 4_000);
   };
 
   const viewport = getViewport();
@@ -382,13 +451,22 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
         );
       })}
       <div className="background__overlay" style={{ opacity: overlayOpacity }} />
-      {editing && <>
-        <div className="background-editor__toolbar" role="status" aria-live="polite">
+      {editing && editorControlsVisible && <>
+        <div className="background-editor__toolbar" role="toolbar" aria-label="背景の調整">
           <div>
             <span className="background-editor__eyebrow">壁紙の編集</span>
             <strong>背景を調整中</strong>
           </div>
-          <button type="button" className="background-editor__done" onClick={finishEditing}>完了</button>
+          <div className="background-editor__actions">
+            <button type="button" className="background-editor__secondary" onClick={resetFrame}>中央に戻す</button>
+            <button type="button" className="background-editor__secondary" onClick={cancelEditing}>変更を取り消す</button>
+            <button type="button" className="background-editor__done" onClick={finishEditing}>完了</button>
+          </div>
+        </div>
+        <div className="background-editor__zoom">
+          <label htmlFor="background-editor-scale">拡大</label>
+          <input id="background-editor-scale" type="range" min={minBackgroundScale} max={maxBackgroundScale} step="1" value={selectedFrame.scale} onChange={(event) => setEditorScale(Number(event.target.value))} />
+          <output htmlFor="background-editor-scale">{Math.round(selectedFrame.scale)}%</output>
         </div>
         <div className="background-editor__hint" role="status">1本指で移動・2本指ピンチで拡大縮小</div>
       </>}

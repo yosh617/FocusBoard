@@ -1,4 +1,4 @@
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { getBackgroundImageLayout } from "../utils/backgroundFrame";
 import { BackgroundSlideshow } from "./BackgroundSlideshow";
@@ -95,10 +95,56 @@ describe("BackgroundSlideshow", () => {
 
   it("shows a clear editing state and can finish it", () => {
     const onEditModeChange = vi.fn();
-    const { getByRole, getByText } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="bg2" customBackgrounds={[]} editing onEditModeChange={onEditModeChange} />);
+    const { container, getByRole, getByText, queryByText } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="bg2" customBackgrounds={[]} editing onEditModeChange={onEditModeChange} />);
+    expect(queryByText("背景を調整中")).toBeNull();
+    fireEvent.pointerDown(container.querySelector<HTMLElement>(".background__gesture")!, { pointerId: 1, clientX: 200, clientY: 200 });
     expect(getByText("背景を調整中")).toBeTruthy();
     fireEvent.click(getByRole("button", { name: "完了" }));
     expect(onEditModeChange).toHaveBeenCalledWith(false);
+  });
+
+  it("returns to the saved frame when changes are cancelled", () => {
+    const onFrameChange = vi.fn();
+    const onEditModeChange = vi.fn();
+    const { container, getByRole } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="bg2" customBackgrounds={[]} backgroundPosition={{ x: .2, y: .8 }} backgroundScale={150} editing onFrameChange={onFrameChange} onEditModeChange={onEditModeChange} />);
+    const gesture = container.querySelector<HTMLElement>(".background__gesture");
+    firePointer(gesture!, "pointerdown", { pointerId: 1, pointerType: "touch", clientX: 200, clientY: 300 });
+    firePointer(gesture!, "pointermove", { pointerId: 1, pointerType: "touch", clientX: 260, clientY: 260 });
+    firePointer(gesture!, "pointerup", { pointerId: 1, pointerType: "touch", clientX: 260, clientY: 260 });
+    fireEvent.click(getByRole("button", { name: "変更を取り消す" }));
+    expect(onFrameChange.mock.calls.at(-1)).toEqual(["bg2", { x: .2, y: .8 }, 150]);
+    expect(onEditModeChange).toHaveBeenCalledWith(false);
+  });
+
+  it("resets the current background to the centered default", () => {
+    const onFrameChange = vi.fn();
+    const { container, getByRole } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="bg2" customBackgrounds={[]} backgroundPosition={{ x: .2, y: .8 }} backgroundScale={150} editing onFrameChange={onFrameChange} />);
+    fireEvent.pointerDown(container.querySelector<HTMLElement>(".background__gesture")!, { pointerId: 1, clientX: 200, clientY: 200 });
+    fireEvent.click(getByRole("button", { name: "中央に戻す" }));
+    expect(onFrameChange.mock.calls.at(-1)).toEqual(["bg2", { x: .5, y: .5 }, 100]);
+  });
+
+  it("moves the background with keyboard arrows while editing", () => {
+    const onFrameChange = vi.fn();
+    const { container } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="bg2" customBackgrounds={[]} editing onFrameChange={onFrameChange} />);
+    const gesture = container.querySelector<HTMLElement>(".background__gesture");
+    fireEvent.keyDown(gesture!, { key: "ArrowRight" });
+    expect(onFrameChange.mock.calls.at(-1)?.[1].x).toBeCloseTo(.47);
+  });
+
+  it("hides editor controls after a period of inactivity", () => {
+    vi.useFakeTimers();
+    try {
+      const { container, getByText, queryByText } = render(<BackgroundSlideshow intervalSec={10} overlayOpacity={0.2} backgroundChoice="bg2" customBackgrounds={[]} editing />);
+      const gesture = container.querySelector<HTMLElement>(".background__gesture");
+      expect(queryByText("背景を調整中")).toBeNull();
+      fireEvent.pointerDown(gesture!, { pointerId: 1, clientX: 200, clientY: 200 });
+      expect(getByText("背景を調整中")).toBeTruthy();
+      act(() => { vi.advanceTimersByTime(4_000); });
+      expect(queryByText("背景を調整中")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("cancels browser pinch gestures while editing", () => {

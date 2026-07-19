@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { BackgroundSlideshow } from "./components/BackgroundSlideshow";
 import { ClockWidget } from "./components/ClockWidget";
 import { PomodoroTimer } from "./components/PomodoroTimer";
@@ -30,6 +30,7 @@ export default function App() {
   } = usePomodoroTimer(settings);
   const { backgrounds, addBackgrounds, removeBackground, reorderBackgrounds, backgroundMessage, setBackgroundMessage } = useCustomBackgrounds();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsButtonVisible, setSettingsButtonVisible] = useState(false);
   const [backgroundEditing, setBackgroundEditing] = useState(false);
   const [activeBackgroundId, setActiveBackgroundId] = useState<string>(() => settings.backgroundChoice === "slideshow" ? "bg1" : settings.backgroundChoice);
   const [adaptivePalette, setAdaptivePalette] = useState<AdaptivePalette>(() => getAdaptivePalette(fallbackBackgroundRgb, settings.overlayOpacity));
@@ -41,24 +42,31 @@ export default function App() {
   };
   const clockDisplaySettings = useMemo(() => ({ ...settings, clockDatePosition: activeClockSetting.position, clockColor: activeClockSetting.color }), [activeClockSetting.color, activeClockSetting.position, settings]);
   const updateClockSettings = useCallback((patch: Partial<typeof settings>) => {
-    const nextPosition = patch.clockDatePosition;
-    if (!nextPosition) {
+    const updatesClockSetting = "clockDatePosition" in patch || "clockColor" in patch;
+    if (!updatesClockSetting) {
       updateSettings(patch);
       return;
     }
     updateSettings((current) => {
       const currentClock = current.clockBackgroundSettings[activeBackgroundId] ?? { position: defaultSettings.clockDatePosition, color: current.clockColor };
+      const nextPosition = patch.clockDatePosition ?? currentClock.position;
+      const nextColor = patch.clockColor ?? currentClock.color;
       return {
-        clockDatePosition: nextPosition,
+        ...patch,
+        ...(patch.clockDatePosition ? { clockDatePosition: nextPosition } : {}),
+        ...(patch.clockColor ? { clockColor: nextColor } : {}),
         clockBackgroundSettings: {
           ...current.clockBackgroundSettings,
-          [activeBackgroundId]: { ...currentClock, position: nextPosition }
+          [activeBackgroundId]: { ...currentClock, position: nextPosition, color: nextColor }
         }
       };
     });
   }, [activeBackgroundId, updateSettings]);
 
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
+  const revealSettingsButton = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    if (event.target === event.currentTarget) setSettingsButtonVisible(true);
+  }, []);
   const startBackgroundEditing = useCallback(() => {
     setSettingsOpen(false);
     setBackgroundEditing(true);
@@ -125,6 +133,7 @@ export default function App() {
     <main
       className={`app-shell${backgroundEditing ? " app-shell--background-editing" : ""}`}
       style={appStyle}
+      onPointerUp={revealSettingsButton}
     >
       <BackgroundSlideshow
         intervalSec={settings.slideshowIntervalSec}
@@ -143,6 +152,7 @@ export default function App() {
         backgroundFrames={settings.backgroundFrames}
         editing={backgroundEditing}
         onEditModeChange={setBackgroundEditing}
+        onFramePreview={() => undefined}
         onFrameChange={(backgroundId, backgroundPosition, backgroundScale) => updateSettings((current) => ({
           backgroundPosition,
           backgroundScale,
@@ -154,7 +164,7 @@ export default function App() {
         onPaletteChange={setAdaptivePalette}
         onActiveBackgroundChange={setActiveBackgroundId}
       />
-      <div className="dashboard" aria-label="FocusBoard ダッシュボード">
+      <div className="dashboard" aria-label="FocusBoard ダッシュボード" onPointerUp={revealSettingsButton}>
         {positionPresets.map((position) => (
           <div className={`slot slot--${position}`} key={position}>{slotContent[position]}</div>
         ))}
@@ -175,13 +185,13 @@ export default function App() {
       )}
 
       {liveMessage && <div className="toast" role="status" aria-live="polite">{liveMessage}</div>}
-      <button className="settings-button" type="button" aria-label="設定" title="設定を開く" onClick={() => setSettingsOpen(true)}>
+      {settingsButtonVisible && <button className="settings-button" type="button" aria-label="設定" title="設定を開く" onClick={() => setSettingsOpen(true)}>
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 15.3a3.3 3.3 0 1 0 0-6.6 3.3 3.3 0 0 0 0 6.6Z" />
             <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" />
           </svg>
           <span>設定</span>
-      </button>
+      </button>}
 
       <SettingsPanel
         open={settingsOpen}
@@ -191,6 +201,7 @@ export default function App() {
         onUndo={undoSettings}
         onClose={closeSettings}
         onStartBackgroundEditing={startBackgroundEditing}
+        adaptivePalette={adaptivePalette}
         fullscreenSupported={fullscreenSupported}
         onFullscreenToggle={handleFullscreenToggle}
         onResetSettings={() => { resetSettings(); showMessage("設定を初期値に戻しました。"); }}

@@ -123,7 +123,7 @@ export const defaultSettings: AppSettings = {
   colorPreset: "sky",
   clockColor: "#17345f",
   timerColor: "#91bde8",
-  matchClockBackgroundColors: false,
+  matchClockBackgroundColors: true,
   matchTimerBackgroundColors: false,
   matchBackgroundColors: false,
   overlayOpacity: 0.16,

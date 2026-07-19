@@ -4,6 +4,7 @@ export type ImageColorProfile = { average: Rgb; samples: Rgb[] };
 
 export type AdaptivePalette = {
   text: string;
+  textContrast: number;
   accent: string;
   accentStrong: string;
 };
@@ -66,6 +67,12 @@ function hexToRgb(value: string): Rgb | null {
   return { r: number >> 16, g: number >> 8 & 255, b: number & 255 };
 }
 
+function minimumContrastForSamples(samples: Rgb[], color: string) {
+  const candidate = hexToRgb(color);
+  if (!candidate || !samples.length) return 0;
+  return samples.reduce((minimum, sample) => Math.min(minimum, contrastRatio(sample, candidate)), Number.POSITIVE_INFINITY);
+}
+
 const darkText: Rgb = { r: 18, g: 42, b: 76 };
 const lightText: Rgb = { r: 247, g: 251, b: 255 };
 const blackText: Rgb = { r: 0, g: 0, b: 0 };
@@ -123,6 +130,7 @@ export function getAdaptivePalette(source: Rgb, overlayOpacity: number): Adaptiv
 
   return {
     text,
+    textContrast: contrastRatio(background, hexToRgb(text) ?? darkText),
     accent: hslToHex(hue, 88, 61),
     accentStrong: hslToHex(hue, 72, 39)
   };
@@ -142,8 +150,10 @@ export function getAdaptivePaletteFromSamples(samples: Rgb[], overlayOpacity: nu
     g: sample.g * (1 - opacity) + overlay.g * opacity,
     b: sample.b * (1 - opacity) + overlay.b * opacity
   }));
+  const text = getReadableTextColorFromSamples(overlaidSamples);
   return {
-    text: getReadableTextColorFromSamples(overlaidSamples),
+    text,
+    textContrast: minimumContrastForSamples(overlaidSamples, text),
     accent: hslToHex(rgbToHue(source), 88, 61),
     accentStrong: hslToHex(rgbToHue(source), 72, 39)
   };

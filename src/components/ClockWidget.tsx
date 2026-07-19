@@ -208,6 +208,10 @@ export function ClockWidget({ now, settings, textColor, onChange, onMessage }: P
             <label><input type="checkbox" checked={settings.showDate} onChange={(event) => onChange({ showDate: event.target.checked })} />日付</label>
             <label><input type="checkbox" checked={settings.showSeconds} onChange={(event) => onChange({ showSeconds: event.target.checked })} />秒</label>
           </div>
+          <div className="clock-editor__color">
+            <div className="clock-editor__color-heading"><span>時計・日付の色</span><label><input type="checkbox" aria-label="時計の色を自動調整" checked={settings.matchClockBackgroundColors} onChange={(event) => onChange({ matchClockBackgroundColors: event.target.checked })} />自動調整</label></div>
+            {!settings.matchClockBackgroundColors && <label className="clock-editor__color-input" htmlFor="clock-editor-color"><span>手動で選ぶ</span><input id="clock-editor-color" aria-label="時計・日付の色" type="color" value={settings.clockColor} onChange={(event) => onChange({ clockColor: event.target.value, colorPreset: "custom", matchClockBackgroundColors: false })} /></label>}
+          </div>
           <label className="clock-editor__range">時計の大きさ <output>{describeFontSize(settings.clockFontSize, defaultSettings.clockFontSize, settingRanges.clockFontSize.min, settingRanges.clockFontSize.max)}</output><input aria-label="時計の大きさ" type="range" min="56" max="220" value={settings.clockFontSize} onChange={(event) => onChange({ clockFontSize: Number(event.target.value) })} /></label>
           <button className="clock-editor__reset" type="button" onClick={() => { onChange({ clockDatePosition: { x: .5, y: .5 }, clockDateAlignment: "center" }); onMessage("時計とカレンダーを中央にそろえました。"); }}>中央に戻す</button>
         </section>,
