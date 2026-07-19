@@ -1,5 +1,5 @@
 import type { SessionCategory, TimerMode, TimerProgram, TimerState } from "../types/timer";
-import { formatDuration, modeLabels } from "../utils/time";
+import { formatDuration, getCountupLap, getTimerElapsedMs, modeLabels } from "../utils/time";
 
 type Props = {
   timer: TimerState;
@@ -10,6 +10,7 @@ type Props = {
   onSelectCategory: (category: SessionCategory) => void;
   onSetDuration: (minutes: number) => void;
   onCollapse: () => void;
+  onShowFloating: () => void;
 };
 
 const modes: TimerMode[] = ["work", "shortBreak", "longBreak"];
@@ -27,21 +28,29 @@ export function PomodoroTimer({
   onSelectProgram,
   onSelectCategory,
   onSetDuration,
-  onCollapse
+  onCollapse,
+  onShowFloating
 }: Props) {
-  const displayMs = timer.program === "countup" ? 0 : timer.remainingMs;
+  const isActive = timer.status !== "idle";
+  const elapsedMs = getTimerElapsedMs(timer);
+  const displayMs = timer.program === "countup" ? elapsedMs : timer.remainingMs;
+  const countupLap = getCountupLap(elapsedMs, timer.durationMs);
+  const statusLabel = timer.status === "running" ? "進行中" : timer.status === "paused" ? "一時停止中" : "完了";
+  const statusDetail = timer.status === "running" ? "タイマーは動作中" : timer.status === "paused" ? "タイマーは一時停止中" : "タイマーは終了済み";
 
   return (
-    <section className="timer-card timer-setup" aria-label="タイマー設定">
+    <section className={`timer-card timer-setup${isActive ? " timer-setup--active" : ""}`} aria-label={isActive ? "進行中タイマーの設定" : "タイマー設定"}>
       <div className="timer-setup__heading">
-        <div><span>FOCUS TIMER</span><h2>時間をセット</h2></div>
+        <div><span>{isActive ? "TIMER IS ON" : "FOCUS TIMER"}</span><h2>{isActive ? "タイマーを確認" : "時間をセット"}</h2></div>
         <div className="timer-setup__tools">
           {timer.program === "pomodoro" && <p>{timer.completedWorkSessions} sessions</p>}
-          <button className="timer-setup__collapse" type="button" aria-label="タイマー設定をしまう" title="タイマー設定をしまう" onClick={onCollapse}>
+          {!isActive && <button className="timer-setup__collapse" type="button" aria-label="タイマー設定をしまう" title="タイマー設定をしまう" onClick={onCollapse}>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12" /></svg>
-          </button>
+          </button>}
         </div>
       </div>
+
+      {isActive ? <div className="timer-setup__live-note" role="status"><strong>{statusLabel}・{statusDetail}</strong><span>{timer.program === "countup" ? `${countupLap}周目。目安 ${formatDuration(timer.durationMs)}ごとに進捗が一周します。` : "設定を確認できます。タイマー表示へ戻って操作を続けられます。"}</span></div> : <p className="timer-setup__instructions">方式を選び、時間を確認してから開始してください。</p>}
 
       <div className="program-tabs" role="group" aria-label="タイマー方式">
         {programs.map((program) => (
@@ -49,6 +58,7 @@ export function PomodoroTimer({
             className={timer.program === program.value ? "program-tab program-tab--active" : "program-tab"}
             type="button"
             aria-pressed={timer.program === program.value}
+            disabled={isActive}
             onClick={() => onSelectProgram(program.value)}
             key={program.value}
           >
@@ -64,6 +74,7 @@ export function PomodoroTimer({
               className={timer.mode === mode ? "mode-tab mode-tab--active" : "mode-tab"}
               type="button"
               aria-pressed={timer.mode === mode}
+              disabled={isActive}
               onClick={() => onSelectMode(mode)}
               key={mode}
             >
@@ -79,6 +90,7 @@ export function PomodoroTimer({
                 className={timer.category === category ? "category-tab category-tab--active" : "category-tab"}
                 type="button"
                 aria-pressed={timer.category === category}
+                disabled={isActive}
                 onClick={() => onSelectCategory(category)}
                 key={category}
               >
@@ -94,6 +106,7 @@ export function PomodoroTimer({
               min="1"
               max="1440"
               inputMode="numeric"
+              disabled={isActive}
               value={Math.round(timer.customDurationMs / 60_000)}
               onChange={(event) => onSetDuration(Number(event.target.value))}
             />
@@ -102,14 +115,18 @@ export function PomodoroTimer({
         </div>
       )}
 
-      <div className="timer-setup__footer">
+      <div className={`timer-setup__footer${isActive ? " timer-setup__footer--active" : ""}`}>
         <div className="timer-card__time" style={{ fontSize: `${Math.min(fontSize, 68)}px` }}>
           {formatDuration(displayMs)}
+          {isActive && <small className="timer-card__status">{timer.program === "countup" ? `${countupLap}周目` : statusLabel}</small>}
         </div>
-        <button className="timer-start-button" type="button" onClick={onStart}>
+        {isActive ? <button className="timer-return-button" type="button" onClick={onShowFloating}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+          タイマー表示へ戻る
+        </button> : <button className="timer-start-button" type="button" onClick={onStart}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6V6Z" /></svg>
           開始
-        </button>
+        </button>}
       </div>
     </section>
   );

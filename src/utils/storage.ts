@@ -180,7 +180,7 @@ export function createInitialTimerState(workMinutes: number, orientation: Orient
   const durationMs = workMinutes * 60_000;
   const floatingPositions: OrientationPositions = { portrait: { x: 0.18, y: 0.38 }, landscape: { x: 0.18, y: 0.38 } };
   return {
-    version: 3,
+    version: 4,
     program: "pomodoro",
     mode: "work",
     category: "focus",
@@ -210,7 +210,7 @@ const readFloatingPositions = (value: unknown): OrientationPositions => {
 export function loadTimerState(workMinutes: number, orientation: Orientation = "portrait"): TimerState {
   try {
     const parsed: unknown = JSON.parse(localStorage.getItem(TIMER_KEY) ?? "null");
-    if (!isRecord(parsed) || (parsed.version !== 1 && parsed.version !== 2 && parsed.version !== 3)) return createInitialTimerState(workMinutes);
+    if (!isRecord(parsed) || (parsed.version !== 1 && parsed.version !== 2 && parsed.version !== 3 && parsed.version !== 4)) return createInitialTimerState(workMinutes);
     if (!timerModes.includes(parsed.mode as TimerMode) || !timerStatuses.includes(parsed.status as TimerStatus)) {
       return createInitialTimerState(workMinutes);
     }
@@ -240,19 +240,37 @@ export function loadTimerState(workMinutes: number, orientation: Orientation = "
       x: usesOldDefaultPosition ? 0.18 : numberValue(position.x, 0.18, 0.06, 0.94),
       y: usesOldDefaultPosition ? 0.38 : numberValue(position.y, 0.38, 0.08, 0.92)
     };
-    const floatingPositions = parsed.version === 3
+    const floatingPositions = parsed.version >= 3
       ? readFloatingPositions(parsed.floatingPositions)
       : { portrait: legacyPosition, landscape: legacyPosition };
+    const durationMs = numberValue(parsed.durationMs, workMinutes * 60_000, 60_000, 24 * 60 * 60_000);
+    const customDurationMs = numberValue(parsed.customDurationMs, 30 * 60_000, 60_000, 24 * 60 * 60_000);
+    let normalizedStatus = status;
+    let normalizedRemainingMs = program === "countup"
+      ? numberValue(parsed.remainingMs, 0, 0, 7 * 24 * 60 * 60_000)
+      : remainingMs;
+    let normalizedEndAt = endAt;
+    if (program === "countup" && parsed.version === 3) {
+      normalizedRemainingMs = Math.max(0, durationMs - remainingMs);
+      if (status === "running" && endAt !== null) {
+        normalizedEndAt = endAt - durationMs;
+        normalizedRemainingMs = Math.max(0, Date.now() - normalizedEndAt);
+      }
+      if (status === "completed") {
+        normalizedStatus = "paused";
+        normalizedEndAt = null;
+      }
+    }
     return {
-      version: 3,
+      version: 4,
       program,
       mode: parsed.mode as TimerMode,
       category,
-      status: status === "running" && endAt === null ? "paused" : status,
-      durationMs: numberValue(parsed.durationMs, workMinutes * 60_000, 60_000, 24 * 60 * 60_000),
-      customDurationMs: numberValue(parsed.customDurationMs, 30 * 60_000, 60_000, 24 * 60 * 60_000),
-      remainingMs,
-      endAt,
+      status: normalizedStatus === "running" && normalizedEndAt === null ? "paused" : normalizedStatus,
+      durationMs,
+      customDurationMs,
+      remainingMs: normalizedRemainingMs,
+      endAt: normalizedEndAt,
       completedWorkSessions: Math.floor(numberValue(parsed.completedWorkSessions, 0, 0, 9999)),
       floatingPosition: floatingPositions[orientation],
       floatingPositions

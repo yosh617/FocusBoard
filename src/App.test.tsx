@@ -29,14 +29,27 @@ describe("App", () => {
     expect(screen.getByRole("dialog", { name: "設定" })).toBeTruthy();
   });
 
-  it("collapses the idle timer into the same circular timer UI and returns on reset", () => {
+  it("collapses the idle timer into the same circular timer UI and returns to setup", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "タイマー設定をしまう" }));
     expect(screen.queryByLabelText("タイマー設定")).toBeNull();
     expect(screen.getByLabelText("集中タイマー")).toBeTruthy();
     expect(screen.getByRole("button", { name: "開始" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "リセットして設定へ戻る" }));
+    fireEvent.click(screen.getByRole("button", { name: "設定へ戻る" }));
     expect(screen.getByLabelText("タイマー設定")).toBeTruthy();
+  });
+
+  it("returns to setup without stopping an active timer", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "開始" }));
+    fireEvent.click(screen.getByRole("button", { name: "設定へ戻る（タイマーは継続）" }));
+
+    expect(screen.getByLabelText("進行中タイマーの設定")).toBeTruthy();
+    expect(screen.getByText("進行中・タイマーは動作中")).toBeTruthy();
+    expect(screen.queryByLabelText("集中タイマー")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "タイマー表示へ戻る" }));
+    expect(screen.getByLabelText("集中タイマー")).toBeTruthy();
   });
 
   it("applies a shared opacity to timer backgrounds", () => {
@@ -198,7 +211,8 @@ describe("App", () => {
     expect(document.querySelector(".floating-timer--compact strong")?.textContent).toMatch(/^\d{2}:\d{2}$/);
     fireEvent.click(screen.getByRole("button", { name: /クリックで通常表示に戻す/ }));
     expect(document.querySelector(".floating-timer--compact")).toBeNull();
-    expect(screen.getByRole("button", { name: "リセットして設定へ戻る" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "設定へ戻る（タイマーは継続）" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "タイマーをリセット" })).toBeTruthy();
   });
 
   it("reclamps on expansion and restores the compact edge position on shrink", () => {

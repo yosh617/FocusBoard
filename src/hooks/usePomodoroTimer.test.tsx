@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defaultSettings } from "../types/settings";
 import type { Orientation } from "../types/settings";
 import { TIMER_KEY } from "../utils/storage";
+import { getCountupLap } from "../utils/time";
 import { usePomodoroTimer } from "./usePomodoroTimer";
 
 describe("usePomodoroTimer", () => {
@@ -52,7 +53,7 @@ describe("usePomodoroTimer", () => {
     expect(result.current.timer.status).toBe("idle");
   });
 
-  it("runs a separate break count-up timer toward its configured duration", async () => {
+  it("keeps counting up and starts a new progress lap after its configured duration", async () => {
     const { result } = renderHook(() => usePomodoroTimer({ ...defaultSettings, soundEnabled: false }));
     act(() => {
       result.current.selectProgram("countup");
@@ -63,9 +64,10 @@ describe("usePomodoroTimer", () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(60_250); });
     expect(result.current.timer.program).toBe("countup");
     expect(result.current.timer.category).toBe("break");
-    expect(result.current.timer.status).toBe("completed");
-    expect(result.current.timer.remainingMs).toBe(0);
-    expect(result.current.announcement).toContain("休憩");
+    expect(result.current.timer.status).toBe("running");
+    expect(result.current.timer.remainingMs).toBeGreaterThanOrEqual(60_000);
+    expect(getCountupLap(result.current.timer.remainingMs, result.current.timer.durationMs)).toBe(2);
+    expect(result.current.announcement).toBe("");
   });
 
   it("persists a normalized floating position", () => {

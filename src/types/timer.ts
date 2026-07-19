@@ -11,7 +11,7 @@ export type FloatingPosition = {
 };
 
 export type TimerState = {
-  version: 3;
+  version: 4;
   program: TimerProgram;
   mode: TimerMode;
   category: SessionCategory;

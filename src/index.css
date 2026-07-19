@@ -125,6 +125,12 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .timer-setup__heading h2 { margin: 2px 0 0; color: #f5f9ff; font-size: 22px; letter-spacing: -.02em; }
 .timer-setup__heading p { margin: 0 0 2px; color: #aebfd3; font-size: 12px; font-weight: 700; }
 .timer-setup__tools { display: flex; align-items: center; gap: 10px; }
+.timer-setup__instructions { margin: -6px 0 16px; color: #b8c8d8; text-align: left; font-size: 12px; font-weight: 650; }
+.timer-setup__live-note { display: grid; gap: 4px; margin: -5px 0 16px; padding: 11px 13px; color: #d9eaff; border: 1px solid rgba(34,183,255,.42); border-radius: 14px; background: rgba(34,183,255,.12); text-align: left; }
+.timer-setup__live-note { border-color: color-mix(in srgb, var(--timer-accent, #22b7ff) 42%, transparent); background: color-mix(in srgb, var(--timer-accent, #22b7ff) 12%, transparent); }
+.timer-setup__live-note strong { color: #fff; font-size: 12px; }
+.timer-setup__live-note span { color: #b8c8d8; font-size: 11px; line-height: 1.5; }
+.timer-setup--active { box-shadow: 0 24px 65px rgba(11,30,51,.25), 0 0 0 2px color-mix(in srgb, var(--timer-accent, #22b7ff) 18%, transparent), inset 0 1px rgba(255,255,255,.08); }
 .timer-setup__collapse { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; color: #dbe9f5; border: 1px solid rgba(166,197,220,.2); border-radius: 14px; background: rgba(255,255,255,.07); transition: color .2s, border-color .2s, background-color .2s; }
 .timer-setup__collapse:hover { color: #fff; border-color: var(--timer-accent, #22b7ff); background: rgba(34,183,255,.15); }
 .timer-setup__collapse svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
@@ -135,6 +141,7 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .program-tab span { margin-top: 3px; font-size: 10px; font-weight: 650; }
 .program-tab--active { color: #d8efff; border-color: var(--timer-accent, #32bcff); background: rgba(25,130,195,.2); box-shadow: 0 0 0 2px rgba(38,176,239,.08), 0 8px 20px rgba(0,0,0,.12); }
 .timer-card__time { margin: 0; font-weight: 700; line-height: .96; letter-spacing: -.055em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.timer-card__status { display: block; margin-top: 8px; color: #b8c8d8; font-size: 12px; font-weight: 750; letter-spacing: .01em; }
 .mode-tabs { display: inline-flex; justify-content: center; gap: 4px; padding: 4px; border: 1px solid rgba(166,197,220,.12); border-radius: 999px; background: rgba(1,8,16,.3); }
 .mode-tab { min-height: 40px; padding: 7px 17px; color: #aebfd3; border: 0; border-radius: 999px; background: transparent; font-size: 14px; font-weight: 700; transition: color .2s, background-color .2s, box-shadow .2s; }
 .mode-tab--active { color: #fff; background: var(--timer-accent-strong, #168ed1); box-shadow: 0 5px 14px rgba(13,143,212,.3); }
@@ -148,6 +155,9 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .timer-start-button { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-width: 175px; min-height: 50px; padding: 10px 20px; color: #fff; border: 1px solid var(--timer-accent, #20a9ee); border-radius: 16px; background: var(--timer-accent-strong, #137db8); box-shadow: 0 9px 20px rgba(0,0,0,.2); font-weight: 800; transition: filter .2s, box-shadow .2s; }
 .timer-start-button:hover { filter: brightness(1.12); box-shadow: 0 11px 25px rgba(0,0,0,.26); }
 .timer-start-button svg { width: 21px; height: 21px; fill: currentColor; stroke: currentColor; }
+.timer-return-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 190px; min-height: 50px; padding: 10px 17px; color: #fff; border: 1px solid var(--timer-accent, #20a9ee); border-radius: 16px; background: color-mix(in srgb, var(--timer-accent, #20a9ee) 25%, #071421); box-shadow: 0 9px 20px rgba(0,0,0,.16); font-weight: 800; transition: filter .2s, box-shadow .2s, background-color .2s; }
+.timer-return-button:hover { filter: brightness(1.12); box-shadow: 0 11px 25px rgba(0,0,0,.24); }
+.timer-return-button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .primary-button, .secondary-button, .danger-button { min-height: 48px; padding: 10px 16px; border-radius: 15px; font-weight: 750; transition: background-color .2s, border-color .2s, color .2s, box-shadow .2s; }
 .primary-button { color: #fff; border: 1px solid var(--blue-deep); background: var(--blue-deep); box-shadow: 0 8px 18px rgba(39, 79, 136, .2); }
 .primary-button:hover:not(:disabled) { background: #1f467d; box-shadow: 0 10px 22px rgba(39, 79, 136, .26); }
@@ -165,7 +175,7 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .progress-ring circle { fill: none; stroke-width: 5; }
 .progress-ring__track { stroke: rgba(255,255,255,.14); }
 .progress-ring__value { stroke: var(--timer-accent, #22b7ff); stroke-linecap: round; stroke-dasharray: 100; filter: drop-shadow(0 0 4px var(--timer-accent, #22b7ff)); transition: stroke-dashoffset .28s linear; }
-.floating-timer--completed .progress-ring__value { stroke: #58d3b6; }
+.floating-timer--completed .progress-ring__value { stroke: var(--timer-accent, #22b7ff); }
 .floating-timer__content { position: absolute; inset: 25px 26px 22px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #f6f9fc; text-align: center; }
 .floating-timer__program { color: #b8c8d8; font-size: 9px; font-weight: 800; letter-spacing: .12em; }
 .floating-timer__content strong { margin: 5px 0 7px; font-size: 38px; font-weight: 430; line-height: 1; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
@@ -175,6 +185,7 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .floating-timer__controls button { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; color: #e8f2fb; border: 1px solid rgba(255,255,255,.24); border-radius: 50%; background: rgba(255,255,255,.08); transition: color .2s, background-color .2s, border-color .2s; }
 .floating-timer__controls .floating-timer__primary { width: 48px; height: 48px; color: #fff; border-color: rgba(255,255,255,.72); background: rgba(255,255,255,.08); }
 .floating-timer__controls button:hover { border-color: rgba(81,194,255,.75); background: rgba(34,183,255,.2); }
+.floating-timer__controls button:hover { border-color: color-mix(in srgb, var(--timer-accent, #51c2ff) 75%, white); background: color-mix(in srgb, var(--timer-accent, #22b7ff) 20%, transparent); }
 .floating-timer__controls svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .floating-timer__done { padding: 0 6px; color: #7ce2ca; font-size: 12px; font-weight: 850; }
 .floating-timer--compact .floating-timer__drag { width: 88px; height: 88px; border-radius: 50%; }
@@ -365,6 +376,8 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
   .program-tab { padding-inline: 8px; text-align: center; }
   .program-tab span { display: none; }
   .timer-start-button { min-width: 145px; }
+  .timer-setup__footer--active { flex-direction: column; align-items: stretch; }
+  .timer-return-button { width: 100%; }
   .floating-timer__drag { width: 190px; height: 190px; }
   .floating-timer--compact .floating-timer__drag { width: 80px; height: 80px; }
   .floating-timer__content { inset: 23px; }

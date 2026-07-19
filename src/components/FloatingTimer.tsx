@@ -2,20 +2,21 @@ import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type P
 import type { FloatingPosition, TimerState } from "../types/timer";
 import type { Orientation } from "../types/settings";
 import { getOrientation } from "../hooks/useOrientation";
-import { formatDuration, modeLabels } from "../utils/time";
+import { formatDuration, getCountupLap, getTimerElapsedMs, getTimerProgress, modeLabels } from "../utils/time";
 
 type Props = {
   timer: TimerState;
   onStart: () => void;
   onPause: () => void;
   onReset: () => void;
+  onShowSetup: () => void;
   onPositionChange: (position: FloatingPosition) => void;
   orientation: Orientation;
 };
 
 const programLabels = { pomodoro: "ポモドーロ", countdown: "カウントダウン", countup: "カウントアップ" } as const;
 
-export function FloatingTimer({ timer, onStart, onPause, onReset, onPositionChange, orientation }: Props) {
+export function FloatingTimer({ timer, onStart, onPause, onReset, onShowSetup, onPositionChange, orientation }: Props) {
   const [isCompact, setIsCompact] = useState(false);
   const [position, setPosition] = useState(timer.floatingPosition);
   const positionRef = useRef(timer.floatingPosition);
@@ -24,12 +25,14 @@ export function FloatingTimer({ timer, onStart, onPause, onReset, onPositionChan
   const dragElementRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ pointerX: number; pointerY: number; position: FloatingPosition; moved: boolean } | null>(null);
   const suppressClickRef = useRef(false);
-  const elapsedMs = Math.max(0, timer.durationMs - timer.remainingMs);
+  const elapsedMs = getTimerElapsedMs(timer);
   const displayMs = timer.program === "countup" ? elapsedMs : timer.remainingMs;
-  const progress = timer.durationMs > 0 ? Math.min(1, elapsedMs / timer.durationMs) : 0;
+  const progress = getTimerProgress(timer);
+  const countupLap = getCountupLap(elapsedMs, timer.durationMs);
   const sessionLabel = timer.program === "pomodoro"
     ? modeLabels[timer.mode]
     : timer.category === "focus" ? "実施中" : "休憩";
+  const returnToSetupLabel = timer.status === "idle" ? "設定へ戻る" : "設定へ戻る（タイマーは継続）";
 
   useEffect(() => {
     positionRef.current = timer.floatingPosition;
@@ -138,7 +141,7 @@ export function FloatingTimer({ timer, onStart, onPause, onReset, onPositionChan
       className={`floating-timer floating-timer--${timer.status}${isCompact ? " floating-timer--compact" : ""}`}
       style={{ left: `${position.x * 100}%`, top: `${position.y * 100}%` }}
       role="group"
-      aria-label={`${sessionLabel}タイマー${isCompact ? "（ミニ表示）" : ""}`}
+      aria-label={`${sessionLabel}タイマー${timer.program === "countup" ? `（${countupLap}周目）` : ""}${isCompact ? "（ミニ表示）" : ""}`}
     >
       <div
         className="floating-timer__drag"
@@ -173,7 +176,7 @@ export function FloatingTimer({ timer, onStart, onPause, onReset, onPositionChan
               <span className="floating-timer__program">
                 {timer.program === "pomodoro"
                   ? `SESSION ${(timer.completedWorkSessions % 4) + 1} / 4`
-                  : programLabels[timer.program]}
+                  : timer.program === "countup" ? `${countupLap}周目 · 目安 ${formatDuration(timer.durationMs)}` : programLabels[timer.program]}
               </span>
               <span className="floating-timer__session">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 8v4l3 2" /></svg>
@@ -190,7 +193,10 @@ export function FloatingTimer({ timer, onStart, onPause, onReset, onPositionChan
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6V6Z" /></svg>
                   </button>
                 ) : <span className="floating-timer__done">完了</span>}
-                <button type="button" onClick={onReset} aria-label="リセットして設定へ戻る" title="リセットして設定へ戻る">
+                <button type="button" onClick={onShowSetup} aria-label={returnToSetupLabel} title={returnToSetupLabel}>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 4v6M17 14v6M4 17h16" /></svg>
+                </button>
+                <button type="button" onClick={onReset} aria-label="タイマーをリセット" title="タイマーをリセット">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6M4 4v4.6h4.6" /></svg>
                 </button>
               </div>

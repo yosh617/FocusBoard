@@ -180,4 +180,27 @@ describe("timer storage", () => {
     }));
     expect(loadTimerState(25).status).toBe("paused");
   });
+
+  it("migrates the old count-up representation to a continuing timer", () => {
+    localStorage.setItem(TIMER_KEY, JSON.stringify({
+      version: 3,
+      program: "countup",
+      mode: "work",
+      category: "focus",
+      status: "paused",
+      durationMs: 60_000,
+      customDurationMs: 60_000,
+      remainingMs: 15_000,
+      endAt: null,
+      completedWorkSessions: 0,
+      floatingPosition: { x: .18, y: .38 },
+      floatingPositions: { portrait: { x: .18, y: .38 }, landscape: { x: .18, y: .38 } }
+    }));
+
+    const timer = loadTimerState(25);
+    expect(timer.version).toBe(4);
+    expect(timer.program).toBe("countup");
+    expect(timer.remainingMs).toBe(45_000);
+    expect(timer.status).toBe("paused");
+  });
 });

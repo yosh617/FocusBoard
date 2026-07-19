@@ -61,6 +61,12 @@ export function usePomodoroTimer(settings: AppSettings, orientation: Orientation
   const tick = useCallback(() => {
     setTimer((current) => {
       if (current.status !== "running" || current.endAt === null) return current;
+      if (current.program === "countup") {
+        const elapsedMs = Math.max(0, Date.now() - current.endAt);
+        return Math.ceil(current.remainingMs / 1000) === Math.ceil(elapsedMs / 1000)
+          ? current
+          : { ...current, remainingMs: elapsedMs };
+      }
       const remainingMs = Math.max(0, current.endAt - Date.now());
       if (remainingMs <= 0) return { ...current, status: "completed", remainingMs: 0, endAt: null };
       return Math.ceil(current.remainingMs / 1000) === Math.ceil(remainingMs / 1000)
@@ -100,7 +106,7 @@ export function usePomodoroTimer(settings: AppSettings, orientation: Orientation
     setAnnouncement(`${modeLabels[timer.mode]}が終了しました。次は${modeLabels[nextMode]}です。`);
     setTimer((current) => ({
       ...current,
-      version: 3,
+      version: 4,
       mode: nextMode,
       category: nextMode === "work" ? "focus" : "break",
       status: "paused",
@@ -115,7 +121,11 @@ export function usePomodoroTimer(settings: AppSettings, orientation: Orientation
     if (settingsRef.current.soundEnabled) prepareAudio();
     setAnnouncement("");
     setTimer((current) => {
-      if (current.status === "running" || current.status === "completed") return current;
+      if (current.status === "running" || (current.status === "completed" && current.program !== "countup")) return current;
+      if (current.program === "countup") {
+        const elapsedMs = Math.max(0, current.remainingMs);
+        return { ...current, status: "running", remainingMs: elapsedMs, endAt: Date.now() - elapsedMs };
+      }
       const remainingMs = current.remainingMs > 0 ? current.remainingMs : current.durationMs;
       return { ...current, status: "running", remainingMs, endAt: Date.now() + remainingMs };
     });
@@ -124,6 +134,10 @@ export function usePomodoroTimer(settings: AppSettings, orientation: Orientation
   const pause = useCallback(() => {
     setTimer((current) => {
       if (current.status !== "running") return current;
+      if (current.program === "countup") {
+        const elapsedMs = current.endAt ? Math.max(0, Date.now() - current.endAt) : current.remainingMs;
+        return { ...current, status: "paused", remainingMs: elapsedMs, endAt: null };
+      }
       const remainingMs = current.endAt ? Math.max(0, current.endAt - Date.now()) : current.remainingMs;
       return { ...current, status: "paused", remainingMs, endAt: null };
     });
@@ -135,7 +149,7 @@ export function usePomodoroTimer(settings: AppSettings, orientation: Orientation
       const durationMs = current.program === "pomodoro"
         ? getDurationMs(current.mode, settingsRef.current)
         : current.customDurationMs;
-      return { ...current, status: "idle", durationMs, remainingMs: durationMs, endAt: null };
+      return { ...current, status: "idle", durationMs, remainingMs: current.program === "countup" ? 0 : durationMs, endAt: null };
     });
   }, []);
 
@@ -167,7 +181,7 @@ export function usePomodoroTimer(settings: AppSettings, orientation: Orientation
         category: "focus",
         status: "idle",
         durationMs,
-        remainingMs: durationMs,
+        remainingMs: program === "countup" ? 0 : durationMs,
         endAt: null
       };
     });
@@ -179,14 +193,13 @@ export function usePomodoroTimer(settings: AppSettings, orientation: Orientation
 
   const setCustomDurationMinutes = useCallback((minutes: number) => {
     const customDurationMs = Math.min(24 * 60, Math.max(1, Math.round(minutes))) * 60_000;
-    setTimer((current) => ({
-      ...current,
-      customDurationMs,
-      durationMs: current.program === "pomodoro" ? current.durationMs : customDurationMs,
-      remainingMs: current.program === "pomodoro" ? current.remainingMs : customDurationMs,
-      endAt: null,
-      status: current.program === "pomodoro" ? current.status : "idle"
-    }));
+    setTimer((current) => {
+      if (current.program === "pomodoro") return { ...current, customDurationMs };
+      if (current.program === "countup") {
+        return { ...current, customDurationMs, durationMs: customDurationMs, remainingMs: current.status === "idle" ? 0 : current.remainingMs };
+      }
+      return { ...current, customDurationMs, durationMs: customDurationMs, remainingMs: customDurationMs, endAt: null, status: "idle" };
+    });
   }, []);
 
   const setFloatingPosition = useCallback((floatingPosition: FloatingPosition) => {

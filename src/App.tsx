@@ -32,6 +32,7 @@ export default function App() {
   } = usePomodoroTimer(settings, orientation);
   const { backgrounds, addBackgrounds, removeBackground, reorderBackgrounds, backgroundMessage, setBackgroundMessage } = useCustomBackgrounds();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [timerSetupVisible, setTimerSetupVisible] = useState(false);
   const [settingsButtonVisible, setSettingsButtonVisible] = useState(false);
   const [backgroundEditing, setBackgroundEditing] = useState(false);
   const [activeBackgroundId, setActiveBackgroundId] = useState<string>(() => settings.backgroundChoice === "slideshow" ? "bg1" : settings.backgroundChoice);
@@ -95,23 +96,44 @@ export default function App() {
     if (settings.fullscreen !== isFullscreen) updateSettings({ fullscreen: isFullscreen });
   }, [isFullscreen, settings.fullscreen, updateSettings]);
 
+  const startTimer = useCallback(() => {
+    setTimerSetupVisible(false);
+    updateSettings({ timerSetupCollapsed: true });
+    start();
+  }, [start, updateSettings]);
+  const showTimerSetup = useCallback(() => {
+    setTimerSetupVisible(true);
+    updateSettings({ timerSetupCollapsed: false });
+  }, [updateSettings]);
+  const showFloatingTimer = useCallback(() => {
+    setTimerSetupVisible(false);
+    updateSettings({ timerSetupCollapsed: true });
+  }, [updateSettings]);
+  const resetTimer = useCallback(() => {
+    reset();
+    setTimerSetupVisible(false);
+    updateSettings({ timerSetupCollapsed: false });
+  }, [reset, updateSettings]);
+
   const slotContent = useMemo(() => {
     const slots = Object.fromEntries(positionPresets.map((position) => [position, [] as ReactNode[]])) as Record<PositionPreset, ReactNode[]>;
-    if (settings.showTimer && timer.status === "idle" && !settings.timerSetupCollapsed) slots[settings.timerPositions[orientation]].push(
+    const showSetup = settings.showTimer && (timer.status === "idle" ? !settings.timerSetupCollapsed : timerSetupVisible);
+    if (showSetup) slots[settings.timerPositions[orientation]].push(
       <PomodoroTimer
         timer={timer}
         fontSize={settings.timerFontSize}
-        onStart={start}
+        onStart={startTimer}
         onSelectMode={selectMode}
         onSelectProgram={selectProgram}
         onSelectCategory={selectCategory}
         onSetDuration={setCustomDurationMinutes}
-        onCollapse={() => updateSettings({ timerSetupCollapsed: true })}
+        onCollapse={() => { setTimerSetupVisible(false); updateSettings({ timerSetupCollapsed: true }); }}
+        onShowFloating={showFloatingTimer}
         key="timer"
       />
     );
     return slots;
-  }, [orientation, settings, timer, start, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, updateSettings]);
+  }, [orientation, settings, timer, timerSetupVisible, startTimer, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, showFloatingTimer, updateSettings]);
 
   const liveMessage = backgroundMessage || announcement || storageMessage;
   const clockColor = activeClockSetting.matchColors ? adaptivePalette.text : activeClockSetting.color;
@@ -177,15 +199,13 @@ export default function App() {
       </div>
       {(settings.showClock || settings.showDate) && <ClockWidget now={now} settings={clockDisplaySettings} textColor={clockColor} onChange={updateClockSettings} onMessage={showMessage} orientation={orientation} />}
 
-      {settings.showTimer && (timer.status !== "idle" || settings.timerSetupCollapsed) && (
+      {settings.showTimer && (timer.status !== "idle" || settings.timerSetupCollapsed) && !timerSetupVisible && (
         <FloatingTimer
           timer={timer}
-          onStart={start}
+          onStart={startTimer}
           onPause={pause}
-          onReset={() => {
-            reset();
-            updateSettings({ timerSetupCollapsed: false });
-          }}
+          onReset={resetTimer}
+          onShowSetup={showTimerSetup}
           onPositionChange={setFloatingPosition}
           orientation={orientation}
         />
