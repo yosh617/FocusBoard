@@ -88,8 +88,8 @@ describe("settings storage", () => {
     expect(result.clockColor).toBe("#112233");
     expect(result.timerColor).toBe("#112233");
     expect(result.matchBackgroundColors).toBe(false);
-    expect(result.clockBackgroundSettings.bg1).toEqual({ position: { x: .2, y: .8 }, color: "#112233" });
-    expect(result.clockBackgroundSettings.bg3).toEqual({ position: { x: .2, y: .8 }, color: "#112233" });
+    expect(result.clockBackgroundSettings.bg1).toEqual({ position: { x: .2, y: .8 }, color: "#112233", matchColors: false });
+    expect(result.clockBackgroundSettings.bg3).toEqual({ position: { x: .2, y: .8 }, color: "#112233", matchColors: false });
     expect(result.timerPosition).toBe("top-right");
   });
 
@@ -106,6 +106,17 @@ describe("settings storage", () => {
     const result = migrateSettings({ ...defaultSettings, matchClockBackgroundColors: true, matchTimerBackgroundColors: false, matchBackgroundColors: true });
     expect(result.matchClockBackgroundColors).toBe(true);
     expect(result.matchTimerBackgroundColors).toBe(false);
+  });
+
+  it("migrates the per-background auto-color switch from the shared setting", () => {
+    const result = migrateSettings({
+      ...defaultSettings,
+      matchClockBackgroundColors: false,
+      clockBackgroundSettings: {
+        bg1: { position: defaultSettings.clockDatePosition, color: "#112233" }
+      }
+    });
+    expect(result.clockBackgroundSettings.bg1.matchColors).toBe(false);
   });
 
   it("migrates legacy layouts and validates free clock positions", () => {

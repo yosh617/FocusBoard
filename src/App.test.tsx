@@ -340,8 +340,8 @@ describe("App", () => {
       backgroundChoice: "bg1",
       timerPosition: "top-right",
       clockBackgroundSettings: {
-        bg1: { position: { x: .06, y: .22 }, color: "#112233" },
-        bg2: { position: { x: .1, y: .68 }, color: "#aabbcc" }
+        bg1: { position: { x: .06, y: .22 }, color: "#112233", matchColors: false },
+        bg2: { position: { x: .1, y: .68 }, color: "#aabbcc", matchColors: false }
       }
     }));
     render(<App />);
@@ -357,6 +357,30 @@ describe("App", () => {
     expect(document.querySelector<HTMLElement>(".clock-widget")?.style.top).toBe("68%");
     expect(screen.getByRole("button", { name: "時計とカレンダーの表示設定を開く" }).style.color).toBe("rgb(170, 187, 204)");
     expect(document.querySelector(".slot--top-right .timer-setup")).not.toBeNull();
+  });
+
+  it("uses a separate clock auto-color setting for each background", () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+      ...defaultSettings,
+      backgroundChoice: "bg1",
+      matchClockBackgroundColors: false,
+      clockBackgroundSettings: {
+        bg1: { position: defaultSettings.clockDatePosition, color: "#112233", matchColors: false },
+        bg2: { position: defaultSettings.clockDatePosition, color: "#aabbcc", matchColors: true }
+      }
+    }));
+    render(<App />);
+    revealSettings();
+    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    fireEvent.click(screen.getByRole("tab", { name: "表示" }));
+    fireEvent.click(screen.getByText("時計・日付の見やすさ"));
+    const autoToggle = screen.getByLabelText("自動調整") as HTMLInputElement;
+    expect(autoToggle.checked).toBe(false);
+    fireEvent.click(screen.getByText("背景ごとの設定"));
+    fireEvent.change(screen.getByLabelText("設定する背景"), { target: { value: "bg2" } });
+    expect(autoToggle.checked).toBe(true);
+    fireEvent.click(autoToggle);
+    expect(autoToggle.checked).toBe(false);
   });
 
   it("applies the selected theme color to the clock and date", () => {

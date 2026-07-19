@@ -15,7 +15,7 @@ export type ClockDateAlignment = "left" | "center" | "right";
 export type FreePosition = { x: number; y: number };
 export type BackgroundFrame = { scale: number; position: FreePosition };
 export type BackgroundFrames = Record<string, BackgroundFrame>;
-export type ClockBackgroundSetting = { position: FreePosition; color: string };
+export type ClockBackgroundSetting = { position: FreePosition; color: string; matchColors: boolean };
 export type ClockBackgroundSettings = Record<string, ClockBackgroundSetting>;
 export type DateFormat = string;
 

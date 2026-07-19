@@ -41,7 +41,7 @@ const readBackgroundFrames = (value: unknown): BackgroundFrames => {
   }));
 };
 
-const readClockBackgroundSettings = (value: unknown, fallback: { position: { x: number; y: number }; color: string }): ClockBackgroundSettings => {
+const readClockBackgroundSettings = (value: unknown, fallback: { position: { x: number; y: number }; color: string; matchColors: boolean }): ClockBackgroundSettings => {
   if (!isRecord(value)) return {};
   return Object.fromEntries(Object.entries(value).flatMap(([id, setting]) => {
     if (id === "slideshow" || !isBackgroundChoice(id) || !isRecord(setting) || !isRecord(setting.position)) return [];
@@ -50,7 +50,8 @@ const readClockBackgroundSettings = (value: unknown, fallback: { position: { x: 
         x: numberValue(setting.position.x, fallback.position.x, .06, .94),
         y: numberValue(setting.position.y, fallback.position.y, .08, .92)
       },
-      color: colorValue(setting.color, fallback.color)
+      color: colorValue(setting.color, fallback.color),
+      matchColors: booleanValue(setting.matchColors, fallback.matchColors)
     }]];
   })) as ClockBackgroundSettings;
 };
@@ -66,6 +67,7 @@ export function migrateSettings(value: unknown): AppSettings {
   const savedTimerColor = colorValue(value.timerColor, colorValue(value.accentColor, ""));
   const resolvedTimerColor = savedTimerColor === "" ? ("color" in value || "textColor" in value ? sharedColor : defaultSettings.timerColor) : savedTimerColor;
   const legacyAutoColors = booleanValue(value.matchBackgroundColors, defaultSettings.matchBackgroundColors);
+  const savedClockAutoColors = booleanValue(value.matchClockBackgroundColors, legacyAutoColors);
   const legacyClockPosition = {
     x: numberValue(savedClockDatePosition.x, defaultSettings.clockDatePosition.x, .06, .94),
     y: numberValue(savedClockDatePosition.y, defaultSettings.clockDatePosition.y, .08, .92)
@@ -77,9 +79,9 @@ export function migrateSettings(value: unknown): AppSettings {
     if (isRecord(value.backgroundFrames)) Object.keys(value.backgroundFrames).forEach((id) => {
       if (isBackgroundChoice(id) && id !== "slideshow") ids.add(id);
     });
-    ids.forEach((id) => { legacyClockBackgroundSettings[id] = { position: legacyClockPosition, color: savedClockColor }; });
+    ids.forEach((id) => { legacyClockBackgroundSettings[id] = { position: legacyClockPosition, color: savedClockColor, matchColors: savedClockAutoColors }; });
   }
-  const clockBackgroundSettings = readClockBackgroundSettings(value.clockBackgroundSettings, { position: legacyClockPosition, color: savedClockColor });
+  const clockBackgroundSettings = readClockBackgroundSettings(value.clockBackgroundSettings, { position: legacyClockPosition, color: savedClockColor, matchColors: savedClockAutoColors });
 
   return {
     version: 2,
@@ -102,7 +104,7 @@ export function migrateSettings(value: unknown): AppSettings {
     colorPreset: isColorPreset(value.colorPreset) ? value.colorPreset : defaultSettings.colorPreset,
     clockColor: isLegacyTheme && savedClockColor.toLowerCase() === "#f8fafc" ? defaultSettings.clockColor : savedClockColor,
     timerColor: resolvedTimerColor,
-    matchClockBackgroundColors: booleanValue(value.matchClockBackgroundColors, legacyAutoColors),
+    matchClockBackgroundColors: savedClockAutoColors,
     matchTimerBackgroundColors: booleanValue(value.matchTimerBackgroundColors, legacyAutoColors),
     matchBackgroundColors: legacyAutoColors,
     overlayOpacity: isLegacyTheme && value.overlayOpacity === 0.42

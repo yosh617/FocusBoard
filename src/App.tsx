@@ -38,26 +38,29 @@ export default function App() {
 
   const activeClockSetting = settings.clockBackgroundSettings[activeBackgroundId] ?? {
     position: defaultSettings.clockDatePosition,
-    color: settings.clockColor
+    color: settings.clockColor,
+    matchColors: settings.matchClockBackgroundColors
   };
-  const clockDisplaySettings = useMemo(() => ({ ...settings, clockDatePosition: activeClockSetting.position, clockColor: activeClockSetting.color }), [activeClockSetting.color, activeClockSetting.position, settings]);
+  const clockDisplaySettings = useMemo(() => ({ ...settings, clockDatePosition: activeClockSetting.position, clockColor: activeClockSetting.color, matchClockBackgroundColors: activeClockSetting.matchColors }), [activeClockSetting.color, activeClockSetting.matchColors, activeClockSetting.position, settings]);
   const updateClockSettings = useCallback((patch: Partial<typeof settings>) => {
-    const updatesClockSetting = "clockDatePosition" in patch || "clockColor" in patch;
+    const updatesClockSetting = "clockDatePosition" in patch || "clockColor" in patch || "matchClockBackgroundColors" in patch;
     if (!updatesClockSetting) {
       updateSettings(patch);
       return;
     }
     updateSettings((current) => {
-      const currentClock = current.clockBackgroundSettings[activeBackgroundId] ?? { position: defaultSettings.clockDatePosition, color: current.clockColor };
+      const currentClock = current.clockBackgroundSettings[activeBackgroundId] ?? { position: defaultSettings.clockDatePosition, color: current.clockColor, matchColors: current.matchClockBackgroundColors };
       const nextPosition = patch.clockDatePosition ?? currentClock.position;
       const nextColor = patch.clockColor ?? currentClock.color;
+      const nextMatchColors = patch.matchClockBackgroundColors ?? currentClock.matchColors;
       return {
         ...patch,
         ...(patch.clockDatePosition ? { clockDatePosition: nextPosition } : {}),
         ...(patch.clockColor ? { clockColor: nextColor } : {}),
+        ...(patch.matchClockBackgroundColors !== undefined ? { matchClockBackgroundColors: nextMatchColors } : {}),
         clockBackgroundSettings: {
           ...current.clockBackgroundSettings,
-          [activeBackgroundId]: { ...currentClock, position: nextPosition, color: nextColor }
+          [activeBackgroundId]: { ...currentClock, position: nextPosition, color: nextColor, matchColors: nextMatchColors }
         }
       };
     });
@@ -109,7 +112,7 @@ export default function App() {
   }, [settings, timer, start, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, updateSettings]);
 
   const liveMessage = backgroundMessage || announcement || storageMessage;
-  const clockColor = settings.matchClockBackgroundColors ? adaptivePalette.text : activeClockSetting.color;
+  const clockColor = activeClockSetting.matchColors ? adaptivePalette.text : activeClockSetting.color;
   const timerColor = settings.matchTimerBackgroundColors ? adaptivePalette.accent : settings.timerColor;
   const appStyle = {
     color: clockColor,
