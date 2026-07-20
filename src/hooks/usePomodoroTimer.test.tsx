@@ -15,7 +15,7 @@ describe("usePomodoroTimer", () => {
 
   afterEach(() => vi.useRealTimers());
 
-  it("uses endAt to restore elapsed time and selects a long break after four work sessions", async () => {
+  it("uses endAt to restore elapsed time and keeps the timer in overtime", async () => {
     localStorage.setItem(TIMER_KEY, JSON.stringify({
       version: 1,
       mode: "work",
@@ -29,10 +29,14 @@ describe("usePomodoroTimer", () => {
 
     await act(async () => { await vi.advanceTimersByTimeAsync(1_250); });
 
-    expect(result.current.timer.mode).toBe("longBreak");
-    expect(result.current.timer.status).toBe("paused");
-    expect(result.current.timer.completedWorkSessions).toBe(4);
-    expect(result.current.announcement).toContain("長い休憩");
+    expect(result.current.timer.mode).toBe("work");
+    expect(result.current.timer.status).toBe("overtime");
+    expect(result.current.timer.completedWorkSessions).toBe(3);
+    expect(result.current.timer.remainingMs).toBeGreaterThan(0);
+    expect(result.current.announcement).toContain("延長中");
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(2_000); });
+    expect(result.current.timer.remainingMs).toBeGreaterThan(2_000);
   });
 
   it("freezes remaining time when paused", () => {

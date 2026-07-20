@@ -7,7 +7,7 @@ import { SETTINGS_KEY } from "./utils/storage";
 describe("App", () => {
   beforeEach(() => localStorage.clear());
 
-  const revealSettings = () => fireEvent.pointerUp(screen.getByLabelText("FocusBoard ダッシュボード"));
+  const revealSettings = () => fireEvent.pointerUp(document.querySelector<HTMLElement>(".background")!);
 
   it("reveals the settings button after tapping the background", () => {
     render(<App />);
@@ -16,6 +16,26 @@ describe("App", () => {
     revealSettings();
 
     expect(screen.getByRole("button", { name: "設定" })).toBeTruthy();
+  });
+
+  it("fades the settings button after its display period and reveals it again on a background tap", () => {
+    vi.useFakeTimers();
+    try {
+      render(<App />);
+      revealSettings();
+      const settingsButton = screen.getByRole("button", { name: "設定" });
+
+      act(() => { vi.advanceTimersByTime(4_500); });
+      expect(settingsButton.classList.contains("settings-button--fading")).toBe(true);
+
+      act(() => { vi.advanceTimersByTime(280); });
+      expect(screen.queryByRole("button", { name: "設定" })).toBeNull();
+
+      revealSettings();
+      expect(screen.getByRole("button", { name: "設定" })).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("starts in setup mode, collapses to a floating timer, and opens settings", () => {
@@ -35,14 +55,14 @@ describe("App", () => {
     expect(screen.queryByLabelText("タイマー設定")).toBeNull();
     expect(screen.getByLabelText("集中タイマー")).toBeTruthy();
     expect(screen.getByRole("button", { name: "開始" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "設定へ戻る" }));
+    fireEvent.click(screen.getByRole("button", { name: "タイマーセット" }));
     expect(screen.getByLabelText("タイマー設定")).toBeTruthy();
   });
 
   it("returns to setup without stopping an active timer", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "開始" }));
-    fireEvent.click(screen.getByRole("button", { name: "設定へ戻る（タイマーは継続）" }));
+    fireEvent.click(screen.getByRole("button", { name: "タイマーセット（タイマーは継続）" }));
 
     expect(screen.getByLabelText("進行中タイマーの設定")).toBeTruthy();
     expect(screen.getByText("進行中・タイマーは動作中")).toBeTruthy();
@@ -211,7 +231,9 @@ describe("App", () => {
     expect(document.querySelector(".floating-timer--compact strong")?.textContent).toMatch(/^\d{2}:\d{2}$/);
     fireEvent.click(screen.getByRole("button", { name: /クリックで通常表示に戻す/ }));
     expect(document.querySelector(".floating-timer--compact")).toBeNull();
-    expect(screen.getByRole("button", { name: "設定へ戻る（タイマーは継続）" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "タイマーセット（タイマーは継続）" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "タイマーをリセット" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "タイマーセット（タイマーは継続）" }));
     expect(screen.getByRole("button", { name: "タイマーをリセット" })).toBeTruthy();
   });
 

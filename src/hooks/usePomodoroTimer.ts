@@ -60,6 +60,13 @@ export function usePomodoroTimer(settings: AppSettings, orientation: Orientation
 
   const tick = useCallback(() => {
     setTimer((current) => {
+      if (current.status === "overtime") {
+        if (current.endAt === null) return current;
+        const overtimeMs = Math.max(0, current.remainingMs, Date.now() - current.endAt);
+        return Math.ceil(current.remainingMs / 1000) === Math.ceil(overtimeMs / 1000)
+          ? current
+          : { ...current, remainingMs: overtimeMs };
+      }
       if (current.status !== "running" || current.endAt === null) return current;
       if (current.program === "countup") {
         const elapsedMs = Math.max(0, Date.now() - current.endAt);
@@ -67,8 +74,9 @@ export function usePomodoroTimer(settings: AppSettings, orientation: Orientation
           ? current
           : { ...current, remainingMs: elapsedMs };
       }
-      const remainingMs = Math.max(0, current.endAt - Date.now());
-      if (remainingMs <= 0) return { ...current, status: "completed", remainingMs: 0, endAt: null };
+      const now = Date.now();
+      const remainingMs = Math.max(0, current.endAt - now);
+      if (remainingMs <= 0) return { ...current, status: "overtime", remainingMs: Math.max(0, now - current.endAt) };
       return Math.ceil(current.remainingMs / 1000) === Math.ceil(remainingMs / 1000)
         ? current
         : { ...current, remainingMs };
@@ -86,42 +94,18 @@ export function usePomodoroTimer(settings: AppSettings, orientation: Orientation
   }, [tick]);
 
   useEffect(() => {
-    if (timer.status !== "completed") return;
+    if (timer.status !== "overtime") return;
     if (settingsRef.current.soundEnabled) playChime();
 
-    if (timer.program !== "pomodoro") {
-      const direction = timer.program === "countup" ? "カウントアップ" : "カウントダウン";
-      setAnnouncement(`${categoryLabel[timer.category]}の${direction}が完了しました。`);
-      return;
-    }
-
-    const completedWorkSessions = timer.mode === "work"
-      ? timer.completedWorkSessions + 1
-      : timer.completedWorkSessions;
-    const nextMode: TimerMode = timer.mode === "work"
-      ? (completedWorkSessions % 4 === 0 ? "longBreak" : "shortBreak")
-      : "work";
-    const durationMs = getDurationMs(nextMode, settingsRef.current);
-
-    setAnnouncement(`${modeLabels[timer.mode]}が終了しました。次は${modeLabels[nextMode]}です。`);
-    setTimer((current) => ({
-      ...current,
-      version: 4,
-      mode: nextMode,
-      category: nextMode === "work" ? "focus" : "break",
-      status: "paused",
-      durationMs,
-      remainingMs: durationMs,
-      endAt: null,
-      completedWorkSessions
-    }));
-  }, [timer.status, timer.program, timer.mode, timer.category, timer.completedWorkSessions]);
+    const direction = timer.program === "countup" ? "カウントアップ" : timer.program === "pomodoro" ? modeLabels[timer.mode] : "カウントダウン";
+    setAnnouncement(`${categoryLabel[timer.category]}の${direction}が終了しました。延長中です。`);
+  }, [timer.status, timer.program, timer.mode, timer.category]);
 
   const start = useCallback(() => {
     if (settingsRef.current.soundEnabled) prepareAudio();
     setAnnouncement("");
     setTimer((current) => {
-      if (current.status === "running" || (current.status === "completed" && current.program !== "countup")) return current;
+      if (current.status === "running" || current.status === "overtime" || (current.status === "completed" && current.program !== "countup")) return current;
       if (current.program === "countup") {
         const elapsedMs = Math.max(0, current.remainingMs);
         return { ...current, status: "running", remainingMs: elapsedMs, endAt: Date.now() - elapsedMs };

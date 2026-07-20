@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { BackgroundSlideshow } from "./components/BackgroundSlideshow";
 import { ClockWidget } from "./components/ClockWidget";
 import { PomodoroTimer } from "./components/PomodoroTimer";
@@ -12,6 +12,9 @@ import { useFullscreen } from "./hooks/useFullscreen";
 import { useOrientation } from "./hooks/useOrientation";
 import { defaultSettings, fontOptions, positionPresets, type OrientationPositions, type PositionPreset } from "./types/settings";
 import { getAdaptivePalette, fallbackBackgroundRgb, getStrongAccent, type AdaptivePalette } from "./utils/adaptiveColor";
+
+const settingsButtonDisplayMs = 4_500;
+const settingsButtonFadeMs = 280;
 
 export default function App() {
   const { settings, updateSettings, undoSettings, resetSettings, storageMessage, setStorageMessage, saveState } = useLocalStorageSettings();
@@ -34,9 +37,12 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [timerSetupVisible, setTimerSetupVisible] = useState(false);
   const [settingsButtonVisible, setSettingsButtonVisible] = useState(false);
+  const [settingsButtonFading, setSettingsButtonFading] = useState(false);
   const [backgroundEditing, setBackgroundEditing] = useState(false);
   const [activeBackgroundId, setActiveBackgroundId] = useState<string>(() => settings.backgroundChoice === "slideshow" ? "bg1" : settings.backgroundChoice);
   const [adaptivePalette, setAdaptivePalette] = useState<AdaptivePalette>(() => getAdaptivePalette(fallbackBackgroundRgb, settings.overlayOpacity));
+  const settingsButtonTimeoutRef = useRef<number | null>(null);
+  const settingsButtonFadeTimeoutRef = useRef<number | null>(null);
   const now = useClock(settings.showSeconds);
 
   const activeClockSetting = settings.clockBackgroundSettings[activeBackgroundId] ?? {
@@ -70,13 +76,37 @@ export default function App() {
   }, [activeBackgroundId, orientation, updateSettings]);
 
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
-  const revealSettingsButton = useCallback((event: ReactPointerEvent<HTMLElement>) => {
-    if (event.target === event.currentTarget) setSettingsButtonVisible(true);
+  const hideSettingsButton = useCallback(() => {
+    if (settingsButtonTimeoutRef.current !== null) window.clearTimeout(settingsButtonTimeoutRef.current);
+    if (settingsButtonFadeTimeoutRef.current !== null) window.clearTimeout(settingsButtonFadeTimeoutRef.current);
+    settingsButtonTimeoutRef.current = null;
+    settingsButtonFadeTimeoutRef.current = null;
+    setSettingsButtonFading(false);
+    setSettingsButtonVisible(false);
   }, []);
+  const revealSettingsButton = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    if (settingsOpen || backgroundEditing || !(event.target instanceof Element)) return;
+    const interactiveTarget = event.target.closest("button, input, select, textarea, a, [role='dialog'], .clock-widget, .floating-timer, .timer-card");
+    if (interactiveTarget) return;
+    if (settingsButtonTimeoutRef.current !== null) window.clearTimeout(settingsButtonTimeoutRef.current);
+    if (settingsButtonFadeTimeoutRef.current !== null) window.clearTimeout(settingsButtonFadeTimeoutRef.current);
+    setSettingsButtonFading(false);
+    setSettingsButtonVisible(true);
+    settingsButtonFadeTimeoutRef.current = window.setTimeout(() => {
+      settingsButtonFadeTimeoutRef.current = null;
+      setSettingsButtonFading(true);
+    }, settingsButtonDisplayMs);
+    settingsButtonTimeoutRef.current = window.setTimeout(() => {
+      settingsButtonTimeoutRef.current = null;
+      setSettingsButtonFading(false);
+      setSettingsButtonVisible(false);
+    }, settingsButtonDisplayMs + settingsButtonFadeMs);
+  }, [backgroundEditing, settingsOpen]);
   const startBackgroundEditing = useCallback(() => {
+    hideSettingsButton();
     setSettingsOpen(false);
     setBackgroundEditing(true);
-  }, []);
+  }, [hideSettingsButton]);
   const showMessage = useCallback((message: string) => {
     setStorageMessage(message);
     setAnnouncement("");
@@ -114,6 +144,7 @@ export default function App() {
     setTimerSetupVisible(false);
     updateSettings({ timerSetupCollapsed: false });
   }, [reset, updateSettings]);
+  const endTimer = resetTimer;
 
   const slotContent = useMemo(() => {
     const slots = Object.fromEntries(positionPresets.map((position) => [position, [] as ReactNode[]])) as Record<PositionPreset, ReactNode[]>;
@@ -123,6 +154,7 @@ export default function App() {
         timer={timer}
         fontSize={settings.timerFontSize}
         onStart={startTimer}
+        onReset={resetTimer}
         onSelectMode={selectMode}
         onSelectProgram={selectProgram}
         onSelectCategory={selectCategory}
@@ -155,6 +187,11 @@ export default function App() {
     }, 7_000);
     return () => window.clearTimeout(timeout);
   }, [liveMessage, setAnnouncement, setStorageMessage, setBackgroundMessage]);
+
+  useEffect(() => () => {
+    if (settingsButtonTimeoutRef.current !== null) window.clearTimeout(settingsButtonTimeoutRef.current);
+    if (settingsButtonFadeTimeoutRef.current !== null) window.clearTimeout(settingsButtonFadeTimeoutRef.current);
+  }, []);
 
   return (
     <main
@@ -192,7 +229,7 @@ export default function App() {
         onPaletteChange={setAdaptivePalette}
         onActiveBackgroundChange={setActiveBackgroundId}
       />
-      <div className="dashboard" aria-label="FocusBoard ダッシュボード" onPointerUp={revealSettingsButton}>
+      <div className="dashboard" aria-label="FocusBoard ダッシュボード">
         {positionPresets.map((position) => (
           <div className={`slot slot--${position}`} key={position}>{slotContent[position]}</div>
         ))}
@@ -204,7 +241,7 @@ export default function App() {
           timer={timer}
           onStart={startTimer}
           onPause={pause}
-          onReset={resetTimer}
+          onEnd={endTimer}
           onShowSetup={showTimerSetup}
           onPositionChange={setFloatingPosition}
           orientation={orientation}
@@ -212,7 +249,7 @@ export default function App() {
       )}
 
       {liveMessage && <div className="toast" role="status" aria-live="polite">{liveMessage}</div>}
-      {settingsButtonVisible && <button className="settings-button" type="button" aria-label="設定" title="設定を開く" onClick={() => setSettingsOpen(true)}>
+      {settingsButtonVisible && <button className={`settings-button${settingsButtonFading ? " settings-button--fading" : ""}`} type="button" aria-label="設定" title="設定を開く" onClick={() => { hideSettingsButton(); setSettingsOpen(true); }}>
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 15.3a3.3 3.3 0 1 0 0-6.6 3.3 3.3 0 0 0 0 6.6Z" />
             <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" />

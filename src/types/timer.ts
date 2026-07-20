@@ -1,7 +1,7 @@
 import type { OrientationPositions } from "./settings";
 
 export type TimerMode = "work" | "shortBreak" | "longBreak";
-export type TimerStatus = "idle" | "running" | "paused" | "completed";
+export type TimerStatus = "idle" | "running" | "paused" | "completed" | "overtime";
 export type TimerProgram = "pomodoro" | "countdown" | "countup";
 export type SessionCategory = "focus" | "break";
 

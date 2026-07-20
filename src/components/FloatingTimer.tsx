@@ -2,13 +2,13 @@ import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type P
 import type { FloatingPosition, TimerState } from "../types/timer";
 import type { Orientation } from "../types/settings";
 import { getOrientation } from "../hooks/useOrientation";
-import { formatDuration, getCountupLap, getTimerElapsedMs, getTimerProgress, modeLabels } from "../utils/time";
+import { formatDuration, getCountupLap, getTimerElapsedMs, getTimerOvertimeMs, getTimerProgress, modeLabels } from "../utils/time";
 
 type Props = {
   timer: TimerState;
   onStart: () => void;
   onPause: () => void;
-  onReset: () => void;
+  onEnd: () => void;
   onShowSetup: () => void;
   onPositionChange: (position: FloatingPosition) => void;
   orientation: Orientation;
@@ -16,7 +16,7 @@ type Props = {
 
 const programLabels = { pomodoro: "ポモドーロ", countdown: "カウントダウン", countup: "カウントアップ" } as const;
 
-export function FloatingTimer({ timer, onStart, onPause, onReset, onShowSetup, onPositionChange, orientation }: Props) {
+export function FloatingTimer({ timer, onStart, onPause, onEnd, onShowSetup, onPositionChange, orientation }: Props) {
   const [isCompact, setIsCompact] = useState(false);
   const [position, setPosition] = useState(timer.floatingPosition);
   const positionRef = useRef(timer.floatingPosition);
@@ -26,13 +26,15 @@ export function FloatingTimer({ timer, onStart, onPause, onReset, onShowSetup, o
   const dragRef = useRef<{ pointerX: number; pointerY: number; position: FloatingPosition; moved: boolean } | null>(null);
   const suppressClickRef = useRef(false);
   const elapsedMs = getTimerElapsedMs(timer);
-  const displayMs = timer.program === "countup" ? elapsedMs : timer.remainingMs;
+  const overtimeMs = getTimerOvertimeMs(timer);
+  const displayMs = timer.program === "countup" ? elapsedMs : timer.status === "overtime" ? overtimeMs : timer.remainingMs;
   const progress = getTimerProgress(timer);
   const countupLap = getCountupLap(elapsedMs, timer.durationMs);
+  const statusText = timer.status === "overtime" ? "延長中" : timer.status === "paused" ? "一時停止中" : "";
   const sessionLabel = timer.program === "pomodoro"
     ? modeLabels[timer.mode]
     : timer.category === "focus" ? "実施中" : "休憩";
-  const returnToSetupLabel = timer.status === "idle" ? "設定へ戻る" : "設定へ戻る（タイマーは継続）";
+  const returnToSetupLabel = timer.status === "idle" ? "タイマーセット" : "タイマーセット（タイマーは継続）";
 
   useEffect(() => {
     positionRef.current = timer.floatingPosition;
@@ -141,7 +143,7 @@ export function FloatingTimer({ timer, onStart, onPause, onReset, onShowSetup, o
       className={`floating-timer floating-timer--${timer.status}${isCompact ? " floating-timer--compact" : ""}`}
       style={{ left: `${position.x * 100}%`, top: `${position.y * 100}%` }}
       role="group"
-      aria-label={`${sessionLabel}タイマー${timer.program === "countup" ? `（${countupLap}周目）` : ""}${isCompact ? "（ミニ表示）" : ""}`}
+      aria-label={`${sessionLabel}タイマー${statusText ? `（${statusText}）` : timer.program === "countup" ? `（${countupLap}周目）` : ""}${isCompact ? "（ミニ表示）" : ""}`}
     >
       <div
         className="floating-timer__drag"
@@ -149,7 +151,7 @@ export function FloatingTimer({ timer, onStart, onPause, onReset, onShowSetup, o
         role={isCompact ? "button" : "group"}
         aria-pressed={isCompact ? isCompact : undefined}
         tabIndex={0}
-        aria-label={`${sessionLabel} ${formatDuration(displayMs)}。クリックで${isCompact ? "通常表示に戻す" : "ミニ表示にする"}。ドラッグまたは矢印キーで移動できます。`}
+        aria-label={`${sessionLabel} ${formatDuration(displayMs)}${statusText ? `（${statusText}）` : ""}。クリックで${isCompact ? "通常表示に戻す" : "ミニ表示にする"}。ドラッグまたは矢印キーで移動できます。`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -182,9 +184,14 @@ export function FloatingTimer({ timer, onStart, onPause, onReset, onShowSetup, o
                 <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 8v4l3 2" /></svg>
                 {sessionLabel}
               </span>
+              {statusText && <span className="floating-timer__status">{statusText}</span>}
               <strong>{formatDuration(displayMs)}</strong>
               <div className="floating-timer__controls" onPointerDown={(event) => event.stopPropagation()}>
-                {timer.status === "running" ? (
+                {timer.status === "overtime" ? (
+                  <button className="floating-timer__primary floating-timer__end" type="button" onClick={onEnd} aria-label="タイマーを終了" title="タイマーを終了">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1" /></svg>
+                  </button>
+                ) : timer.status === "running" ? (
                   <button className="floating-timer__primary" type="button" onClick={onPause} aria-label="一時停止" title="一時停止">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
                   </button>
@@ -195,9 +202,6 @@ export function FloatingTimer({ timer, onStart, onPause, onReset, onShowSetup, o
                 ) : <span className="floating-timer__done">完了</span>}
                 <button type="button" onClick={onShowSetup} aria-label={returnToSetupLabel} title={returnToSetupLabel}>
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 4v6M17 14v6M4 17h16" /></svg>
-                </button>
-                <button type="button" onClick={onReset} aria-label="タイマーをリセット" title="タイマーをリセット">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6M4 4v4.6h4.6" /></svg>
                 </button>
               </div>
             </div>

@@ -172,7 +172,7 @@ export function saveSettings(settings: AppSettings): boolean {
 }
 
 const timerModes: TimerMode[] = ["work", "shortBreak", "longBreak"];
-const timerStatuses: TimerStatus[] = ["idle", "running", "paused", "completed"];
+const timerStatuses: TimerStatus[] = ["idle", "running", "paused", "completed", "overtime"];
 const timerPrograms: TimerProgram[] = ["pomodoro", "countdown", "countup"];
 const sessionCategories: SessionCategory[] = ["focus", "break"];
 

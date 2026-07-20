@@ -52,7 +52,13 @@ export function getTimerElapsedMs(timer: Pick<TimerState, "program" | "status" |
       ? Math.max(0, now - timer.endAt)
       : Math.max(0, timer.remainingMs);
   }
+  if (timer.status === "overtime") return timer.durationMs + getTimerOvertimeMs(timer, now);
   return Math.max(0, timer.durationMs - timer.remainingMs);
+}
+
+export function getTimerOvertimeMs(timer: Pick<TimerState, "status" | "remainingMs" | "endAt">, now = Date.now()) {
+  if (timer.status !== "overtime") return 0;
+  return Math.max(0, timer.remainingMs, timer.endAt === null ? 0 : now - timer.endAt);
 }
 
 export function getCountupLap(elapsedMs: number, durationMs: number) {
@@ -62,6 +68,7 @@ export function getCountupLap(elapsedMs: number, durationMs: number) {
 export function getTimerProgress(timer: Pick<TimerState, "program" | "status" | "durationMs" | "remainingMs" | "endAt">, now = Date.now()) {
   if (timer.durationMs <= 0) return 0;
   const elapsedMs = getTimerElapsedMs(timer, now);
+  if (timer.status === "overtime") return 1;
   return timer.program === "countup"
     ? (elapsedMs % timer.durationMs) / timer.durationMs
     : Math.min(1, elapsedMs / timer.durationMs);

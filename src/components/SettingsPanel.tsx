@@ -99,6 +99,7 @@ function BackgroundSettings({ settings, frame, customBackgrounds, customSize, fr
     ...customBackgrounds.map((item) => ({ value: `custom:${item.id}` as BackgroundChoice, label: item.name, imageUrl: item.url }))
   ];
   const hiddenBuiltInOptions = builtInOptions.filter((option) => hiddenBackgroundIds.has(option.value));
+  const selectedOption = sourceOptions.find((option) => option.value === settings.backgroundChoice) ?? sourceOptions[0];
   const [frameSettingsOpen, setFrameSettingsOpen] = useState(settings.backgroundChoice !== "slideshow");
   useEffect(() => {
     if (settings.backgroundChoice !== "slideshow") setFrameSettingsOpen(true);
@@ -126,17 +127,22 @@ function BackgroundSettings({ settings, frame, customBackgrounds, customSize, fr
 
   return <>
     <section className="background-source-settings" aria-labelledby="background-source-heading">
-      <div className="background-settings-heading"><div><h4 id="background-source-heading">背景を選ぶ・追加する</h4><p>追加も設定もここから。画像をクリック／タップすると、その背景の設定が開きます。</p></div><span className="background-settings-count">{customBackgrounds.length}枚追加済み</span></div>
+      <div className="background-settings-heading"><div><span className="background-settings-kicker">STEP 1</span><h4 id="background-source-heading">背景を選ぶ・追加する</h4><p>使いたい背景を選ぶと、すぐに画面へ反映されます。</p></div><span className="background-settings-count">{customBackgrounds.length}枚追加</span></div>
+      <div className="background-current" aria-live="polite">
+        <span className={`background-current__preview${selectedOption?.value === "slideshow" ? " background-option__preview--auto" : ""}`} style={selectedOption?.imageUrl ? { backgroundImage: `url(${selectedOption.imageUrl})` } : undefined} />
+        <div><span>現在の背景</span><strong>{selectedOption?.label ?? "自動切替"}</strong><small>{selectedOption?.value === "slideshow" ? "時間ごとに自動で切り替わります" : "下の画像から変更・調整できます"}</small></div>
+      </div>
+      <div className="background-picker-heading"><strong>背景の一覧</strong><span>タップで選択・設定</span></div>
       <div className="background-picker" role="radiogroup" aria-label="背景を選択">
         {sourceOptions.map((option) => <div className="background-option-wrap" key={option.value}>
           <button type="button" role="radio" aria-checked={settings.backgroundChoice === option.value} aria-expanded={option.value !== "slideshow" && settings.backgroundChoice === option.value ? frameSettingsOpen : undefined} aria-controls={option.value !== "slideshow" ? "background-frame-settings" : undefined} title={option.value === "slideshow" ? "背景を自動切替にする" : `${option.label}の設定を開く`} className={`background-option${settings.backgroundChoice === option.value ? " background-option--active" : ""}`} onClick={() => selectBackground(option)}>
-            <span className={`background-option__preview${option.value === "slideshow" ? " background-option__preview--auto" : ""}`} style={option.imageUrl ? { backgroundImage: `url(${option.imageUrl})` } : undefined} />
+            <span className={`background-option__preview${option.value === "slideshow" ? " background-option__preview--auto" : ""}`} style={option.imageUrl ? { backgroundImage: `url(${option.imageUrl})` } : undefined}>{settings.backgroundChoice === option.value && <span className="background-option__selected-badge">選択中</span>}</span>
             <span className="background-option__label">{option.label}</span>
           </button>
           {option.value.startsWith("custom:") ? <button type="button" className="background-option__delete" aria-label={`${option.label}を削除`} title="この画像を削除" onClick={() => removeBackground(option.value.slice("custom:".length), option.label)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 13h10l1-13M10 11v5M14 11v5" /></svg></button> : option.value !== "slideshow" && <button type="button" className="background-option__visibility" aria-label={`${option.label}を非表示`} title="この画像を非表示" onClick={() => setBackgroundVisibility(option.value, false)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.2A10.8 10.8 0 0 1 12 5c5.2 0 8.8 7 10 7-.4 1.2-1.1 2.3-2 3.2M6.2 6.2C4.5 7.3 3.3 8.9 2 12c1.2 3.7 4.8 7 10 7 1.1 0 2.1-.2 3-.5" /></svg></button>}
         </div>)}
       </div>
-      <label className="background-upload" htmlFor="background-upload">写真／ファイルから追加</label>
+      <label className="background-upload" htmlFor="background-upload"><span className="background-upload__icon" aria-hidden="true">＋</span><span><strong>写真／ファイルから追加</strong><small>端末内の画像を背景に使えます</small></span></label>
       <input id="background-upload" className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={(event) => { void uploads(event.target.files); event.target.value = ""; }} />
       <p className="settings-help">JPEG、PNG、WebP、GIF。1枚 {(MAX_BACKGROUND_FILE_SIZE / 1024 / 1024).toFixed(0)}MB以下、最大{MAX_CUSTOM_BACKGROUNDS}枚。</p>
       {hiddenBuiltInOptions.length > 0 && <details className="background-library"><summary>非表示の初期画像を管理する</summary><p className="settings-help">非表示にした初期画像を再表示できます。</p><div className="background-manager" aria-label="非表示の初期画像">{hiddenBuiltInOptions.map((option) => <article className="background-manager__item--hidden" key={option.value}><span>{option.label}<small>非表示中</small></span><div><button type="button" aria-label={`${option.label}を表示`} onClick={() => setBackgroundVisibility(option.value, true)}>表示</button></div></article>)}</div></details>}
