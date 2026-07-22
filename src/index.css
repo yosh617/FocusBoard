@@ -79,6 +79,7 @@ html.focusboard-background-gesturing .clock-editor,
 body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer-events: none; }
 
 .dashboard { position: absolute; inset: 0; padding: max(32px, env(safe-area-inset-top)) max(32px, env(safe-area-inset-right)) max(32px, env(safe-area-inset-bottom)) max(32px, env(safe-area-inset-left)); }
+.dashboard--timer-setup { z-index: 4; }
 .slot { position: absolute; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: clamp(14px, 2vh, 24px); width: min(92vw, 900px); color: inherit; text-align: center; }
 .slot:empty { display: none; }
 .slot--center { top: 48%; left: 50%; transform: translate(-50%, -50%); }

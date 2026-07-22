@@ -25,7 +25,7 @@ describe("App", () => {
       revealSettings();
       const settingsButton = screen.getByRole("button", { name: "設定" });
 
-      act(() => { vi.advanceTimersByTime(4_500); });
+      act(() => { vi.advanceTimersByTime(2_500); });
       expect(settingsButton.classList.contains("settings-button--fading")).toBe(true);
 
       act(() => { vi.advanceTimersByTime(280); });

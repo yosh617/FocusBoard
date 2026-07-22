@@ -13,7 +13,7 @@ import { useOrientation } from "./hooks/useOrientation";
 import { defaultSettings, fontOptions, positionPresets, type OrientationPositions, type PositionPreset } from "./types/settings";
 import { getAdaptivePalette, fallbackBackgroundRgb, getStrongAccent, type AdaptivePalette } from "./utils/adaptiveColor";
 
-const settingsButtonDisplayMs = 4_500;
+const settingsButtonDisplayMs = 2_500;
 const settingsButtonFadeMs = 280;
 
 export default function App() {
@@ -229,7 +229,7 @@ export default function App() {
         onPaletteChange={setAdaptivePalette}
         onActiveBackgroundChange={setActiveBackgroundId}
       />
-      <div className="dashboard" aria-label="FocusBoard ダッシュボード">
+      <div className={`dashboard${settings.showTimer && (timer.status === "idle" ? !settings.timerSetupCollapsed : timerSetupVisible) ? " dashboard--timer-setup" : ""}`} aria-label="FocusBoard ダッシュボード">
         {positionPresets.map((position) => (
           <div className={`slot slot--${position}`} key={position}>{slotContent[position]}</div>
         ))}
