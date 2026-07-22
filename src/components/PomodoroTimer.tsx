@@ -15,16 +15,18 @@ type Props = {
 };
 
 const modes: TimerMode[] = ["work", "shortBreak", "longBreak"];
-const programs: { value: TimerProgram; label: string; caption: string }[] = [
-  { value: "pomodoro", label: "ポモドーロ", caption: "集中と休憩を循環" },
-  { value: "countdown", label: "カウントダウン", caption: "残り時間を表示" },
-  { value: "countup", label: "カウントアップ", caption: "経過時間を表示" }
+const programs: { value: TimerProgram; label: string }[] = [
+  { value: "pomodoro", label: "ポモドーロ" },
+  { value: "countdown", label: "カウントダウン" },
+  { value: "countup", label: "カウントアップ" }
 ];
-const modeCaptions: Record<TimerMode, string> = {
-  work: "集中する時間",
-  shortBreak: "ひと休み",
-  longBreak: "しっかり休む"
-};
+
+function ProgramIcon({ program }: { program: TimerProgram }) {
+  if (program === "pomodoro") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.5 8.2A7.5 7.5 0 1 0 19 14" /><path d="M18.5 4.5v3.7h-3.7M9 4.5h6" /></svg>;
+  return program === "countdown"
+    ? <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 7v9m-3-3 3 3 3-3" /></svg>
+    : <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 17V8m-3 3 3-3 3 3" /></svg>;
+}
 
 export function PomodoroTimer({
   timer,
@@ -49,9 +51,8 @@ export function PomodoroTimer({
     <section className={`timer-card timer-setup${isActive ? " timer-setup--active" : ""}`} aria-label={isActive ? "進行中タイマーの設定" : "タイマー設定"}>
       <div className="timer-setup__heading">
         <div>
-          <span>{isActive ? "TIMER IS ON" : "FOCUS TIMER"}</span>
-          <h2>{isActive ? "タイマーを確認" : "集中時間をセット"}</h2>
-          {!isActive && <p className="timer-setup__heading-caption">やることを選んで、すぐに始められます</p>}
+          <span>{isActive ? "実行中" : "タイマー"}</span>
+          <h2>{isActive ? "タイマーを確認" : "タイマーをセット"}</h2>
         </div>
         <div className="timer-setup__tools">
           {timer.program === "pomodoro" && <p className="timer-setup__sessions"><strong>{timer.completedWorkSessions}</strong><span>セッション</span></p>}
@@ -64,10 +65,7 @@ export function PomodoroTimer({
       {isActive ? <div className="timer-setup__live-note" role="status"><strong>{statusLabel}・{statusDetail}</strong><span>{timer.program === "countup" ? `${countupLap}周目。目安 ${formatDuration(timer.durationMs)}ごとに進捗が一周します。` : "設定を確認できます。タイマー表示へ戻って操作を続けられます。"}</span></div> : null}
 
       <div className="timer-setup__step">
-        <div className="timer-setup__step-heading">
-          <span className="timer-setup__step-number">1</span>
-          <div><strong>タイマー方式</strong><span>目的に合わせて選択</span></div>
-        </div>
+        <div className="timer-setup__step-heading"><strong>方式</strong></div>
         <div className="program-tabs" role="group" aria-label="タイマー方式">
           {programs.map((program) => (
             <button
@@ -78,7 +76,9 @@ export function PomodoroTimer({
               onClick={() => onSelectProgram(program.value)}
               key={program.value}
             >
-              <strong>{program.label}</strong><span>{program.caption}</span>
+              <ProgramIcon program={program.value} />
+              <strong>{program.label}</strong>
+              {timer.program === program.value && <svg className="timer-option__check" viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 12 3.5 3.5 7.5-7.5" /></svg>}
             </button>
           ))}
         </div>
@@ -86,10 +86,7 @@ export function PomodoroTimer({
 
       {timer.program === "pomodoro" ? (
         <div className="timer-setup__step">
-          <div className="timer-setup__step-heading">
-            <span className="timer-setup__step-number">2</span>
-            <div><strong>今からすること</strong><span>集中か休憩かを選択</span></div>
-          </div>
+          <div className="timer-setup__step-heading"><strong>内容</strong></div>
           <div className="mode-tabs" role="group" aria-label="ポモドーロモード">
             {modes.map((mode) => (
               <button
@@ -100,17 +97,15 @@ export function PomodoroTimer({
                 onClick={() => onSelectMode(mode)}
                 key={mode}
               >
-                <strong>{modeLabels[mode]}</strong><small>{modeCaptions[mode]}</small>
+                <strong>{modeLabels[mode]}</strong>
+                {timer.mode === mode && <svg className="timer-option__check" viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 12 3.5 3.5 7.5-7.5" /></svg>}
               </button>
             ))}
           </div>
         </div>
       ) : (
         <div className="timer-setup__step">
-          <div className="timer-setup__step-heading">
-            <span className="timer-setup__step-number">2</span>
-            <div><strong>時間を決める</strong><span>自分に合う長さでスタート</span></div>
-          </div>
+          <div className="timer-setup__step-heading"><strong>時間</strong></div>
           <div className="custom-timer-options">
             <div className="category-tabs" role="group" aria-label="時間の種類">
               {(["focus", "break"] as SessionCategory[]).map((category) => (

@@ -41,12 +41,24 @@ describe("App", () => {
   it("starts in setup mode, collapses to a floating timer, and opens settings", () => {
     render(<App />);
     expect(screen.getByLabelText("タイマー設定")).toBeTruthy();
+    expect(document.querySelector(".dashboard")?.classList.contains("dashboard--timer-setup")).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "開始" }));
     expect(screen.getByLabelText("集中タイマー")).toBeTruthy();
     expect(screen.queryByLabelText("タイマー設定")).toBeNull();
+    expect(document.querySelector(".dashboard")?.classList.contains("dashboard--timer-setup")).toBe(false);
     revealSettings();
     fireEvent.click(screen.getByRole("button", { name: "設定" }));
     expect(screen.getByRole("dialog", { name: "設定" })).toBeTruthy();
+  });
+
+  it("uses familiar icons alongside labels for every settings category", () => {
+    render(<App />);
+    revealSettings();
+    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+
+    ["背景", "表示", "タイマー", "保存・リセット"].forEach((name) => {
+      expect(screen.getByRole("tab", { name }).querySelector("svg")).toBeTruthy();
+    });
   });
 
   it("collapses the idle timer into the same circular timer UI and returns to setup", () => {
