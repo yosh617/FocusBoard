@@ -89,9 +89,19 @@ describe("TaskDrawer", () => {
   it("shows a daily focus summary before the task list", () => {
     renderDrawer({ sessions: [session] });
     expect(screen.getByRole("region", { name: "今日の集中サマリー" }).textContent).toContain("今日の集中ハブ");
+    expect(screen.getByRole("region", { name: "現在の一覧" }).textContent).toContain("今日動かすタスクを、この画面だけで追加して集中できます。");
     expect(screen.getByRole("heading", { name: "今日の流れ" })).toBeTruthy();
     expect(screen.getByText("25分")).toBeTruthy();
     expect(screen.getByRole("button", { name: "開始" })).toBeTruthy();
+  });
+
+  it("updates the current-list summary and quick-add context when switching to a project", () => {
+    renderDrawer();
+    fireEvent.click(screen.getByRole("button", { name: /勉強 1/ }));
+    expect(screen.getByRole("region", { name: "現在の一覧" }).textContent).toContain("勉強");
+    expect(screen.getByRole("region", { name: "現在の一覧" }).textContent).toContain("集中する順で確認できます。");
+    expect(screen.getByText("勉強へすぐ追加")).toBeTruthy();
+    expect(screen.getByLabelText("新しいタスク").getAttribute("placeholder")).toBe("勉強で次に進めることを追加");
   });
 
   it("surfaces overdue work first in the focus queue", () => {
@@ -167,9 +177,24 @@ describe("TaskDrawer", () => {
     expect(props.onStartTask).toHaveBeenCalledWith(task.id);
   });
 
+  it("starts the timer directly from the task details", () => {
+    const props = renderDrawer();
+    fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
+    fireEvent.click(screen.getByRole("button", { name: "数学の復習を詳細から開始" }));
+    expect(props.onStartTask).toHaveBeenCalledWith(task.id);
+  });
+
   it("returns to the running timer instead of showing a disabled start for the active task", () => {
     const props = renderDrawer({ timerStatus: "running", activeTaskId: task.id });
     fireEvent.click(screen.getAllByRole("button", { name: "タイマーへ戻る" })[0]);
+    expect(props.onClose).toHaveBeenCalledTimes(1);
+    expect(props.onStartTask).not.toHaveBeenCalled();
+  });
+
+  it("returns to the running timer from the task details", () => {
+    const props = renderDrawer({ timerStatus: "running", activeTaskId: task.id });
+    fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
+    fireEvent.click(screen.getByRole("button", { name: "数学の復習の詳細からタイマーへ戻る" }));
     expect(props.onClose).toHaveBeenCalledTimes(1);
     expect(props.onStartTask).not.toHaveBeenCalled();
   });
@@ -186,6 +211,57 @@ describe("TaskDrawer", () => {
 
     fireEvent.change(screen.getByLabelText("タスクを検索"), { target: { value: "見つからない" } });
     expect(screen.getByText("一致するタスクはありません")).toBeTruthy();
+  });
+
+  it("narrows the visible list with quick filters for overdue, reminders, and focus-ready work", () => {
+    const overdueTask: TaskRecord = {
+      ...task,
+      id: "task-2",
+      title: "英語の宿題",
+      dueDate: addLocalDays(today, -1),
+      estimatedPomodoros: 0,
+      order: 1,
+      updatedAt: 2
+    };
+    const reminderTask: TaskRecord = {
+      ...task,
+      id: "task-3",
+      title: "理科の暗記",
+      dueDate: today,
+      reminderAt: new Date(`${today}T21:30:00`).getTime(),
+      estimatedPomodoros: 0,
+      order: 2,
+      updatedAt: 3
+    };
+    const plainTask: TaskRecord = {
+      ...task,
+      id: "task-4",
+      title: "机を片づける",
+      dueDate: today,
+      estimatedPomodoros: 0,
+      order: 3,
+      updatedAt: 4
+    };
+
+    renderDrawer({
+      tasks: [task, overdueTask, reminderTask, plainTask]
+    });
+
+    const list = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
+    fireEvent.click(screen.getByRole("button", { name: "期限切れ 1" }));
+    expect(within(list).getByText("英語の宿題")).toBeTruthy();
+    expect(within(list).queryByText("数学の復習")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "通知 1" }));
+    expect(within(list).getByText("理科の暗記")).toBeTruthy();
+    expect(within(list).queryByText("英語の宿題")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "集中目安 1" }));
+    expect(within(list).getByText("数学の復習")).toBeTruthy();
+    expect(within(list).queryByText("理科の暗記")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "すべて 4" }));
+    expect(within(list).getByText("机を片づける")).toBeTruthy();
   });
 
   it("opens the local productivity report", () => {
