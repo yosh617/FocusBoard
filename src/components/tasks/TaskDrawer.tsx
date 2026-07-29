@@ -1059,7 +1059,7 @@ export function TaskDrawer({
     if (!open || !selectedTaskId) return;
     const target = taskRowRefs.current.get(selectedTaskId);
     if (!target) return;
-    let prefersReducedMotion = false;
+    let prefersReducedMotion: boolean;
     try {
       prefersReducedMotion = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     } catch {

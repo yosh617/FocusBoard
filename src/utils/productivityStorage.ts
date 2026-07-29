@@ -203,8 +203,8 @@ export async function replaceProductivityData(records: { tasks: TaskRecord[]; pr
 }
 
 export async function loadProductivityData(): Promise<ProductivityData> {
-  let repairedTasksToSave: TaskRecord[] = [];
-  let result: ProductivityData | null = null;
+  let repairedTasksToSave: TaskRecord[];
+  let result: ProductivityData;
   const database = await openDatabase();
   try {
     const transaction = database.transaction([TASK_STORE, PROJECT_STORE, SESSION_STORE], "readonly");
@@ -233,7 +233,6 @@ export async function loadProductivityData(): Promise<ProductivityData> {
   if (repairedTasksToSave.length > 0) {
     await saveProductivityRecords({ tasks: repairedTasksToSave }).catch(() => undefined);
   }
-  if (result === null) throw new Error("タスクデータを読み込めませんでした。");
   return result;
 }
 

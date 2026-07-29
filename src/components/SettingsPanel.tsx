@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { colorPresets, dateFormatPresets, defaultSettings, describeFontSize, fontOptions, orientations, positionPresets, settingRanges, type AppSettings, type BackgroundChoice, type BackgroundFrame, type ColorPreset, type FontOption, type Orientation, type PositionPreset } from "../types/settings";
+import { colorPresets, dateFormatPresets, defaultSettings, describeFontSize, fontOptions, orientations, settingRanges, type AppSettings, type BackgroundChoice, type BackgroundFrame, type ColorPreset, type FontOption, type Orientation, type PositionPreset } from "../types/settings";
 import type { CustomBackground } from "../utils/backgroundStorage";
 import { MAX_BACKGROUND_FILE_SIZE, MAX_CUSTOM_BACKGROUNDS } from "../utils/backgroundStorage";
 import { defaultBackgrounds } from "./BackgroundSlideshow";

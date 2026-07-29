@@ -35,11 +35,12 @@
 
 ## 最終検証コマンド
 
-本チェックポイントはソース変更なしのため、自動テストの再実行は不要とした。最終統合時には次を実行する。
+最終統合時には次を実行する。
 
+    npm run lint
+    npm run typecheck
     npm test
     npm run build
     git diff --check
-    file screenshots/ui-audit/final-*.png
 
 加えて、375×812、768×1024、1024×768、1440×900のChromium viewportで、横溢れ、44×44px、toolbarの通常フローと詳細操作の非遮蔽、console error、タスク開始から実行中詳細・タイマー復帰を再確認する。
