@@ -242,6 +242,26 @@ describe("timer storage", () => {
     expect(timer.status).toBe("paused");
   });
 
+  it("moves the legacy floating timer default to the current safe position", () => {
+    localStorage.setItem(TIMER_KEY, JSON.stringify({
+      version: 2,
+      mode: "work",
+      status: "paused",
+      remainingMs: 5_000,
+      endAt: null,
+      completedWorkSessions: 0,
+      floatingPosition: { x: 0.84, y: 0.22 }
+    }));
+
+    const timer = loadTimerState(25);
+    expect(timer.version).toBe(5);
+    expect(timer.floatingPositions).toEqual({
+      portrait: { x: 0.18, y: 0.38 },
+      landscape: { x: 0.18, y: 0.38 }
+    });
+    expect(timer.floatingPosition).toEqual({ x: 0.18, y: 0.38 });
+  });
+
   it("restores validated task-aware timer fields from the current format", () => {
     localStorage.setItem(TIMER_KEY, JSON.stringify({
       version: 5,

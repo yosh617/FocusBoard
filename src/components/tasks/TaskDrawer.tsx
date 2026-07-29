@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { ProjectRecord } from "../../types/project";
 import type { FocusSessionRecord } from "../../types/focusSession";
 import type { RepeatRule, TaskDraft, TaskRecord, TaskView } from "../../types/task";
@@ -73,6 +73,7 @@ const views: { value: TaskView; label: string }[] = [
 ];
 
 const projectColors = ["#3f6fab", "#69559d", "#347b70", "#965748", "#98536c"];
+const quickEstimateOptions = [1, 2, 4];
 
 function isCompactTaskNavigationViewport() {
   try {
@@ -87,6 +88,11 @@ function toDateTimeLocal(timestamp: number | null) {
   const date = new Date(timestamp);
   const offset = date.getTimezoneOffset() * 60_000;
   return new Date(timestamp - offset).toISOString().slice(0, 16);
+}
+
+function toDateTimeLocalFromDateKey(dateKey: string, hour: number, minute: number) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return toDateTimeLocal(new Date(year, month - 1, day, hour, minute).getTime());
 }
 
 function buildRepeatRule(type: string, dueDate: string, customInterval: number, customUnit: "daily" | "weekly" | "monthly"): RepeatRule | null {
@@ -229,8 +235,8 @@ function TaskEditor({ task, projects, subtasks, timerStatus, activeTaskId, compl
       : "Inbox";
   const reminderSummary = reminder ? reminderLabel(new Date(reminder).getTime(), now) : "通知なし";
   const focusSummary = estimatedPomodoros > 0 || completedPomodoros > 0 ? `集中 ${completedPomodoros} / ${estimatedPomodoros || "—"}` : "見積もりなし";
-  const quickEstimateOptions = [1, 2, 4];
-
+  const tonightReminder = toDateTimeLocalFromDateKey(today, 18, 0);
+  const tomorrowMorningReminder = toDateTimeLocalFromDateKey(tomorrow, 9, 0);
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setSaving(true);
@@ -304,6 +310,14 @@ function TaskEditor({ task, projects, subtasks, timerStatus, activeTaskId, compl
                 {value}セット
               </button>
             ))}
+          </div>
+        </div>
+        <div className="task-editor__quick-group">
+          <span>通知をすぐ決める</span>
+          <div role="group" aria-label="通知のクイック設定">
+            <button type="button" className={reminder === "" ? "is-active" : ""} aria-pressed={reminder === ""} onClick={() => setReminder("")}>なし</button>
+            <button type="button" className={reminder === tonightReminder ? "is-active" : ""} aria-pressed={reminder === tonightReminder} onClick={() => setReminder(tonightReminder)}>今日 18:00</button>
+            <button type="button" className={reminder === tomorrowMorningReminder ? "is-active" : ""} aria-pressed={reminder === tomorrowMorningReminder} onClick={() => setReminder(tomorrowMorningReminder)}>明日 09:00</button>
           </div>
         </div>
       </section>
@@ -480,6 +494,7 @@ export function TaskDrawer({
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [quickEstimatedPomodoros, setQuickEstimatedPomodoros] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [listFilter, setListFilter] = useState<TaskListFilter>("all");
   const [workspaceMode, setWorkspaceMode] = useState<"tasks" | "report" | "backup">("tasks");
@@ -499,6 +514,7 @@ export function TaskDrawer({
   const now = new Date();
   const today = toLocalDateKey(now);
   const tomorrow = addLocalDays(today, 1);
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const activeProjects = useMemo(() => getActiveProjects(projects), [projects]);
   const currentListLabel = projectId
     ? activeProjects.find((project) => project.id === projectId)?.name ?? "プロジェクト"
@@ -519,33 +535,38 @@ export function TaskDrawer({
     () => projectId ? getTasksForProject(tasks, projectId) : getTasksForView(tasks, view, today),
     [projectId, tasks, today, view]
   );
+  const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null;
   const visibleTasks = useMemo(() => {
-    const query = searchQuery.trim().toLocaleLowerCase("ja");
+    const query = deferredSearchQuery.trim().toLocaleLowerCase("ja");
     if (!query) return scopedTasks;
     return scopedTasks.filter((task) => `${task.title}\n${task.note}`.toLocaleLowerCase("ja").includes(query));
-  }, [scopedTasks, searchQuery]);
+  }, [deferredSearchQuery, scopedTasks]);
   const filteredTasks = useMemo(() => {
     if (listFilter === "all") return visibleTasks;
     if (listFilter === "overdue") return visibleTasks.filter((task) => task.dueDate !== null && task.dueDate < today);
     if (listFilter === "reminders") return visibleTasks.filter((task) => task.reminderAt !== null);
     return visibleTasks.filter((task) => activeTaskId === task.id || task.estimatedPomodoros > 0 || (completedPomodorosByTask.get(task.id) ?? 0) > 0);
   }, [activeTaskId, completedPomodorosByTask, listFilter, today, visibleTasks]);
+  const isSearchPending = deferredSearchQuery !== searchQuery;
+  const displayedTasks = isSearchPending && selectedTask && !filteredTasks.some((task) => task.id === selectedTask.id)
+    ? [selectedTask, ...filteredTasks]
+    : filteredTasks;
   const taskSections = useMemo<TaskListSection[]>(() => {
-    if (filteredTasks.length === 0) return [];
+    if (displayedTasks.length === 0) return [];
     if (projectId) {
       return [{
         key: currentProject?.id ?? projectId,
         label: currentProject?.name ?? currentListLabel,
         color: currentProject?.color ?? null,
-        tasks: filteredTasks,
-        openCount: filteredTasks.filter((task) => task.status === "open").length,
-        completedPomodoros: filteredTasks.reduce((sum, task) => sum + (completedPomodorosByTask.get(task.id) ?? 0), 0),
-        estimatedPomodoros: filteredTasks.reduce((sum, task) => sum + task.estimatedPomodoros, 0)
+        tasks: displayedTasks,
+        openCount: displayedTasks.filter((task) => task.status === "open").length,
+        completedPomodoros: displayedTasks.reduce((sum, task) => sum + (completedPomodorosByTask.get(task.id) ?? 0), 0),
+        estimatedPomodoros: displayedTasks.reduce((sum, task) => sum + task.estimatedPomodoros, 0)
       }];
     }
 
     const sections = new Map<string, TaskListSection>();
-    for (const task of filteredTasks) {
+    for (const task of displayedTasks) {
       const taskProject = task.projectId
         ? activeProjects.find((project) => project.id === task.projectId) ?? null
         : null;
@@ -582,14 +603,13 @@ export function TaskDrawer({
       if (right.color) return 1;
       return left.label.localeCompare(right.label, "ja");
     });
-  }, [activeProjects, completedPomodorosByTask, currentListLabel, currentProject, filteredTasks, projectId, view]);
+  }, [activeProjects, completedPomodorosByTask, currentListLabel, currentProject, displayedTasks, projectId, view]);
   const filterCounts = useMemo(() => ({
     all: visibleTasks.length,
     overdue: visibleTasks.filter((task) => task.dueDate !== null && task.dueDate < today).length,
     reminders: visibleTasks.filter((task) => task.reminderAt !== null).length,
     focus: visibleTasks.filter((task) => activeTaskId === task.id || task.estimatedPomodoros > 0 || (completedPomodorosByTask.get(task.id) ?? 0) > 0).length
   }), [activeTaskId, completedPomodorosByTask, today, visibleTasks]);
-  const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null;
   const todayTasks = useMemo(() => getTasksForView(tasks, "today", today), [tasks, today]);
   const todayOpenRootTasks = useMemo(
     () => todayTasks.filter((task) => task.parentTaskId === null && task.status === "open"),
@@ -652,6 +672,7 @@ export function TaskDrawer({
     : null;
   const focusCandidateDueLabel = focusCandidate ? dueLabel(focusCandidate, today) : "";
   const quickDatePreset = dueDate === today ? "today" : dueDate === tomorrow ? "tomorrow" : dueDate === "" ? "none" : "custom";
+  const quickEstimatePreset = quickEstimatedPomodoros === 0 ? "none" : String(quickEstimatedPomodoros);
   const todayCompletionRate = todayTasks.length === 0 ? 0 : Math.round((todayCompletedTasks / todayTasks.length) * 100);
   const todayProgressLabel = todayTasks.length === 0
     ? "まだ今日のタスクはありません"
@@ -699,8 +720,13 @@ export function TaskDrawer({
   }, [open, workspaceMode]);
 
   useEffect(() => {
-    if (selectedTaskId && !filteredTasks.some((task) => task.id === selectedTaskId)) setSelectedTaskId(null);
-  }, [filteredTasks, selectedTaskId]);
+    if (!selectedTaskId) return;
+    if (!scopedTasks.some((task) => task.id === selectedTaskId)) {
+      setSelectedTaskId(null);
+      return;
+    }
+    if (!isSearchPending && !filteredTasks.some((task) => task.id === selectedTaskId)) setSelectedTaskId(null);
+  }, [filteredTasks, isSearchPending, scopedTasks, selectedTaskId]);
 
   useEffect(() => {
     setShowResumeBanner(open && toolbarContext !== null);
@@ -713,12 +739,14 @@ export function TaskDrawer({
       title,
       dueDate: dueDate || defaultDueDate,
       projectId,
-      bucket: view === "someday" ? "someday" : "inbox"
+      bucket: view === "someday" ? "someday" : "inbox",
+      estimatedPomodoros: quickEstimatedPomodoros
     });
     if (addedTaskId) {
       pendingCreatedTaskIdRef.current = addedTaskId;
       setTitle("");
       setDueDate("");
+      setQuickEstimatedPomodoros(0);
     }
   };
 
@@ -1405,10 +1433,31 @@ export function TaskDrawer({
                   <span className="task-quick-add__context">{quickAddContextLabel}</span>
                   <label className="visually-hidden" htmlFor="task-title">新しいタスク</label>
                   <input id="task-title" ref={quickAddInputRef} placeholder={quickAddPlaceholder} maxLength={200} value={title} onChange={(event) => setTitle(event.target.value)} disabled={!storageAvailable || view === "completed"} />
-                  <div className="task-quick-add__presets" role="group" aria-label="追加するタスクの期限">
-                    <button className={quickDatePreset === "today" ? "is-active" : ""} type="button" aria-pressed={quickDatePreset === "today"} onClick={() => setDueDate(today)} disabled={!storageAvailable || view === "completed"}>今日</button>
-                    <button className={quickDatePreset === "tomorrow" ? "is-active" : ""} type="button" aria-pressed={quickDatePreset === "tomorrow"} onClick={() => setDueDate(tomorrow)} disabled={!storageAvailable || view === "completed"}>明日</button>
-                    <button className={quickDatePreset === "none" ? "is-active" : ""} type="button" aria-pressed={quickDatePreset === "none"} onClick={() => setDueDate("")} disabled={!storageAvailable || view === "completed"}>期限なし</button>
+                  <div className="task-quick-add__option-group">
+                    <span>期限</span>
+                    <div className="task-quick-add__presets" role="group" aria-label="追加するタスクの期限">
+                      <button className={quickDatePreset === "today" ? "is-active" : ""} type="button" aria-pressed={quickDatePreset === "today"} onClick={() => setDueDate(today)} disabled={!storageAvailable || view === "completed"}>今日</button>
+                      <button className={quickDatePreset === "tomorrow" ? "is-active" : ""} type="button" aria-pressed={quickDatePreset === "tomorrow"} onClick={() => setDueDate(tomorrow)} disabled={!storageAvailable || view === "completed"}>明日</button>
+                      <button className={quickDatePreset === "none" ? "is-active" : ""} type="button" aria-pressed={quickDatePreset === "none"} onClick={() => setDueDate("")} disabled={!storageAvailable || view === "completed"}>期限なし</button>
+                    </div>
+                  </div>
+                  <div className="task-quick-add__option-group">
+                    <span>集中目安</span>
+                    <div className="task-quick-add__presets" role="group" aria-label="追加するタスクの集中目安">
+                      <button className={quickEstimatePreset === "none" ? "is-active" : ""} type="button" aria-pressed={quickEstimatePreset === "none"} onClick={() => setQuickEstimatedPomodoros(0)} disabled={!storageAvailable || view === "completed"}>なし</button>
+                      {quickEstimateOptions.map((value) => (
+                        <button
+                          className={quickEstimatedPomodoros === value ? "is-active" : ""}
+                          type="button"
+                          aria-pressed={quickEstimatedPomodoros === value}
+                          onClick={() => setQuickEstimatedPomodoros(value)}
+                          disabled={!storageAvailable || view === "completed"}
+                          key={value}
+                        >
+                          {value}セット
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
                 <label className="visually-hidden" htmlFor="task-due-date">期限</label>
@@ -1417,7 +1466,7 @@ export function TaskDrawer({
               </form>
             </div>
 
-            {loading ? <p className="task-empty">読み込み中...</p> : filteredTasks.length === 0 ? <div className="task-empty"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v4H7zM5 5v16h14V5M8 12h8M8 16h5" /></svg><strong>{searchQuery.trim() ? "一致するタスクはありません" : listFilter === "all" ? "このリストは空です" : "この条件に合うタスクはありません"}</strong><span>{searchQuery.trim() ? "検索条件を変えてもう一度お試しください。" : listFilter === "all" ? "上の入力欄から、次に取り組むことを追加できます。" : "別の絞り込みに切り替えると、ほかのタスクを確認できます。"}</span></div> : (
+            {loading ? <p className="task-empty">読み込み中...</p> : displayedTasks.length === 0 ? <div className="task-empty"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v4H7zM5 5v16h14V5M8 12h8M8 16h5" /></svg><strong>{searchQuery.trim() ? "一致するタスクはありません" : listFilter === "all" ? "このリストは空です" : "この条件に合うタスクはありません"}</strong><span>{searchQuery.trim() ? "検索条件を変えてもう一度お試しください。" : listFilter === "all" ? "上の入力欄から、次に取り組むことを追加できます。" : "別の絞り込みに切り替えると、ほかのタスクを確認できます。"}</span></div> : (
               <div className="task-list" aria-label="タスク一覧">
                 {taskSections.map((section) => (
                   <section className="task-list__section" aria-labelledby={`task-section-${section.key}`} key={section.key}>

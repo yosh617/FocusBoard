@@ -258,7 +258,7 @@ describe("TaskDrawer", () => {
       ...task,
       id: "task-2",
       title: "理科の暗記",
-      reminderAt: new Date(`${today}T21:30:00`).getTime(),
+      reminderAt: new Date(`${addLocalDays(today, 1)}T09:30:00`).getTime(),
       estimatedPomodoros: 0,
       order: 1,
       updatedAt: 2
@@ -419,6 +419,16 @@ describe("TaskDrawer", () => {
     expect(tomorrowButton.getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "追加" }));
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "理科の暗記", dueDate: addLocalDays(today, 1) })));
+  });
+
+  it("adds a task with a focus estimate from the quick presets", async () => {
+    const props = renderDrawer();
+    fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "理科の暗記" } });
+    const estimateButton = screen.getByRole("button", { name: "2セット" });
+    fireEvent.click(estimateButton);
+    expect(estimateButton.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "追加" }));
+    await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "理科の暗記", estimatedPomodoros: 2 })));
   });
 
   it("opens the focus candidate details from the hero card", () => {
@@ -635,10 +645,20 @@ describe("TaskDrawer", () => {
     const props = renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
     const details = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
-    fireEvent.click(details.getByRole("button", { name: "明日に移す" }));
+    fireEvent.click(details.getByRole("button", { name: "明日" }));
     expect((details.getByLabelText("期限") as HTMLInputElement).value).toBe(addLocalDays(today, 1));
     fireEvent.click(details.getByRole("button", { name: "保存" }));
     await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({ dueDate: addLocalDays(today, 1) })));
+  });
+
+  it("updates the reminder from the quick presets in task details", async () => {
+    const props = renderDrawer();
+    fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
+    const details = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
+    fireEvent.click(details.getByRole("button", { name: "明日 09:00" }));
+    expect((details.getByLabelText("リマインダー") as HTMLInputElement).value).toBe(`${addLocalDays(today, 1)}T09:00`);
+    fireEvent.click(details.getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({ reminderAt: new Date(`${addLocalDays(today, 1)}T09:00:00`).getTime() })));
   });
 
   it("updates the estimated focus count from the quick presets", async () => {

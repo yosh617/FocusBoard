@@ -324,6 +324,21 @@ describe("productivityStorage", () => {
     }
   });
 
+  it("keeps the original data when a batch save transaction aborts", async () => {
+    await saveProductivityRecords({ tasks: [task], projects: [project], sessions: [session] });
+
+    await expect(saveProductivityRecords({
+      tasks: [task],
+      projects: [{ version: 1 } as ProjectRecord],
+      sessions: []
+    })).rejects.toBeTruthy();
+
+    const loaded = await loadProductivityData();
+    expect(loaded.tasks).toEqual([task]);
+    expect(loaded.projects).toEqual([project]);
+    expect(loaded.sessions).toEqual([session]);
+  });
+
   it("loads only validated records and reports invalid entries", async () => {
     await saveProductivityRecords({ tasks: [task], projects: [project], sessions: [session] });
     const database = await openProductivityDb();
