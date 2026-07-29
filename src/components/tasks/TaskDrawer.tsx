@@ -250,10 +250,11 @@ export function TaskDrawer({
   }, [scopedTasks, searchQuery]);
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null;
   const todayTasks = useMemo(() => getTasksForView(tasks, "today", today), [tasks, today]);
-  const todayOpenTasks = useMemo(
-    () => todayTasks.filter((task) => task.parentTaskId === null && task.status === "open").length,
+  const todayOpenRootTasks = useMemo(
+    () => todayTasks.filter((task) => task.parentTaskId === null && task.status === "open"),
     [todayTasks]
   );
+  const todayOpenTasks = todayOpenRootTasks.length;
   const todayCompletedTasks = useMemo(
     () => tasks.filter((task) => task.parentTaskId === null && task.status === "completed" && task.completedAt !== null && sameLocalDay(task.completedAt, today)).length,
     [tasks, today]
@@ -270,9 +271,36 @@ export function TaskDrawer({
     () => todaySessions.reduce((sum, session) => sum + session.focusedDurationMs, 0),
     [todaySessions]
   );
+  const focusQueue = useMemo(() => {
+    const queueCandidates = tasks.filter((task) => {
+      if (task.parentTaskId !== null || task.status !== "open") return false;
+      if (task.id === activeTaskId) return true;
+      return task.dueDate !== null && task.dueDate <= today;
+    });
+    return [...queueCandidates]
+      .sort((left, right) => {
+        const leftActive = left.id === activeTaskId ? 1 : 0;
+        const rightActive = right.id === activeTaskId ? 1 : 0;
+        if (leftActive !== rightActive) return rightActive - leftActive;
+
+        const leftOverdue = left.dueDate !== null && left.dueDate < today ? 1 : 0;
+        const rightOverdue = right.dueDate !== null && right.dueDate < today ? 1 : 0;
+        if (leftOverdue !== rightOverdue) return rightOverdue - leftOverdue;
+
+        const leftToday = left.dueDate === today ? 1 : 0;
+        const rightToday = right.dueDate === today ? 1 : 0;
+        if (leftToday !== rightToday) return rightToday - leftToday;
+
+        if (left.order !== right.order) return left.order - right.order;
+        return left.createdAt - right.createdAt;
+      })
+      .slice(0, 3);
+  }, [activeTaskId, tasks, today]);
   const focusCandidate = activeTaskId
     ? tasks.find((task) => task.id === activeTaskId && task.status === "open") ?? null
-    : visibleTasks.find((task) => task.status === "open") ?? null;
+    : projectId
+      ? visibleTasks.find((task) => task.status === "open") ?? null
+      : focusQueue[0] ?? visibleTasks.find((task) => task.status === "open") ?? null;
   const focusCandidateProject = focusCandidate?.projectId
     ? activeProjects.find((project) => project.id === focusCandidate.projectId) ?? null
     : null;
@@ -501,6 +529,71 @@ export function TaskDrawer({
                   <div className="task-focus-card__empty" aria-hidden="true">+</div>
                 )}
               </div>
+              {focusQueue.length > 0 && (
+                <section className="task-focus-queue" aria-labelledby="task-focus-queue-title">
+                  <div className="task-focus-queue__heading">
+                    <div>
+                      <h4 id="task-focus-queue-title">今日の流れ</h4>
+                      <p>先に片づける順で、すぐ始められる 3 件までを表示します。</p>
+                    </div>
+                    <span>{focusQueue.length}件</span>
+                  </div>
+                  <ol className="task-focus-queue__list">
+                    {focusQueue.map((queueTask, index) => {
+                      const queueProject = queueTask.projectId
+                        ? activeProjects.find((project) => project.id === queueTask.projectId) ?? null
+                        : null;
+                      const queueDueLabel = dueLabel(queueTask, today);
+                      const queuePomodoros = completedPomodorosByTask.get(queueTask.id) ?? 0;
+                      const queueStateLabel = activeTaskId === queueTask.id && timerStatus !== "idle"
+                        ? "進行中"
+                        : queueDueLabel.startsWith("期限切れ")
+                          ? "先に片づける"
+                          : index === 0
+                            ? "次に集中"
+                            : "このあと";
+                      const isQueueTaskActive = activeTaskId === queueTask.id && timerStatus !== "idle";
+
+                      return (
+                        <li key={queueTask.id}>
+                          <button
+                            className={`task-focus-queue__item${isQueueTaskActive ? " is-active" : ""}`}
+                            type="button"
+                            onClick={() => openTaskDetails(queueTask)}
+                            aria-label={`${queueTask.title}の順番と詳細を開く`}
+                          >
+                            <span className="task-focus-queue__index" aria-hidden="true">{index + 1}</span>
+                            <span className="task-focus-queue__content">
+                              <span>{queueStateLabel}</span>
+                              <strong>{queueTask.title}</strong>
+                              <span className="task-focus-queue__meta">
+                                {queueProject && <em><i style={{ background: queueProject.color }} />{queueProject.name}</em>}
+                                {queueDueLabel && <em className={queueDueLabel.startsWith("期限切れ") ? "is-overdue" : ""}>{queueDueLabel}</em>}
+                                {(queueTask.estimatedPomodoros > 0 || queuePomodoros > 0) && <em>集中 {queuePomodoros} / {queueTask.estimatedPomodoros || "—"}</em>}
+                              </span>
+                            </span>
+                          </button>
+                          <button
+                            className={`task-focus-queue__start${isQueueTaskActive ? " is-active" : ""}`}
+                            type="button"
+                            aria-label={isQueueTaskActive ? "キューからタイマーへ戻る" : `${queueTask.title}をキューから開始`}
+                            disabled={!isQueueTaskActive && timerStatus !== "idle"}
+                            onClick={() => {
+                              if (isQueueTaskActive) {
+                                onClose();
+                                return;
+                              }
+                              onStartTask(queueTask.id);
+                            }}
+                          >
+                            {isQueueTaskActive ? "戻る" : "開始"}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </section>
+              )}
             </section>
             <div className="task-workspace__heading">
               <div><p className="eyebrow">MY TASKS</p><h3>{currentListLabel}</h3><span>{visibleTasks.length}件のタスク</span></div>

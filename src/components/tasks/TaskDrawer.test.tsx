@@ -89,8 +89,28 @@ describe("TaskDrawer", () => {
   it("shows a daily focus summary before the task list", () => {
     renderDrawer({ sessions: [session] });
     expect(screen.getByRole("region", { name: "今日の集中サマリー" }).textContent).toContain("今日の集中ハブ");
+    expect(screen.getByRole("heading", { name: "今日の流れ" })).toBeTruthy();
     expect(screen.getByText("25分")).toBeTruthy();
     expect(screen.getByRole("button", { name: "開始" })).toBeTruthy();
+  });
+
+  it("surfaces overdue work first in the focus queue", () => {
+    const overdueTask: TaskRecord = {
+      ...task,
+      id: "task-2",
+      title: "英語の宿題",
+      dueDate: addLocalDays(today, -1),
+      order: 1,
+      updatedAt: 2
+    };
+
+    renderDrawer({
+      tasks: [task, overdueTask]
+    });
+
+    expect(screen.getByText("先に片づける")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "英語の宿題の順番と詳細を開く" }));
+    expect(screen.getByRole("form", { name: "英語の宿題の詳細" })).toBeTruthy();
   });
 
   it("adds a task to today's list with a single title", async () => {

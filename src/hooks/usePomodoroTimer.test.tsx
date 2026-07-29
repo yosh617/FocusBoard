@@ -85,4 +85,41 @@ describe("usePomodoroTimer", () => {
     rerender({ orientation: "portrait" });
     expect(result.current.timer.floatingPosition).toEqual({ x: 0.2, y: 0.7 });
   });
+
+  it("emits a completed task session when a pomodoro finishes", async () => {
+    const onSessionEnd = vi.fn();
+    const { result } = renderHook(() => usePomodoroTimer({ ...defaultSettings, soundEnabled: false }, onSessionEnd));
+
+    act(() => result.current.start("task-1"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(25 * 60_000 + 250); });
+
+    expect(result.current.timer.mode).toBe("shortBreak");
+    expect(result.current.timer.status).toBe("paused");
+    expect(onSessionEnd).toHaveBeenCalledTimes(1);
+    expect(onSessionEnd).toHaveBeenCalledWith(expect.objectContaining({
+      taskId: "task-1",
+      mode: "work",
+      result: "completed",
+      plannedDurationMs: 25 * 60_000,
+      focusedDurationMs: 25 * 60_000
+    }));
+  });
+
+  it("emits a cancelled session when an active task timer is reset", () => {
+    const onSessionEnd = vi.fn();
+    const { result } = renderHook(() => usePomodoroTimer({ ...defaultSettings, soundEnabled: false }, onSessionEnd));
+
+    act(() => result.current.start("task-1"));
+    act(() => { vi.advanceTimersByTime(5_000); });
+    act(() => result.current.reset());
+
+    expect(result.current.timer.status).toBe("idle");
+    expect(result.current.timer.activeTaskId).toBeNull();
+    expect(onSessionEnd).toHaveBeenCalledTimes(1);
+    const event = onSessionEnd.mock.calls[0][0];
+    expect(event.taskId).toBe("task-1");
+    expect(event.result).toBe("cancelled");
+    expect(event.focusedDurationMs).toBeGreaterThanOrEqual(5_000);
+    expect(event.focusedDurationMs).toBeLessThan(6_000);
+  });
 });
