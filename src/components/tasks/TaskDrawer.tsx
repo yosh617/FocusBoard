@@ -156,7 +156,7 @@ function FocusMeter({
   );
 }
 
-function TaskEditor({ task, projects, subtasks, timerStatus, activeTaskId, completedPomodoros, nextTask, nextTaskDetail, onStartTask, onReturnToTimer, onSave, onArchive, onToggleStatus, onCompleteAndStartNextTask, onAddSubtask, onToggleSubtask, canMoveUp, canMoveDown, onMove, onClose }: {
+function TaskEditor({ task, projects, subtasks, timerStatus, activeTaskId, completedPomodoros, nextTask, nextTaskDetail, onStartTask, onOpenNextTask, onReturnToTimer, onSave, onArchive, onToggleStatus, onCompleteAndStartNextTask, onAddSubtask, onToggleSubtask, canMoveUp, canMoveDown, onMove, onClose }: {
   task: TaskRecord;
   projects: ProjectRecord[];
   subtasks: TaskRecord[];
@@ -166,6 +166,7 @@ function TaskEditor({ task, projects, subtasks, timerStatus, activeTaskId, compl
   nextTask: TaskRecord | null;
   nextTaskDetail: string;
   onStartTask: (id: string) => void;
+  onOpenNextTask?: () => void;
   onReturnToTimer: () => void;
   onSave: (patch: Partial<TaskRecord>) => Promise<boolean>;
   onArchive: () => Promise<boolean>;
@@ -340,9 +341,23 @@ function TaskEditor({ task, projects, subtasks, timerStatus, activeTaskId, compl
         </div>
       </div>
       {canCompleteAndStartNext && (
-        <p className="task-editor__next-flow" aria-label="次の候補への切り替え">
-          次は <strong>{nextTask.title}</strong>{nextTaskDetail ? ` ・ ${nextTaskDetail}` : ""} に進めます。
-        </p>
+        <section className="task-editor__next-card" aria-label="次に進む候補">
+          <div className="task-editor__next-card-copy">
+            <span>NEXT</span>
+            <strong>{nextTask.title}</strong>
+            <p>{nextTaskDetail ? `${nextTaskDetail} に進めます。` : "このあとすぐ取りかかれる候補です。"}</p>
+          </div>
+          {onOpenNextTask && (
+            <button
+              className="task-editor__next-card-action"
+              type="button"
+              aria-label={`${nextTask.title}の候補を詳細で見る`}
+              onClick={onOpenNextTask}
+            >
+              候補を見る
+            </button>
+          )}
+        </section>
       )}
       <section className="task-editor__section" aria-labelledby={`task-note-${task.id}`}>
         <div className="task-editor__section-heading">
