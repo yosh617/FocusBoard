@@ -233,7 +233,7 @@ describe("App", () => {
       expect(launcher.textContent).toContain("次は 英語の宿題");
       fireEvent.click(launcher);
       expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("休憩のあと");
-      await waitFor(() => expect(screen.getByRole("form", { name: "英語の宿題の詳細" })).toBeTruthy());
+      expect(screen.getByRole("form", { name: "英語の宿題の詳細" })).toBeTruthy();
     } finally {
       vi.useRealTimers();
     }
