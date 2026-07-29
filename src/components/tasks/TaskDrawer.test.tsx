@@ -671,6 +671,23 @@ describe("TaskDrawer", () => {
     await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({ estimatedPomodoros: 4 })));
   });
 
+  it("saves quick detail changes from the top save action", async () => {
+    const props = renderDrawer();
+    fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
+    const details = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
+
+    fireEvent.click(details.getByRole("button", { name: "明日" }));
+    fireEvent.click(details.getByRole("button", { name: "4セット" }));
+    fireEvent.click(details.getByRole("button", { name: "明日 09:00" }));
+    fireEvent.click(details.getByRole("button", { name: "変更を保存" }));
+
+    await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({
+      dueDate: addLocalDays(today, 1),
+      estimatedPomodoros: 4,
+      reminderAt: new Date(`${addLocalDays(today, 1)}T09:00:00`).getTime()
+    })));
+  });
+
   it("exposes a storage failure without hiding the existing timer application", () => {
     renderDrawer({ storageAvailable: false, tasks: [] });
     expect(screen.getByRole("status").textContent).toContain("タスク保存を利用できません");

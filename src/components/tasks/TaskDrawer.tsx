@@ -321,6 +321,9 @@ function TaskEditor({ task, projects, subtasks, timerStatus, activeTaskId, compl
           </div>
         </div>
       </section>
+      <button className="task-editor__quick-save primary-button" type="submit" disabled={saving}>
+        {saving ? "保存中" : "変更を保存"}
+      </button>
       <div className="task-editor__focus">
         <div>
           <strong>{task.status === "completed" ? "完了済みの状態です" : isActiveTask ? "いまの集中へ戻る" : "このタスクを始める"}</strong>
@@ -1428,7 +1431,6 @@ export function TaskDrawer({
               </div>
               {!storageAvailable && <div className="task-callout" role="status"><strong>タスク保存を利用できません</strong><span>時計とタイマーはそのまま使えます。ブラウザのサイトデータ設定を確認してください。</span></div>}
               <form className="task-quick-add" onSubmit={addTask}>
-                <div className="task-quick-add__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg></div>
                 <div className="task-quick-add__fields">
                   <span className="task-quick-add__context">{quickAddContextLabel}</span>
                   <label className="visually-hidden" htmlFor="task-title">新しいタスク</label>
