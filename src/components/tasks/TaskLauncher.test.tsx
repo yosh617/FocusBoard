@@ -42,6 +42,7 @@ describe("TaskLauncher", () => {
     expect(button.textContent).toContain("次のおすすめ");
     expect(button.textContent).toContain("英単語の復習");
     expect(button.textContent).toContain("勉強 · 今日の予定 · 未完了 2件");
+    expect(button.textContent).toContain("おすすめ");
   });
 
   it("shows a timer-aware summary while a focus session is in progress", () => {
@@ -57,5 +58,6 @@ describe("TaskLauncher", () => {
     const button = screen.getByRole("button", { name: "タスクを開く。集中中のタスクは英単語の復習。今日の未完了は1件" });
     expect(button.textContent).toContain("集中中");
     expect(button.textContent).toContain("12:30");
+    expect(button.textContent).toContain("戻る");
   });
 });

@@ -70,6 +70,13 @@ export default function App() {
   const { backgrounds, addBackgrounds, removeBackground, reorderBackgrounds, backgroundMessage, setBackgroundMessage } = useCustomBackgrounds();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [tasksOpen, setTasksOpen] = useState(false);
+  const [taskDrawerResumeContext, setTaskDrawerResumeContext] = useState<{
+    label: string;
+    title: string;
+    detail: string;
+    taskId: string | null;
+    actionLabel?: string;
+  } | null>(null);
   const [timerSetupVisible, setTimerSetupVisible] = useState(false);
   const [settingsButtonVisible, setSettingsButtonVisible] = useState(false);
   const [settingsButtonFading, setSettingsButtonFading] = useState(false);
@@ -183,11 +190,13 @@ export default function App() {
 
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const closeTasks = useCallback(() => {
+    setTaskDrawerResumeContext(null);
     setTasksOpen(false);
     window.setTimeout(() => taskLauncherRef.current?.focus(), 0);
   }, []);
   const startTask = useCallback((taskId: string) => {
     setTaskMessage("");
+    setTaskDrawerResumeContext(null);
     start(taskId);
     setTasksOpen(false);
   }, [setTaskMessage, start]);
@@ -378,6 +387,25 @@ export default function App() {
         timerSummary={taskLauncherSummary}
         onClick={() => {
           setSettingsOpen(false);
+          if (activeTask && timer.status !== "idle") {
+            const activeTaskProject = activeTask.projectId
+              ? projects.find((project) => project.id === activeTask.projectId) ?? null
+              : null;
+            const activeTaskDetailParts = [
+              activeTaskProject?.name ?? null,
+              taskLauncherSummary?.detail ?? null,
+              todayOpenTaskCount > 0 ? `今日の未完了はあと${todayOpenTaskCount}件です。` : "今日はこのタスクが最後です。"
+            ].filter((item): item is string => item !== null);
+            setTaskDrawerResumeContext({
+              label: "いまの集中",
+              title: `${activeTask.title}へ戻れます`,
+              detail: `${activeTaskDetailParts.join(" ・ ")} 集中を止めずに、詳細と一覧を見直せます。`,
+              taskId: activeTask.id,
+              actionLabel: "進行中を開く"
+            });
+          } else {
+            setTaskDrawerResumeContext(null);
+          }
           setTasksOpen(true);
         }}
         ref={taskLauncherRef}
@@ -440,6 +468,7 @@ export default function App() {
         notificationPermission={notificationPermission}
         onRequestNotification={requestNotificationPermission}
         onImportBackup={importProductivityBackup}
+        resumeContext={taskDrawerResumeContext}
       />
       <SessionCompleteDialog
         open={completedSession !== null && completedTask !== null}
@@ -473,8 +502,24 @@ export default function App() {
           if (task?.status === "open") void toggleTask(task.id);
         }}
         onOpenTaskList={() => {
+          const resumeTask = suggestedNextTask;
+          const resumeTitle = resumeTask
+            ? `${resumeTask.title}を次の候補として開いています`
+            : "一覧で次のタスクを選べます";
+          const resumeDetail = resumeTask
+            ? `${suggestedNextTaskDetail ?? "休憩前に次の候補を調整できます。"}${todayOpenTaskCount > 0 ? ` 今日の未完了はあと${todayOpenTaskCount}件です。` : ""}`
+            : todayOpenTaskCount > 0
+              ? `今日の未完了はあと${todayOpenTaskCount}件です。休憩前に一覧で優先順位を整えられます。`
+              : "今日は優先タスクがひと区切りです。一覧で次の候補を見直せます。";
           setCompletedSession(null);
           setSettingsOpen(false);
+          setTaskDrawerResumeContext({
+            label: "セッション完了後のつづき",
+            title: resumeTitle,
+            detail: resumeDetail,
+            taskId: resumeTask?.id ?? null,
+            actionLabel: "候補を開く"
+          });
           setTasksOpen(true);
         }}
         onClose={() => setCompletedSession(null)}

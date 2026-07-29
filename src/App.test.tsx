@@ -254,6 +254,36 @@ describe("App", () => {
     }
   });
 
+  it("opens the task drawer around the active task while focus is in progress", () => {
+    prepareTaskFlow([focusTask, nextFocusTask]);
+
+    fireEvent.click(screen.getByRole("button", { name: "タスクを開く。集中中のタスクは数学の復習。今日の未完了は2件" }));
+    expect(screen.getByRole("dialog", { name: "タスクと集中" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("いまの集中");
+    expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("数学の復習へ戻れます");
+    expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "数学の復習の詳細からタイマーへ戻る" })).toBeTruthy();
+  });
+
+  it("opens the task drawer from the session complete dialog without restarting the timer", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-29T09:00:00+09:00"));
+    try {
+      prepareTaskFlow([focusTask, nextFocusTask]);
+      await act(async () => { await vi.advanceTimersByTimeAsync(25 * 60_000 + 250); });
+
+      fireEvent.click(screen.getByRole("button", { name: "タスク一覧を開く" }));
+      expect(screen.queryByRole("dialog", { name: "集中セッション完了" })).toBeNull();
+      expect(screen.getByRole("dialog", { name: "タスクと集中" })).toBeTruthy();
+      expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("英語の宿題を次の候補として開いています");
+      expect(screen.getByRole("form", { name: "英語の宿題の詳細" })).toBeTruthy();
+      expect(screen.getByText("今日の集中ハブ")).toBeTruthy();
+      expect(screen.queryByText("集中中")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("applies a shared opacity to timer backgrounds", () => {
     render(<App />);
     revealSettings();

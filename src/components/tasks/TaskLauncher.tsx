@@ -24,6 +24,13 @@ export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLa
         ?? (todayCount === 0 ? "今日の予定はありません" : `${todayCount}件を整理`));
   const status = timerSummary?.statusText ?? (activeTaskTitle ? "集中中" : suggestedTask ? "次のおすすめ" : "今日のタスク");
   const isEmphasized = activeTaskTitle !== null || timerSummary !== null;
+  const actionLabel = timerSummary !== null || activeTaskTitle
+    ? "戻る"
+    : suggestedTask
+      ? "おすすめ"
+      : todayCount === 0
+        ? "追加"
+        : "整理";
   const accessibleLabel = activeTaskTitle
     ? `タスクを開く。集中中のタスクは${activeTaskTitle}。今日の未完了は${todayCount}件`
     : suggestedTask
@@ -88,6 +95,7 @@ export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLa
         <strong>{title}</strong>
         <span>{detail}</span>
       </span>
+      <span className="task-launcher__action" aria-hidden="true">{actionLabel}</span>
       <b className="task-launcher__count" aria-hidden="true">{todayCount}</b>
     </button>
   );

@@ -34,9 +34,26 @@ type Props = {
   onStartTask: (id: string) => void;
   onRequestNotification: () => Promise<boolean>;
   onImportBackup: (backup: ProductivityBackup, strategy: ImportStrategy, conflictPreference: ConflictPreference) => Promise<boolean>;
+  resumeContext?: {
+    label: string;
+    title: string;
+    detail: string;
+    taskId: string | null;
+    actionLabel?: string;
+  } | null;
 };
 
 type TaskListFilter = "all" | "overdue" | "reminders" | "focus";
+
+type TaskListSection = {
+  key: string;
+  label: string;
+  color: string | null;
+  tasks: TaskRecord[];
+  openCount: number;
+  completedPomodoros: number;
+  estimatedPomodoros: number;
+};
 
 const views: { value: TaskView; label: string }[] = [
   { value: "inbox", label: "Inbox" },
@@ -103,12 +120,41 @@ function getViewForTask(task: TaskRecord, today: string, tomorrow: string): Task
   return "inbox";
 }
 
-function TaskEditor({ task, projects, subtasks, timerStatus, activeTaskId, onStartTask, onReturnToTimer, onSave, onArchive, onAddSubtask, onToggleSubtask, canMoveUp, canMoveDown, onMove, onClose }: {
+function FocusMeter({
+  label,
+  completedPomodoros,
+  estimatedPomodoros
+}: {
+  label: string;
+  completedPomodoros: number;
+  estimatedPomodoros: number;
+}) {
+  const targetDots = Math.max(estimatedPomodoros, completedPomodoros, 1);
+  const visibleDots = Math.min(targetDots, 6);
+  const overflowDots = targetDots - visibleDots;
+
+  return (
+    <span className="task-pomodoro-meter" aria-label={`${label} ${completedPomodoros} / ${estimatedPomodoros || "—"}`}>
+      <span className="task-pomodoro-meter__dots" aria-hidden="true">
+        {Array.from({ length: visibleDots }, (_, index) => {
+          const isCompleted = index < completedPomodoros;
+          const isPlanned = index < estimatedPomodoros;
+          return <i className={`${isCompleted ? "is-completed" : ""}${!isCompleted && isPlanned ? " is-planned" : ""}`} key={index} />;
+        })}
+      </span>
+      {overflowDots > 0 && <span className="task-pomodoro-meter__overflow" aria-hidden="true">+{overflowDots}</span>}
+      <span>{completedPomodoros} / {estimatedPomodoros || "—"}</span>
+    </span>
+  );
+}
+
+function TaskEditor({ task, projects, subtasks, timerStatus, activeTaskId, completedPomodoros, onStartTask, onReturnToTimer, onSave, onArchive, onAddSubtask, onToggleSubtask, canMoveUp, canMoveDown, onMove, onClose }: {
   task: TaskRecord;
   projects: ProjectRecord[];
   subtasks: TaskRecord[];
   timerStatus: TimerStatus;
   activeTaskId: string | null;
+  completedPomodoros: number;
   onStartTask: (id: string) => void;
   onReturnToTimer: () => void;
   onSave: (patch: Partial<TaskRecord>) => Promise<boolean>;
@@ -139,6 +185,23 @@ function TaskEditor({ task, projects, subtasks, timerStatus, activeTaskId, onSta
   const [saving, setSaving] = useState(false);
   const isActiveTask = activeTaskId === task.id && timerStatus !== "idle";
   const canStartTask = isActiveTask || (timerStatus === "idle" && task.status === "open");
+  const now = new Date();
+  const today = toLocalDateKey(now);
+  const tomorrow = addLocalDays(today, 1);
+  const selectedProject = projectId ? projects.find((project) => project.id === projectId) ?? null : null;
+  const dueSummary = dueDate
+    ? dueDate === today
+      ? "今日"
+      : dueDate === tomorrow
+        ? "明日"
+        : dueDate < today
+          ? `期限切れ ${dueDate.replace(/-/g, "/")}`
+          : dueDate.replace(/-/g, "/")
+    : bucket === "someday"
+      ? "いつか"
+      : "Inbox";
+  const reminderSummary = reminder ? reminderLabel(new Date(reminder).getTime(), now) : "通知なし";
+  const focusSummary = estimatedPomodoros > 0 || completedPomodoros > 0 ? `集中 ${completedPomodoros} / ${estimatedPomodoros || "—"}` : "見積もりなし";
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -162,21 +225,53 @@ function TaskEditor({ task, projects, subtasks, timerStatus, activeTaskId, onSta
         <div><p className="eyebrow">TASK DETAILS</p><h3>詳細設定</h3></div>
         {onClose && <button className="task-editor__close" type="button" onClick={onClose} aria-label="詳細を閉じる"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg></button>}
       </div>
-      <label>タスク名<input value={title} maxLength={200} required onChange={(event) => setTitle(event.target.value)} /></label>
-      <div className="task-editor__row">
-        <label>プロジェクト<select value={projectId} onChange={(event) => setProjectId(event.target.value)}><option value="">なし</option>{projects.map((project) => <option value={project.id} key={project.id}>{project.name}</option>)}</select></label>
-        <label>期限<input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label>
-      </div>
-      <div className="task-editor__row">
-        <label>分類<select value={bucket} onChange={(event) => setBucket(event.target.value as TaskRecord["bucket"])}><option value="inbox">Inbox</option><option value="someday">いつか</option></select></label>
-        <label>見積もり<input type="number" min="0" max="99" inputMode="numeric" value={estimatedPomodoros} onChange={(event) => setEstimatedPomodoros(Number(event.target.value))} /></label>
-      </div>
-      <div className="task-editor__row">
-        <label>リマインダー<input type="datetime-local" value={reminder} onChange={(event) => setReminder(event.target.value)} /></label>
-        <label>繰り返し<select value={repeatType} disabled={!dueDate} onChange={(event) => setRepeatType(event.target.value)}><option value="none">なし</option><option value="daily">毎日</option><option value="weekdays">平日</option><option value="weekly">毎週</option><option value="monthly">毎月</option><option value="custom">カスタム</option></select></label>
-      </div>
-      {repeatType === "custom" && <div className="task-editor__row"><label>繰り返し間隔<input type="number" min="1" max={customRepeatUnit === "daily" ? 365 : customRepeatUnit === "weekly" ? 52 : 24} value={customRepeatInterval} onChange={(event) => setCustomRepeatInterval(Number(event.target.value))} /></label><label>繰り返し単位<select value={customRepeatUnit} onChange={(event) => setCustomRepeatUnit(event.target.value as typeof customRepeatUnit)}><option value="daily">日ごと</option><option value="weekly">週ごと</option><option value="monthly">月ごと</option></select></label></div>}
-      <label>メモ<textarea value={note} maxLength={10_000} rows={4} onChange={(event) => setNote(event.target.value)} /></label>
+      <section className="task-editor__summary" aria-label="タスクの概要">
+        <div className="task-editor__summary-copy">
+          <strong>{title || task.title}</strong>
+          <p>{isActiveTask ? "いま集中しているタスクです。詳細を確認して、そのまま戻れます。" : "予定と集中の準備をここで整えてから開始できます。"}</p>
+        </div>
+        <div className="task-editor__summary-meta">
+          {selectedProject && <em><i style={{ background: selectedProject.color }} />{selectedProject.name}</em>}
+          <em className={dueDate && dueDate < today ? "is-overdue" : ""}>{dueSummary}</em>
+          <em>{reminderSummary}</em>
+          <em>{focusSummary}</em>
+        </div>
+      </section>
+      <section className="task-editor__section" aria-labelledby={`task-plan-${task.id}`}>
+        <div className="task-editor__section-heading">
+          <div>
+            <h4 id={`task-plan-${task.id}`}>予定を整える</h4>
+            <p>タスク名、期限、通知を先に決めると、一覧の判断がしやすくなります。</p>
+          </div>
+        </div>
+        <label>タスク名<input value={title} maxLength={200} required onChange={(event) => setTitle(event.target.value)} /></label>
+        <div className="task-editor__row">
+          <label>プロジェクト<select value={projectId} onChange={(event) => setProjectId(event.target.value)}><option value="">なし</option>{projects.map((project) => <option value={project.id} key={project.id}>{project.name}</option>)}</select></label>
+          <label>期限<input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label>
+        </div>
+        <div className="task-editor__date-presets" role="group" aria-label="期限をすばやく設定">
+          <button type="button" className={dueDate === today ? "is-active" : ""} aria-pressed={dueDate === today} onClick={() => setDueDate(today)}>今日に移す</button>
+          <button type="button" className={dueDate === tomorrow ? "is-active" : ""} aria-pressed={dueDate === tomorrow} onClick={() => setDueDate(tomorrow)}>明日に移す</button>
+          <button type="button" className={!dueDate ? "is-active" : ""} aria-pressed={!dueDate} onClick={() => setDueDate("")}>期限を外す</button>
+        </div>
+        <div className="task-editor__row">
+          <label>リマインダー<input type="datetime-local" value={reminder} onChange={(event) => setReminder(event.target.value)} /></label>
+          <label>繰り返し<select value={repeatType} disabled={!dueDate} onChange={(event) => setRepeatType(event.target.value)}><option value="none">なし</option><option value="daily">毎日</option><option value="weekdays">平日</option><option value="weekly">毎週</option><option value="monthly">毎月</option><option value="custom">カスタム</option></select></label>
+        </div>
+        {repeatType === "custom" && <div className="task-editor__row"><label>繰り返し間隔<input type="number" min="1" max={customRepeatUnit === "daily" ? 365 : customRepeatUnit === "weekly" ? 52 : 24} value={customRepeatInterval} onChange={(event) => setCustomRepeatInterval(Number(event.target.value))} /></label><label>繰り返し単位<select value={customRepeatUnit} onChange={(event) => setCustomRepeatUnit(event.target.value as typeof customRepeatUnit)}><option value="daily">日ごと</option><option value="weekly">週ごと</option><option value="monthly">月ごと</option></select></label></div>}
+      </section>
+      <section className="task-editor__section" aria-labelledby={`task-focus-${task.id}`}>
+        <div className="task-editor__section-heading">
+          <div>
+            <h4 id={`task-focus-${task.id}`}>集中の準備</h4>
+            <p>置き場所と見積もりを決めておくと、次のおすすめと実績が安定します。</p>
+          </div>
+        </div>
+        <div className="task-editor__row">
+          <label>分類<select value={bucket} onChange={(event) => setBucket(event.target.value as TaskRecord["bucket"])}><option value="inbox">Inbox</option><option value="someday">いつか</option></select></label>
+          <label>見積もり<input type="number" min="0" max="99" inputMode="numeric" value={estimatedPomodoros} onChange={(event) => setEstimatedPomodoros(Number(event.target.value))} /></label>
+        </div>
+      </section>
       <div className="task-editor__focus">
         <div>
           <strong>{isActiveTask ? "いまの集中へ戻る" : "このタスクを始める"}</strong>
@@ -198,6 +293,15 @@ function TaskEditor({ task, projects, subtasks, timerStatus, activeTaskId, onSta
           {isActiveTask ? "タイマーへ戻る" : "開始"}
         </button>
       </div>
+      <section className="task-editor__section" aria-labelledby={`task-note-${task.id}`}>
+        <div className="task-editor__section-heading">
+          <div>
+            <h4 id={`task-note-${task.id}`}>メモ</h4>
+            <p>着手時のメモや気づきを残しておくと、次回の再開が速くなります。</p>
+          </div>
+        </div>
+        <label>メモ<textarea value={note} maxLength={10_000} rows={4} onChange={(event) => setNote(event.target.value)} /></label>
+      </section>
       <section className="subtask-editor" aria-labelledby={`subtasks-${task.id}`}>
         <h4 id={`subtasks-${task.id}`}>サブタスク</h4>
         {subtasks.length > 0 && <div className="subtask-list">{subtasks.map((subtask) => <button type="button" aria-pressed={subtask.status === "completed"} onClick={() => void onToggleSubtask(subtask.id)} key={subtask.id}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 12 4 4 8-9" /></svg><span>{subtask.title}</span></button>)}</div>}
@@ -241,7 +345,8 @@ export function TaskDrawer({
   onUndo,
   onStartTask,
   onRequestNotification,
-  onImportBackup
+  onImportBackup,
+  resumeContext = null
 }: Props) {
   const [view, setView] = useState<TaskView>("today");
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -254,12 +359,22 @@ export function TaskDrawer({
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectColor, setNewProjectColor] = useState(projectColors[0]);
   const [showProjectForm, setShowProjectForm] = useState(false);
+  const [showResumeBanner, setShowResumeBanner] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
+  const taskRowRefs = useRef(new Map<string, HTMLDivElement>());
+  const taskContentButtonRefs = useRef(new Map<string, HTMLButtonElement>());
+  const appliedResumeTaskIdRef = useRef<string | null>(null);
   const now = new Date();
   const today = toLocalDateKey(now);
   const tomorrow = addLocalDays(today, 1);
   const activeProjects = useMemo(() => getActiveProjects(projects), [projects]);
+  const currentListLabel = projectId
+    ? activeProjects.find((project) => project.id === projectId)?.name ?? "プロジェクト"
+    : views.find((item) => item.value === view)?.label ?? "タスク";
+  const currentProject = projectId
+    ? activeProjects.find((project) => project.id === projectId) ?? null
+    : null;
   const completedPomodorosByTask = useMemo(() => {
     const counts = new Map<string, number>();
     for (const session of sessions) {
@@ -284,6 +399,59 @@ export function TaskDrawer({
     if (listFilter === "reminders") return visibleTasks.filter((task) => task.reminderAt !== null);
     return visibleTasks.filter((task) => activeTaskId === task.id || task.estimatedPomodoros > 0 || (completedPomodorosByTask.get(task.id) ?? 0) > 0);
   }, [activeTaskId, completedPomodorosByTask, listFilter, today, visibleTasks]);
+  const taskSections = useMemo<TaskListSection[]>(() => {
+    if (filteredTasks.length === 0) return [];
+    if (projectId) {
+      return [{
+        key: currentProject?.id ?? projectId,
+        label: currentProject?.name ?? currentListLabel,
+        color: currentProject?.color ?? null,
+        tasks: filteredTasks,
+        openCount: filteredTasks.filter((task) => task.status === "open").length,
+        completedPomodoros: filteredTasks.reduce((sum, task) => sum + (completedPomodorosByTask.get(task.id) ?? 0), 0),
+        estimatedPomodoros: filteredTasks.reduce((sum, task) => sum + task.estimatedPomodoros, 0)
+      }];
+    }
+
+    const sections = new Map<string, TaskListSection>();
+    for (const task of filteredTasks) {
+      const taskProject = task.projectId
+        ? activeProjects.find((project) => project.id === task.projectId) ?? null
+        : null;
+      const key = taskProject?.id ?? `ungrouped-${view}`;
+      const label = taskProject?.name
+        ?? (view === "inbox"
+          ? "Inbox"
+          : view === "someday"
+            ? "いつか"
+            : "プロジェクトなし");
+      const currentSection = sections.get(key) ?? {
+        key,
+        label,
+        color: taskProject?.color ?? null,
+        tasks: [],
+        openCount: 0,
+        completedPomodoros: 0,
+        estimatedPomodoros: 0
+      };
+      currentSection.tasks.push(task);
+      if (task.status === "open") currentSection.openCount += 1;
+      currentSection.completedPomodoros += completedPomodorosByTask.get(task.id) ?? 0;
+      currentSection.estimatedPomodoros += task.estimatedPomodoros;
+      sections.set(key, currentSection);
+    }
+
+    return [...sections.values()].sort((left, right) => {
+      if (left.color && right.color) {
+        const leftProject = activeProjects.find((project) => project.id === left.key);
+        const rightProject = activeProjects.find((project) => project.id === right.key);
+        if (leftProject && rightProject) return leftProject.order - rightProject.order || leftProject.createdAt - rightProject.createdAt;
+      }
+      if (left.color) return -1;
+      if (right.color) return 1;
+      return left.label.localeCompare(right.label, "ja");
+    });
+  }, [activeProjects, completedPomodorosByTask, currentListLabel, currentProject, filteredTasks, projectId, view]);
   const filterCounts = useMemo(() => ({
     all: visibleTasks.length,
     overdue: visibleTasks.filter((task) => task.dueDate !== null && task.dueDate < today).length,
@@ -323,6 +491,27 @@ export function TaskDrawer({
     : projectId
       ? visibleTasks.find((task) => task.status === "open") ?? null
       : focusQueue[0] ?? visibleTasks.find((task) => task.status === "open") ?? null;
+  const activeFocusTask = activeTaskId && timerStatus !== "idle"
+    ? tasks.find((task) => task.id === activeTaskId && task.status !== "archived") ?? null
+    : null;
+  const activeFocusProject = activeFocusTask?.projectId
+    ? activeProjects.find((project) => project.id === activeFocusTask.projectId) ?? null
+    : null;
+  const activeFocusBanner = useMemo(() => {
+    if (!activeFocusTask) return null;
+    const detailParts: string[] = [];
+    if (activeFocusProject) detailParts.push(activeFocusProject.name);
+    const activeDueLabel = dueLabel(activeFocusTask, today);
+    if (activeDueLabel) detailParts.push(activeDueLabel);
+    return {
+      label: "いまの集中",
+      title: `${activeFocusTask.title}に集中中です`,
+      detail: `${detailParts.join(" ・ ")}${detailParts.length > 0 ? " ・ " : ""}集中を止めずに、詳細や一覧を見直せます。`,
+      taskId: activeFocusTask.id,
+      actionLabel: "進行中を開く"
+    };
+  }, [activeFocusProject, activeFocusTask, today]);
+  const toolbarContext = resumeContext ?? activeFocusBanner;
   const focusCandidateProject = focusCandidate?.projectId
     ? activeProjects.find((project) => project.id === focusCandidate.projectId) ?? null
     : null;
@@ -374,6 +563,37 @@ export function TaskDrawer({
     if (selectedTaskId && !filteredTasks.some((task) => task.id === selectedTaskId)) setSelectedTaskId(null);
   }, [filteredTasks, selectedTaskId]);
 
+  useEffect(() => {
+    setShowResumeBanner(open && toolbarContext !== null);
+  }, [open, toolbarContext]);
+
+  useEffect(() => {
+    if (!resumeContext?.taskId) {
+      appliedResumeTaskIdRef.current = null;
+      return;
+    }
+    if (!open || appliedResumeTaskIdRef.current === resumeContext.taskId) return;
+    const task = tasks.find((item) => item.id === resumeContext.taskId && item.status !== "archived");
+    if (!task) return;
+    appliedResumeTaskIdRef.current = resumeContext.taskId;
+    openTaskDetails(task);
+  }, [open, resumeContext, tasks]);
+
+  useEffect(() => {
+    if (!open || !selectedTaskId) return;
+    const target = taskRowRefs.current.get(selectedTaskId);
+    if (!target) return;
+    let prefersReducedMotion = false;
+    try {
+      prefersReducedMotion = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    } catch {
+      prefersReducedMotion = false;
+    }
+    if (typeof target.scrollIntoView === "function") {
+      target.scrollIntoView({ block: "nearest", behavior: prefersReducedMotion ? "auto" : "smooth" });
+    }
+  }, [open, selectedTaskId]);
+
   if (!open) return null;
 
   const addTask = async (event: FormEvent) => {
@@ -399,12 +619,6 @@ export function TaskDrawer({
     }
   };
 
-  const currentListLabel = projectId
-    ? activeProjects.find((project) => project.id === projectId)?.name ?? "プロジェクト"
-    : views.find((item) => item.value === view)?.label ?? "タスク";
-  const currentProject = projectId
-    ? activeProjects.find((project) => project.id === projectId) ?? null
-    : null;
   const currentListRootTasks = scopedTasks.filter((task) => task.parentTaskId === null);
   const currentListOpenCount = currentListRootTasks.filter((task) => task.status === "open").length;
   const currentListCompletedCount = currentListRootTasks.filter((task) => task.status === "completed").length;
@@ -470,6 +684,13 @@ export function TaskDrawer({
     }
     setProjectId(null);
     setView(getViewForTask(task, today, tomorrow));
+  };
+  const focusTaskTrigger = (taskId: string) => {
+    window.setTimeout(() => taskContentButtonRefs.current.get(taskId)?.focus(), 0);
+  };
+  const closeTaskDetails = (taskId: string) => {
+    setSelectedTaskId(null);
+    focusTaskTrigger(taskId);
   };
 
   return (
@@ -690,6 +911,30 @@ export function TaskDrawer({
                   <em>完了 {currentListCompletedCount}件</em>
                 </div>
               </section>
+              {showResumeBanner && toolbarContext && (
+                <section className="task-resume-banner" aria-label="一覧へ戻ったあとの案内">
+                  <div className="task-resume-banner__copy">
+                    <span>{toolbarContext.label}</span>
+                    <strong>{toolbarContext.title}</strong>
+                    <p>{toolbarContext.detail}</p>
+                  </div>
+                  <div className="task-resume-banner__actions">
+                    {toolbarContext.taskId && (
+                      <button
+                        className="secondary-button"
+                        type="button"
+                        onClick={() => {
+                          const task = tasks.find((item) => item.id === toolbarContext.taskId && item.status !== "archived");
+                          if (task) openTaskDetails(task);
+                        }}
+                      >
+                        {toolbarContext.actionLabel ?? "候補を開く"}
+                      </button>
+                    )}
+                    <button className="text-button" type="button" onClick={() => setShowResumeBanner(false)}>閉じる</button>
+                  </div>
+                </section>
+              )}
               <div className="task-list-filters" role="group" aria-label="表示するタスクを絞り込む">
                 <button className={listFilter === "all" ? "is-active" : ""} type="button" aria-pressed={listFilter === "all"} onClick={() => setListFilter("all")}><span>すべて</span><strong>{filterCounts.all}</strong></button>
                 <button className={listFilter === "overdue" ? "is-active" : ""} type="button" aria-pressed={listFilter === "overdue"} onClick={() => setListFilter("overdue")}><span>期限切れ</span><strong>{filterCounts.overdue}</strong></button>
@@ -717,35 +962,93 @@ export function TaskDrawer({
 
             {loading ? <p className="task-empty">読み込み中...</p> : filteredTasks.length === 0 ? <div className="task-empty"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v4H7zM5 5v16h14V5M8 12h8M8 16h5" /></svg><strong>{searchQuery.trim() ? "一致するタスクはありません" : listFilter === "all" ? "このリストは空です" : "この条件に合うタスクはありません"}</strong><span>{searchQuery.trim() ? "検索条件を変えてもう一度お試しください。" : listFilter === "all" ? "上の入力欄から、次に取り組むことを追加できます。" : "別の絞り込みに切り替えると、ほかのタスクを確認できます。"}</span></div> : (
               <div className="task-list" aria-label="タスク一覧">
-                {filteredTasks.map((task) => {
-                  const project = activeProjects.find((item) => item.id === task.projectId);
-                  const label = dueLabel(task, today);
-                  const reminder = reminderLabel(task.reminderAt, now);
-                  const completedPomodoros = completedPomodorosByTask.get(task.id) ?? 0;
-                  return (<div className="task-list__item" key={task.id}>
-                    <article className={`task-row${selectedTaskId === task.id ? " is-selected" : ""}`} key={task.id}>
-                      <button className="task-row__check" type="button" aria-label={task.status === "completed" ? `${task.title}を未完了に戻す` : `${task.title}を完了`} aria-pressed={task.status === "completed"} onClick={() => void onToggleTask(task.id)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 12 4 4 8-9" /></svg></button>
-                      <button className="task-row__content" type="button" aria-expanded={selectedTaskId === task.id} aria-controls={`task-editor-${task.id}`} onClick={() => setSelectedTaskId((current) => current === task.id ? null : task.id)}>
-                        <strong>{task.title}</strong>
-                        <span className="task-row__meta">{project && <span className="task-chip task-chip--project"><i style={{ background: project.color }} />{project.name}</span>}{label && <em className={label.startsWith("期限切れ") ? "is-overdue" : ""}>{label}</em>}{reminder && <em>{reminder}</em>}{(task.estimatedPomodoros > 0 || completedPomodoros > 0) && <em>集中 {completedPomodoros} / {task.estimatedPomodoros || "—"}</em>}{activeTaskId === task.id && <em className="task-chip task-chip--active">進行中</em>}</span>
-                      </button>
-                      <button
-                        className={`task-row__start${activeTaskId === task.id ? " is-active" : ""}`}
-                        type="button"
-                        aria-label={activeTaskId === task.id && timerStatus !== "idle" ? "タイマーへ戻る" : `${task.title}のタイマーを開始`}
-                        disabled={activeTaskId !== task.id && (timerStatus !== "idle" || task.status !== "open")}
-                        onClick={() => {
-                          if (activeTaskId === task.id && timerStatus !== "idle") {
-                            onClose();
-                            return;
-                          }
-                          onStartTask(task.id);
-                        }}
-                      ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6V6Z" /></svg></button>
-                    </article>
-                    {selectedTaskId === task.id && selectedTask && selectedTask.status !== "archived" && <div id={`task-editor-${selectedTask.id}`}><TaskEditor key={`${selectedTask.id}-${selectedTask.updatedAt}`} task={selectedTask} projects={activeProjects} subtasks={tasks.filter((item) => item.parentTaskId === selectedTask.id && item.status !== "archived").sort((a, b) => a.order - b.order)} timerStatus={timerStatus} activeTaskId={activeTaskId} onStartTask={onStartTask} onReturnToTimer={() => { setSelectedTaskId(null); onClose(); }} onSave={(patch) => onUpdateTask(selectedTask.id, patch)} onArchive={async () => { const archived = await onArchiveTask(selectedTask.id); if (archived) setSelectedTaskId(null); return archived; }} onAddSubtask={(subtaskTitle) => onAddTask({ title: subtaskTitle, parentTaskId: selectedTask.id, projectId: selectedTask.projectId, bucket: selectedTask.bucket })} onToggleSubtask={onToggleTask} canMoveUp={scopedTasks.findIndex((item) => item.id === selectedTask.id) > 0} canMoveDown={scopedTasks.findIndex((item) => item.id === selectedTask.id) >= 0 && scopedTasks.findIndex((item) => item.id === selectedTask.id) < scopedTasks.length - 1} onMove={(direction) => onMoveTask(selectedTask.id, scopedTasks.map((item) => item.id), direction)} onClose={() => setSelectedTaskId(null)} /></div>}
-                  </div>);
-                })}
+                {taskSections.map((section) => (
+                  <section className="task-list__section" aria-labelledby={`task-section-${section.key}`} key={section.key}>
+                    {taskSections.length > 1 && (
+                      <div className="task-list__section-header">
+                        <div className="task-list__section-copy">
+                          <h4 id={`task-section-${section.key}`}>{section.label}</h4>
+                          <span>{section.openCount}件を順に進められます</span>
+                        </div>
+                        <div className="task-list__section-stats">
+                          {section.estimatedPomodoros > 0 && (
+                            <FocusMeter
+                              label={`${section.label}の集中目安`}
+                              completedPomodoros={section.completedPomodoros}
+                              estimatedPomodoros={section.estimatedPomodoros}
+                            />
+                          )}
+                          <em>{section.tasks.length}件</em>
+                        </div>
+                      </div>
+                    )}
+                    <div className="task-list__section-items">
+                      {section.tasks.map((task) => {
+                        const project = activeProjects.find((item) => item.id === task.projectId);
+                        const label = dueLabel(task, today);
+                        const reminder = reminderLabel(task.reminderAt, now);
+                        const completedPomodoros = completedPomodorosByTask.get(task.id) ?? 0;
+                        const isResumeTarget = showResumeBanner && resumeContext?.taskId === task.id;
+                        const isActiveFocusTarget = activeTaskId === task.id && timerStatus !== "idle";
+                        return (<div className={`task-list__item${isResumeTarget || isActiveFocusTarget ? " task-list__item--attention" : ""}`} key={task.id} ref={(node) => {
+                          if (node) taskRowRefs.current.set(task.id, node);
+                          else taskRowRefs.current.delete(task.id);
+                        }}>
+                          <article className={`task-row${selectedTaskId === task.id ? " is-selected" : ""}`} key={task.id}>
+                            <button className="task-row__check" type="button" aria-label={task.status === "completed" ? `${task.title}を未完了に戻す` : `${task.title}を完了`} aria-pressed={task.status === "completed"} onClick={() => void onToggleTask(task.id)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 12 4 4 8-9" /></svg></button>
+                            <button
+                              className="task-row__content"
+                              type="button"
+                              aria-expanded={selectedTaskId === task.id}
+                              aria-controls={`task-editor-${task.id}`}
+                              ref={(node) => {
+                                if (node) taskContentButtonRefs.current.set(task.id, node);
+                                else taskContentButtonRefs.current.delete(task.id);
+                              }}
+                              onClick={() => setSelectedTaskId((current) => {
+                                if (current === task.id) {
+                                  focusTaskTrigger(task.id);
+                                  return null;
+                                }
+                                return task.id;
+                              })}
+                            >
+                              <strong>{task.title}</strong>
+                              <span className="task-row__meta">
+                                {project && taskSections.length === 1 && <span className="task-chip task-chip--project"><i style={{ background: project.color }} />{project.name}</span>}
+                                {label && <em className={label.startsWith("期限切れ") ? "is-overdue" : ""}>{label}</em>}
+                                {reminder && <em>{reminder}</em>}
+                                {(task.estimatedPomodoros > 0 || completedPomodoros > 0) && (
+                                  <FocusMeter
+                                    label={`${task.title}の集中目安`}
+                                    completedPomodoros={completedPomodoros}
+                                    estimatedPomodoros={task.estimatedPomodoros}
+                                  />
+                                )}
+                                {isResumeTarget && <em className="task-chip task-chip--resume">次の候補</em>}
+                                {activeTaskId === task.id && <em className="task-chip task-chip--active">進行中</em>}
+                              </span>
+                            </button>
+                            <button
+                              className={`task-row__start${activeTaskId === task.id ? " is-active" : ""}`}
+                              type="button"
+                              aria-label={activeTaskId === task.id && timerStatus !== "idle" ? "タイマーへ戻る" : `${task.title}のタイマーを開始`}
+                              disabled={activeTaskId !== task.id && (timerStatus !== "idle" || task.status !== "open")}
+                              onClick={() => {
+                                if (activeTaskId === task.id && timerStatus !== "idle") {
+                                  onClose();
+                                  return;
+                                }
+                                onStartTask(task.id);
+                              }}
+                            ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6V6Z" /></svg></button>
+                          </article>
+                          {selectedTaskId === task.id && selectedTask && selectedTask.status !== "archived" && <div className="task-editor-wrap" id={`task-editor-${selectedTask.id}`}><TaskEditor key={`${selectedTask.id}-${selectedTask.updatedAt}`} task={selectedTask} projects={activeProjects} subtasks={tasks.filter((item) => item.parentTaskId === selectedTask.id && item.status !== "archived").sort((a, b) => a.order - b.order)} timerStatus={timerStatus} activeTaskId={activeTaskId} completedPomodoros={completedPomodoros} onStartTask={onStartTask} onReturnToTimer={() => { setSelectedTaskId(null); onClose(); }} onSave={(patch) => onUpdateTask(selectedTask.id, patch)} onArchive={async () => { const archived = await onArchiveTask(selectedTask.id); if (archived) setSelectedTaskId(null); return archived; }} onAddSubtask={(subtaskTitle) => onAddTask({ title: subtaskTitle, parentTaskId: selectedTask.id, projectId: selectedTask.projectId, bucket: selectedTask.bucket })} onToggleSubtask={onToggleTask} canMoveUp={scopedTasks.findIndex((item) => item.id === selectedTask.id) > 0} canMoveDown={scopedTasks.findIndex((item) => item.id === selectedTask.id) >= 0 && scopedTasks.findIndex((item) => item.id === selectedTask.id) < scopedTasks.length - 1} onMove={(direction) => onMoveTask(selectedTask.id, scopedTasks.map((item) => item.id), direction)} onClose={() => closeTaskDetails(selectedTask.id)} /></div>}
+                        </div>);
+                      })}
+                    </div>
+                  </section>
+                ))}
               </div>
             )}
             </>}
