@@ -19,6 +19,7 @@ import { defaultSettings, fontOptions, positionPresets, type OrientationPosition
 import type { TimerSessionEvent } from "./types/timer";
 import { getAdaptivePalette, fallbackBackgroundRgb, getStrongAccent, type AdaptivePalette } from "./utils/adaptiveColor";
 import { toLocalDateKey } from "./utils/taskQueries";
+import { formatDuration, getTimerElapsedMs, getTimerOvertimeMs, modeLabels } from "./utils/time";
 
 const settingsButtonDisplayMs = 2_500;
 const settingsButtonFadeMs = 280;
@@ -82,6 +83,27 @@ export default function App() {
   const todayKey = toLocalDateKey(now);
   const activeTask = timer.activeTaskId ? tasks.find((task) => task.id === timer.activeTaskId) ?? null : null;
   const completedTask = completedSession?.taskId ? tasks.find((task) => task.id === completedSession.taskId) ?? null : null;
+  const taskLauncherSummary = useMemo(() => {
+    if (timer.status === "idle") return null;
+    const statusText = timer.status === "running"
+      ? timer.mode === "work" ? "集中中" : "休憩中"
+      : timer.status === "paused"
+        ? "一時停止中"
+        : "延長中";
+    const title = activeTask?.title
+      ?? (timer.program === "pomodoro"
+        ? modeLabels[timer.mode]
+        : timer.category === "focus" ? "集中タイマー" : "休憩タイマー");
+    const displayMs = timer.program === "countup"
+      ? getTimerElapsedMs(timer)
+      : timer.status === "overtime"
+        ? getTimerOvertimeMs(timer)
+        : timer.remainingMs;
+    const detail = timer.program === "countup"
+      ? `${statusText} · ${formatDuration(displayMs)}`
+      : `${modeLabels[timer.mode]} · ${statusText} · ${formatDuration(displayMs)}`;
+    return { statusText, title, detail };
+  }, [activeTask?.title, timer]);
 
   const activeClockSetting = settings.clockBackgroundSettings[activeBackgroundId] ?? {
     positions: { portrait: defaultSettings.clockDatePosition, landscape: defaultSettings.clockDatePosition } satisfies OrientationPositions,
@@ -306,6 +328,7 @@ export default function App() {
       <TaskLauncher
         todayCount={tasks.filter((task) => task.status === "open" && task.parentTaskId === null && task.dueDate !== null && task.dueDate <= todayKey).length}
         activeTaskTitle={activeTask?.title ?? null}
+        timerSummary={taskLauncherSummary}
         onClick={() => {
           setSettingsOpen(false);
           setTasksOpen(true);
@@ -374,6 +397,8 @@ export default function App() {
       <SessionCompleteDialog
         open={completedSession !== null && completedTask !== null}
         taskTitle={completedTask?.title ?? "タスク"}
+        focusedDurationLabel={completedSession ? formatDuration(completedSession.focusedDurationMs) : null}
+        nextModeLabel={modeLabels[timer.mode]}
         onStartBreak={() => {
           setCompletedSession(null);
           startTimer();

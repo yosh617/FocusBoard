@@ -79,6 +79,15 @@ function sameLocalDay(timestamp: number, dateKey: string) {
   return toLocalDateKey(new Date(timestamp)) === dateKey;
 }
 
+function getViewForTask(task: TaskRecord, today: string, tomorrow: string): TaskView {
+  if (task.status === "completed") return "completed";
+  if (task.dueDate === today) return "today";
+  if (task.dueDate === tomorrow) return "tomorrow";
+  if (task.dueDate && task.dueDate > tomorrow) return "upcoming";
+  if (task.bucket === "someday") return "someday";
+  return "inbox";
+}
+
 function TaskEditor({ task, projects, subtasks, onSave, onArchive, onAddSubtask, onToggleSubtask, canMoveUp, canMoveDown, onMove, onClose }: {
   task: TaskRecord;
   projects: ProjectRecord[];
@@ -255,6 +264,10 @@ export function TaskDrawer({
     : null;
   const focusCandidateDueLabel = focusCandidate ? dueLabel(focusCandidate, today) : "";
   const quickDatePreset = dueDate === today ? "today" : dueDate === tomorrow ? "tomorrow" : dueDate === "" ? "none" : "custom";
+  const todayCompletionRate = todayTasks.length === 0 ? 0 : Math.round((todayCompletedTasks / todayTasks.length) * 100);
+  const todayProgressLabel = todayTasks.length === 0
+    ? "まだ今日のタスクはありません"
+    : `${todayCompletedTasks} / ${todayTasks.length}件が完了`;
 
   useEffect(() => {
     if (!open) return;
@@ -325,6 +338,18 @@ export function TaskDrawer({
     : focusCandidate
       ? "開始ボタンから、そのまま集中タイマーへ入れます。"
       : "まずは下の入力欄から、次の1件を追加してください。";
+  const isActiveFocusTask = focusCandidate !== null && activeTaskId === focusCandidate.id && timerStatus !== "idle";
+
+  const openTaskDetails = (task: TaskRecord) => {
+    setWorkspaceMode("tasks");
+    setSelectedTaskId(task.id);
+    if (task.projectId && activeProjects.some((project) => project.id === task.projectId)) {
+      setProjectId(task.projectId);
+      return;
+    }
+    setProjectId(null);
+    setView(getViewForTask(task, today, tomorrow));
+  };
 
   return (
     <div className="task-backdrop" onPointerDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
@@ -399,6 +424,13 @@ export function TaskDrawer({
                   <strong>{overdueCount}</strong>
                 </article>
               </div>
+              <div className="task-focus-hero__progress" aria-label="今日の進捗">
+                <div>
+                  <span>今日の進み具合</span>
+                  <strong>{todayProgressLabel}</strong>
+                </div>
+                <progress max={100} value={todayCompletionRate} aria-label={`今日の進捗 ${todayCompletionRate}%`} />
+              </div>
               <div className="task-focus-card">
                 <div className="task-focus-card__copy">
                   <span>{focusHeadline}</span>
@@ -415,14 +447,30 @@ export function TaskDrawer({
                   )}
                 </div>
                 {focusCandidate ? (
-                  <button
-                    className="task-focus-card__action"
-                    type="button"
-                    onClick={() => onStartTask(focusCandidate.id)}
-                    disabled={timerStatus !== "idle" || focusCandidate.status !== "open"}
-                  >
-                    {activeTaskId === focusCandidate.id ? "進行中" : "開始"}
-                  </button>
+                  <div className="task-focus-card__actions">
+                    <button
+                      className="task-focus-card__secondary"
+                      type="button"
+                      onClick={() => openTaskDetails(focusCandidate)}
+                      aria-label={`${focusCandidate.title}の詳細を開く`}
+                    >
+                      詳細
+                    </button>
+                    <button
+                      className="task-focus-card__action"
+                      type="button"
+                      onClick={() => {
+                        if (isActiveFocusTask) {
+                          onClose();
+                          return;
+                        }
+                        onStartTask(focusCandidate.id);
+                      }}
+                      disabled={!isActiveFocusTask && (timerStatus !== "idle" || focusCandidate.status !== "open")}
+                    >
+                      {isActiveFocusTask ? "タイマーへ戻る" : activeTaskId === focusCandidate.id ? "進行中" : "開始"}
+                    </button>
+                  </div>
                 ) : (
                   <div className="task-focus-card__empty" aria-hidden="true">+</div>
                 )}
@@ -443,9 +491,9 @@ export function TaskDrawer({
                 <label className="visually-hidden" htmlFor="task-title">新しいタスク</label>
                 <input id="task-title" placeholder="次に取り組むタスクを追加" maxLength={200} value={title} onChange={(event) => setTitle(event.target.value)} disabled={!storageAvailable || view === "completed"} />
                 <div className="task-quick-add__presets" role="group" aria-label="追加するタスクの期限">
-                  <button className={quickDatePreset === "today" ? "is-active" : ""} type="button" onClick={() => setDueDate(today)} disabled={!storageAvailable || view === "completed"}>今日</button>
-                  <button className={quickDatePreset === "tomorrow" ? "is-active" : ""} type="button" onClick={() => setDueDate(tomorrow)} disabled={!storageAvailable || view === "completed"}>明日</button>
-                  <button className={quickDatePreset === "none" ? "is-active" : ""} type="button" onClick={() => setDueDate("")} disabled={!storageAvailable || view === "completed"}>期限なし</button>
+                  <button className={quickDatePreset === "today" ? "is-active" : ""} type="button" aria-pressed={quickDatePreset === "today"} onClick={() => setDueDate(today)} disabled={!storageAvailable || view === "completed"}>今日</button>
+                  <button className={quickDatePreset === "tomorrow" ? "is-active" : ""} type="button" aria-pressed={quickDatePreset === "tomorrow"} onClick={() => setDueDate(tomorrow)} disabled={!storageAvailable || view === "completed"}>明日</button>
+                  <button className={quickDatePreset === "none" ? "is-active" : ""} type="button" aria-pressed={quickDatePreset === "none"} onClick={() => setDueDate("")} disabled={!storageAvailable || view === "completed"}>期限なし</button>
                 </div>
               </div>
               <label className="visually-hidden" htmlFor="task-due-date">期限</label>
@@ -466,7 +514,19 @@ export function TaskDrawer({
                         <strong>{task.title}</strong>
                         <span className="task-row__meta">{project && <span className="task-chip task-chip--project"><i style={{ background: project.color }} />{project.name}</span>}{label && <em className={label.startsWith("期限切れ") ? "is-overdue" : ""}>{label}</em>}{(task.estimatedPomodoros > 0 || completedPomodoros > 0) && <em>集中 {completedPomodoros} / {task.estimatedPomodoros || "—"}</em>}{activeTaskId === task.id && <em className="task-chip task-chip--active">進行中</em>}</span>
                       </button>
-                      <button className={`task-row__start${activeTaskId === task.id ? " is-active" : ""}`} type="button" aria-label={`${task.title}のタイマーを開始`} disabled={timerStatus !== "idle" || task.status !== "open"} onClick={() => onStartTask(task.id)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6V6Z" /></svg></button>
+                      <button
+                        className={`task-row__start${activeTaskId === task.id ? " is-active" : ""}`}
+                        type="button"
+                        aria-label={activeTaskId === task.id && timerStatus !== "idle" ? "タイマーへ戻る" : `${task.title}のタイマーを開始`}
+                        disabled={activeTaskId !== task.id && (timerStatus !== "idle" || task.status !== "open")}
+                        onClick={() => {
+                          if (activeTaskId === task.id && timerStatus !== "idle") {
+                            onClose();
+                            return;
+                          }
+                          onStartTask(task.id);
+                        }}
+                      ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6V6Z" /></svg></button>
                     </article>
                     {selectedTaskId === task.id && selectedTask && selectedTask.status !== "archived" && <div id={`task-editor-${selectedTask.id}`}><TaskEditor key={`${selectedTask.id}-${selectedTask.updatedAt}`} task={selectedTask} projects={activeProjects} subtasks={tasks.filter((item) => item.parentTaskId === selectedTask.id && item.status !== "archived").sort((a, b) => a.order - b.order)} onSave={(patch) => onUpdateTask(selectedTask.id, patch)} onArchive={async () => { const archived = await onArchiveTask(selectedTask.id); if (archived) setSelectedTaskId(null); return archived; }} onAddSubtask={(subtaskTitle) => onAddTask({ title: subtaskTitle, parentTaskId: selectedTask.id, projectId: selectedTask.projectId, bucket: selectedTask.bucket })} onToggleSubtask={onToggleTask} canMoveUp={scopedTasks.findIndex((item) => item.id === selectedTask.id) > 0} canMoveDown={scopedTasks.findIndex((item) => item.id === selectedTask.id) >= 0 && scopedTasks.findIndex((item) => item.id === selectedTask.id) < scopedTasks.length - 1} onMove={(direction) => onMoveTask(selectedTask.id, scopedTasks.map((item) => item.id), direction)} onClose={() => setSelectedTaskId(null)} /></div>}
                   </div>);

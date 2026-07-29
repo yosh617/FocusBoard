@@ -103,9 +103,18 @@ describe("TaskDrawer", () => {
   it("uses the quick due-date presets for fast mobile entry", async () => {
     const props = renderDrawer();
     fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "理科の暗記" } });
-    fireEvent.click(screen.getByRole("button", { name: "明日" }));
+    const tomorrowButton = screen.getByRole("button", { name: "明日" });
+    fireEvent.click(tomorrowButton);
+    expect(tomorrowButton.getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "追加" }));
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "理科の暗記", dueDate: addLocalDays(today, 1) })));
+  });
+
+  it("opens the focus candidate details from the hero card", () => {
+    renderDrawer();
+    fireEvent.click(screen.getByRole("button", { name: "数学の復習の詳細を開く" }));
+    expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy();
+    expect(screen.getByText("0 / 1件が完了")).toBeTruthy();
   });
 
   it("completes a task and edits its details through named controls", async () => {
@@ -125,6 +134,13 @@ describe("TaskDrawer", () => {
     const props = renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: "数学の復習のタイマーを開始" }));
     expect(props.onStartTask).toHaveBeenCalledWith(task.id);
+  });
+
+  it("returns to the running timer instead of showing a disabled start for the active task", () => {
+    const props = renderDrawer({ timerStatus: "running", activeTaskId: task.id });
+    fireEvent.click(screen.getAllByRole("button", { name: "タイマーへ戻る" })[0]);
+    expect(props.onClose).toHaveBeenCalledTimes(1);
+    expect(props.onStartTask).not.toHaveBeenCalled();
   });
 
   it("filters the current list by task title or note", () => {

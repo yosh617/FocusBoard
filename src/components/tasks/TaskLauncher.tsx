@@ -3,12 +3,19 @@ import { forwardRef, useEffect, useRef, useState } from "react";
 type Props = {
   todayCount: number;
   activeTaskTitle: string | null;
+  timerSummary: {
+    statusText: string;
+    title: string;
+    detail: string;
+  } | null;
   onClick: () => void;
 };
 
-export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLauncher({ todayCount, activeTaskTitle, onClick }, ref) {
-  const title = activeTaskTitle ?? "今日のタスク";
-  const detail = activeTaskTitle ? `今日の未完了 ${todayCount}件` : todayCount === 0 ? "今日の予定はありません" : `${todayCount}件を整理`;
+export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLauncher({ todayCount, activeTaskTitle, timerSummary, onClick }, ref) {
+  const title = timerSummary?.title ?? activeTaskTitle ?? "今日のタスク";
+  const detail = timerSummary?.detail ?? (activeTaskTitle ? `今日の未完了 ${todayCount}件` : todayCount === 0 ? "今日の予定はありません" : `${todayCount}件を整理`);
+  const status = timerSummary?.statusText ?? (activeTaskTitle ? "集中中" : "今日のタスク");
+  const isEmphasized = activeTaskTitle !== null || timerSummary !== null;
   const accessibleLabel = activeTaskTitle
     ? `タスクを開く。集中中のタスクは${activeTaskTitle}。今日の未完了は${todayCount}件`
     : `タスクを開く。今日の未完了は${todayCount}件`;
@@ -24,7 +31,7 @@ export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLa
     };
     const scheduleDim = () => {
       clearDimTimeout();
-      if (activeTaskTitle) {
+      if (isEmphasized) {
         setIsDimmed(false);
         return;
       }
@@ -49,11 +56,11 @@ export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLa
       window.removeEventListener("keydown", reveal);
       window.removeEventListener("focusin", reveal);
     };
-  }, [activeTaskTitle]);
+  }, [isEmphasized]);
 
   return (
     <button
-      className={`task-launcher${activeTaskTitle ? " task-launcher--active" : ""}${isDimmed ? " task-launcher--dimmed" : ""}`}
+      className={`task-launcher${isEmphasized ? " task-launcher--active" : ""}${isDimmed ? " task-launcher--dimmed" : ""}`}
       type="button"
       onClick={onClick}
       onFocus={() => setIsDimmed(false)}
@@ -67,7 +74,7 @@ export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLa
         </svg>
       </span>
       <span className="task-launcher__copy">
-        <small>{activeTaskTitle ? "集中中" : "今日のタスク"}</small>
+        <small>{status}</small>
         <strong>{title}</strong>
         <span>{detail}</span>
       </span>
