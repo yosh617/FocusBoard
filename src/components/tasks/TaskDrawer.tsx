@@ -6,7 +6,7 @@ import type { TimerStatus } from "../../types/timer";
 import type { ProductivityBackup } from "../../utils/productivityBackup";
 import type { ConflictPreference, ImportStrategy } from "../../utils/productivityImport";
 import { formatFocusedTime } from "../../utils/productivityReport";
-import { getActiveProjects, getTasksForProject, getTasksForView, toLocalDateKey, addLocalDays } from "../../utils/taskQueries";
+import { getActiveProjects, getTasksForProject, getTasksForView, sortTasksForFocus, toLocalDateKey, addLocalDays } from "../../utils/taskQueries";
 import { ProductivityReport } from "./ProductivityReport";
 import { ProductivityBackupPanel } from "./ProductivityBackupPanel";
 
@@ -272,28 +272,8 @@ export function TaskDrawer({
     [todaySessions]
   );
   const focusQueue = useMemo(() => {
-    const queueCandidates = tasks.filter((task) => {
-      if (task.parentTaskId !== null || task.status !== "open") return false;
-      if (task.id === activeTaskId) return true;
-      return task.dueDate !== null && task.dueDate <= today;
-    });
-    return [...queueCandidates]
-      .sort((left, right) => {
-        const leftActive = left.id === activeTaskId ? 1 : 0;
-        const rightActive = right.id === activeTaskId ? 1 : 0;
-        if (leftActive !== rightActive) return rightActive - leftActive;
-
-        const leftOverdue = left.dueDate !== null && left.dueDate < today ? 1 : 0;
-        const rightOverdue = right.dueDate !== null && right.dueDate < today ? 1 : 0;
-        if (leftOverdue !== rightOverdue) return rightOverdue - leftOverdue;
-
-        const leftToday = left.dueDate === today ? 1 : 0;
-        const rightToday = right.dueDate === today ? 1 : 0;
-        if (leftToday !== rightToday) return rightToday - leftToday;
-
-        if (left.order !== right.order) return left.order - right.order;
-        return left.createdAt - right.createdAt;
-      })
+    return sortTasksForFocus(tasks, today, activeTaskId)
+      .filter((task) => task.id === activeTaskId || (task.dueDate !== null && task.dueDate <= today))
       .slice(0, 3);
   }, [activeTaskId, tasks, today]);
   const focusCandidate = activeTaskId

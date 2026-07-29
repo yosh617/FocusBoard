@@ -38,6 +38,26 @@ export function getTasksForProject(tasks: TaskRecord[], projectId: string) {
     .sort((a, b) => a.order - b.order || a.createdAt - b.createdAt);
 }
 
+function getFocusRank(task: TaskRecord, today: string, activeTaskId?: string | null) {
+  if (activeTaskId && task.id === activeTaskId) return -1;
+  if (task.dueDate !== null && task.dueDate < today) return 0;
+  if (task.dueDate === today) return 1;
+  if (task.dueDate !== null && task.dueDate > today) return 2;
+  if (task.bucket === "inbox") return 3;
+  return 4;
+}
+
+export function sortTasksForFocus(tasks: TaskRecord[], today = toLocalDateKey(new Date()), activeTaskId?: string | null) {
+  return tasks
+    .filter((task) => task.parentTaskId === null && task.status === "open")
+    .sort((left, right) => {
+      const rankDiff = getFocusRank(left, today, activeTaskId) - getFocusRank(right, today, activeTaskId);
+      if (rankDiff !== 0) return rankDiff;
+      if (left.dueDate !== right.dueDate) return (left.dueDate ?? "9999-12-31").localeCompare(right.dueDate ?? "9999-12-31");
+      return left.order - right.order || left.createdAt - right.createdAt;
+    });
+}
+
 export function getActiveProjects(projects: ProjectRecord[]) {
   return projects.filter((project) => project.archivedAt === null).sort((a, b) => a.order - b.order || a.createdAt - b.createdAt);
 }

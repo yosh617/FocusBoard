@@ -2,29 +2,35 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { defaultSettings } from "./types/settings";
+import type { FocusSessionRecord } from "./types/focusSession";
+import type { ProjectRecord } from "./types/project";
+import type { TaskRecord } from "./types/task";
 import { SETTINGS_KEY } from "./utils/storage";
+import { toLocalDateKey } from "./utils/taskQueries";
+
+const mockTasksState = vi.hoisted(() => ({
+  tasks: [] as TaskRecord[],
+  projects: [] as ProjectRecord[],
+  sessions: [] as FocusSessionRecord[],
+  loading: false,
+  storageAvailable: true,
+  taskMessage: "",
+  setTaskMessage: vi.fn(),
+  canUndo: false,
+  addTask: vi.fn(),
+  updateTask: vi.fn(),
+  toggleTask: vi.fn(),
+  archiveTask: vi.fn(),
+  moveTask: vi.fn(),
+  addProject: vi.fn(),
+  archiveProject: vi.fn(),
+  undo: vi.fn(),
+  recordTimerSession: vi.fn(),
+  importProductivityBackup: vi.fn()
+}));
 
 vi.mock("./hooks/useTasks", () => ({
-  useTasks: () => ({
-    tasks: [],
-    projects: [],
-    sessions: [],
-    loading: false,
-    storageAvailable: true,
-    taskMessage: "",
-    setTaskMessage: vi.fn(),
-    canUndo: false,
-    addTask: vi.fn().mockResolvedValue(true),
-    updateTask: vi.fn().mockResolvedValue(true),
-    toggleTask: vi.fn().mockResolvedValue(true),
-    archiveTask: vi.fn().mockResolvedValue(true),
-    moveTask: vi.fn().mockResolvedValue(true),
-    addProject: vi.fn().mockResolvedValue(true),
-    archiveProject: vi.fn().mockResolvedValue(true),
-    undo: vi.fn().mockResolvedValue(true),
-    recordTimerSession: vi.fn(),
-    importProductivityBackup: vi.fn().mockResolvedValue(true)
-  })
+  useTasks: () => mockTasksState
 }));
 
 vi.mock("./hooks/useTaskReminders", () => ({
@@ -37,9 +43,76 @@ vi.mock("./hooks/useTaskReminders", () => ({
 }));
 
 describe("App", () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    mockTasksState.tasks = [];
+    mockTasksState.projects = [];
+    mockTasksState.sessions = [];
+    mockTasksState.loading = false;
+    mockTasksState.storageAvailable = true;
+    mockTasksState.taskMessage = "";
+    mockTasksState.canUndo = false;
+    mockTasksState.setTaskMessage.mockReset();
+    mockTasksState.addTask.mockReset().mockResolvedValue(true);
+    mockTasksState.updateTask.mockReset().mockResolvedValue(true);
+    mockTasksState.toggleTask.mockReset().mockResolvedValue(true);
+    mockTasksState.archiveTask.mockReset().mockResolvedValue(true);
+    mockTasksState.moveTask.mockReset().mockResolvedValue(true);
+    mockTasksState.addProject.mockReset().mockResolvedValue(true);
+    mockTasksState.archiveProject.mockReset().mockResolvedValue(true);
+    mockTasksState.undo.mockReset().mockResolvedValue(true);
+    mockTasksState.recordTimerSession.mockReset();
+    mockTasksState.importProductivityBackup.mockReset().mockResolvedValue(true);
+  });
 
   const revealSettings = () => fireEvent.pointerUp(document.querySelector<HTMLElement>(".background")!);
+  const today = toLocalDateKey(new Date("2026-07-29T09:00:00+09:00"));
+  const focusTask: TaskRecord = {
+    version: 1,
+    id: "task-1",
+    title: "数学の復習",
+    status: "open",
+    bucket: "inbox",
+    projectId: "project-1",
+    parentTaskId: null,
+    note: "",
+    dueDate: today,
+    reminderAt: null,
+    repeatRule: null,
+    repeatSeriesId: null,
+    estimatedPomodoros: 1,
+    order: 0,
+    createdAt: 1,
+    updatedAt: 1,
+    completedAt: null
+  };
+  const focusProject: ProjectRecord = {
+    version: 1,
+    id: "project-1",
+    name: "勉強",
+    color: "#3f6fab",
+    order: 0,
+    archivedAt: null,
+    createdAt: 1,
+    updatedAt: 1
+  };
+  const nextFocusTask: TaskRecord = {
+    ...focusTask,
+    id: "task-2",
+    title: "英語の宿題",
+    dueDate: today,
+    estimatedPomodoros: 2,
+    order: 1,
+    updatedAt: 2
+  };
+
+  const prepareTaskFlow = (tasks: TaskRecord[] = [focusTask]) => {
+    mockTasksState.tasks = tasks;
+    mockTasksState.projects = [focusProject];
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: `タスクを開く。今日の未完了は${tasks.length}件` }));
+    fireEvent.click(screen.getByRole("button", { name: "数学の復習のタイマーを開始" }));
+  };
 
   it("reveals the settings button after tapping the background", () => {
     render(<App />);
@@ -114,6 +187,71 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "タイマー表示へ戻る" }));
     expect(screen.getByLabelText("集中タイマー")).toBeTruthy();
+  });
+
+  it("opens the session complete dialog and lets the user start the break flow", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-29T09:00:00+09:00"));
+    try {
+      prepareTaskFlow();
+      await act(async () => { await vi.advanceTimersByTimeAsync(25 * 60_000 + 250); });
+
+      expect(screen.getByRole("dialog", { name: "集中セッション完了" })).toBeTruthy();
+      expect(mockTasksState.recordTimerSession).toHaveBeenCalledTimes(1);
+
+      fireEvent.click(screen.getByRole("button", { name: "休憩を開始" }));
+      expect(screen.queryByRole("dialog", { name: "集中セッション完了" })).toBeNull();
+      expect(screen.getByText("休憩中")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("completes the task from the session complete dialog", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-29T09:00:00+09:00"));
+    try {
+      prepareTaskFlow();
+      await act(async () => { await vi.advanceTimersByTimeAsync(25 * 60_000 + 250); });
+
+      fireEvent.click(screen.getByRole("button", { name: "タスクを完了" }));
+      expect(mockTasksState.toggleTask).toHaveBeenCalledWith("task-1");
+      expect(screen.queryByRole("dialog", { name: "集中セッション完了" })).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("continues the same task from the session complete dialog", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-29T09:00:00+09:00"));
+    try {
+      prepareTaskFlow();
+      await act(async () => { await vi.advanceTimersByTimeAsync(25 * 60_000 + 250); });
+
+      fireEvent.click(screen.getByRole("button", { name: "同じタスクを続ける" }));
+      expect(screen.queryByRole("dialog", { name: "集中セッション完了" })).toBeNull();
+      expect(screen.getByRole("button", { name: "タスクを開く。集中中のタスクは数学の復習。今日の未完了は1件" })).toBeTruthy();
+      expect(screen.getByText("集中中")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("starts the suggested next task from the session complete dialog", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-29T09:00:00+09:00"));
+    try {
+      prepareTaskFlow([focusTask, nextFocusTask]);
+      await act(async () => { await vi.advanceTimersByTimeAsync(25 * 60_000 + 250); });
+
+      expect(screen.getByText("英語の宿題")).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "英語の宿題を開始" }));
+      expect(screen.queryByRole("dialog", { name: "集中セッション完了" })).toBeNull();
+      expect(screen.getByRole("button", { name: "タスクを開く。集中中のタスクは英語の宿題。今日の未完了は2件" })).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("applies a shared opacity to timer backgrounds", () => {

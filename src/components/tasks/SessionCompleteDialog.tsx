@@ -5,13 +5,32 @@ type Props = {
   taskTitle: string;
   focusedDurationLabel: string | null;
   nextModeLabel: string;
+  remainingTodayCount: number;
+  nextTaskTitle: string | null;
+  nextTaskDetail: string | null;
   onStartBreak: () => void;
+  onStartNextTask: () => void;
   onContinueTask: () => void;
   onCompleteTask: () => void;
+  onOpenTaskList: () => void;
   onClose: () => void;
 };
 
-export function SessionCompleteDialog({ open, taskTitle, focusedDurationLabel, nextModeLabel, onStartBreak, onContinueTask, onCompleteTask, onClose }: Props) {
+export function SessionCompleteDialog({
+  open,
+  taskTitle,
+  focusedDurationLabel,
+  nextModeLabel,
+  remainingTodayCount,
+  nextTaskTitle,
+  nextTaskDetail,
+  onStartBreak,
+  onStartNextTask,
+  onContinueTask,
+  onCompleteTask,
+  onOpenTaskList,
+  onClose
+}: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const primaryRef = useRef<HTMLButtonElement>(null);
 
@@ -56,7 +75,25 @@ export function SessionCompleteDialog({ open, taskTitle, focusedDurationLabel, n
             <span>次のおすすめ</span>
             <strong>{nextModeLabel}</strong>
           </div>
+          <div>
+            <span>今日の未完了</span>
+            <strong>{remainingTodayCount}件</strong>
+          </div>
         </div>
+        {nextTaskTitle ? (
+          <section className="session-complete__next" aria-labelledby="session-complete-next-title">
+            <div>
+              <span>次に進めるタスク</span>
+              <h3 id="session-complete-next-title">{nextTaskTitle}</h3>
+              <p>{nextTaskDetail ?? "休憩後に、そのまま次の集中へ移れます。"}</p>
+            </div>
+            <button className="secondary-button session-complete__next-action" type="button" onClick={onStartNextTask} aria-label={`${nextTaskTitle}を開始`}>
+              次のタスクへ
+            </button>
+          </section>
+        ) : (
+          <p className="session-complete__note">今日は優先タスクがひと区切りです。休憩後は一覧から次を選べます。</p>
+        )}
         <div className="session-complete__actions">
           <button className="primary-button session-complete__choice" type="button" onClick={onStartBreak} ref={primaryRef} aria-label="休憩を開始">
             <strong>休憩を開始</strong>
@@ -70,6 +107,7 @@ export function SessionCompleteDialog({ open, taskTitle, focusedDurationLabel, n
             <strong>タスクを完了</strong>
             <span>記録を残したままタスクを閉じます。</span>
           </button>
+          <button className="text-button" type="button" onClick={onOpenTaskList}>タスク一覧を開く</button>
           <button className="text-button" type="button" onClick={onClose}>未完了のまま閉じる</button>
         </div>
       </div>

@@ -18,7 +18,7 @@ import { useTaskReminders } from "./hooks/useTaskReminders";
 import { defaultSettings, fontOptions, positionPresets, type OrientationPositions, type PositionPreset } from "./types/settings";
 import type { TimerSessionEvent } from "./types/timer";
 import { getAdaptivePalette, fallbackBackgroundRgb, getStrongAccent, type AdaptivePalette } from "./utils/adaptiveColor";
-import { toLocalDateKey } from "./utils/taskQueries";
+import { getTasksForView, sortTasksForFocus, toLocalDateKey } from "./utils/taskQueries";
 import { formatDuration, getTimerElapsedMs, getTimerOvertimeMs, modeLabels } from "./utils/time";
 
 const settingsButtonDisplayMs = 2_500;
@@ -83,6 +83,30 @@ export default function App() {
   const todayKey = toLocalDateKey(now);
   const activeTask = timer.activeTaskId ? tasks.find((task) => task.id === timer.activeTaskId) ?? null : null;
   const completedTask = completedSession?.taskId ? tasks.find((task) => task.id === completedSession.taskId) ?? null : null;
+  const todayOpenTaskCount = useMemo(() => getTasksForView(tasks, "today", todayKey).length, [tasks, todayKey]);
+  const suggestedNextTask = useMemo(
+    () => sortTasksForFocus(tasks, todayKey).find((task) => task.id !== completedSession?.taskId) ?? null,
+    [completedSession?.taskId, tasks, todayKey]
+  );
+  const suggestedNextTaskProject = suggestedNextTask?.projectId
+    ? projects.find((project) => project.id === suggestedNextTask.projectId) ?? null
+    : null;
+  const suggestedNextTaskDetail = useMemo(() => {
+    if (!suggestedNextTask) return null;
+    const labels: string[] = [];
+    if (suggestedNextTaskProject) labels.push(suggestedNextTaskProject.name);
+    if (suggestedNextTask.dueDate !== null) {
+      if (suggestedNextTask.dueDate < todayKey) labels.push("期限切れ");
+      else if (suggestedNextTask.dueDate === todayKey) labels.push("今日");
+      else labels.push(suggestedNextTask.dueDate.replace(/-/g, "/"));
+    } else if (suggestedNextTask.bucket === "someday") {
+      labels.push("いつか");
+    } else {
+      labels.push("Inbox");
+    }
+    if (suggestedNextTask.estimatedPomodoros > 0) labels.push(`目安 ${suggestedNextTask.estimatedPomodoros}セット`);
+    return labels.join(" ・ ");
+  }, [suggestedNextTask, suggestedNextTaskProject, todayKey]);
   const taskLauncherSummary = useMemo(() => {
     if (timer.status === "idle") return null;
     const statusText = timer.status === "running"
@@ -326,7 +350,7 @@ export default function App() {
 
       {liveMessage && <div className="toast" role="status" aria-live="polite">{liveMessage}</div>}
       <TaskLauncher
-        todayCount={tasks.filter((task) => task.status === "open" && task.parentTaskId === null && task.dueDate !== null && task.dueDate <= todayKey).length}
+        todayCount={todayOpenTaskCount}
         activeTaskTitle={activeTask?.title ?? null}
         timerSummary={taskLauncherSummary}
         onClick={() => {
@@ -399,9 +423,19 @@ export default function App() {
         taskTitle={completedTask?.title ?? "タスク"}
         focusedDurationLabel={completedSession ? formatDuration(completedSession.focusedDurationMs) : null}
         nextModeLabel={modeLabels[timer.mode]}
+        remainingTodayCount={todayOpenTaskCount}
+        nextTaskTitle={suggestedNextTask?.title ?? null}
+        nextTaskDetail={suggestedNextTaskDetail}
         onStartBreak={() => {
           setCompletedSession(null);
           startTimer();
+        }}
+        onStartNextTask={() => {
+          const taskId = suggestedNextTask?.id;
+          setCompletedSession(null);
+          if (!taskId) return;
+          selectMode("work");
+          start(taskId);
         }}
         onContinueTask={() => {
           const taskId = completedSession?.taskId;
@@ -414,6 +448,11 @@ export default function App() {
           const task = completedTask;
           setCompletedSession(null);
           if (task?.status === "open") void toggleTask(task.id);
+        }}
+        onOpenTaskList={() => {
+          setCompletedSession(null);
+          setSettingsOpen(false);
+          setTasksOpen(true);
         }}
         onClose={() => setCompletedSession(null)}
       />
