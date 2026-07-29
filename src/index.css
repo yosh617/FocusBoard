@@ -636,6 +636,10 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .task-focus-hero__progress progress::-webkit-progress-bar { background: #dce6f1; border-radius: 999px; }
 .task-focus-hero__progress progress::-webkit-progress-value { border-radius: 999px; background: linear-gradient(90deg, #2d8f84, #4d7ad2); }
 .task-focus-hero__progress progress::-moz-progress-bar { border-radius: 999px; background: linear-gradient(90deg, #2d8f84, #4d7ad2); }
+.task-focus-hero__alert { display: grid; gap: 4px; padding: 14px 16px; border: 1px solid rgba(63,111,171,.12); border-radius: 18px; background: rgba(255,255,255,.84); }
+.task-focus-hero__alert strong { color: #26486f; font-size: 11px; font-weight: 850; letter-spacing: .08em; }
+.task-focus-hero__alert span { color: #17375f; font-size: 15px; font-weight: 800; }
+.task-focus-hero__alert em { color: #5e7590; font-style: normal; font-size: 12px; }
 .task-focus-card { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 16px 18px; border-radius: 20px; background: linear-gradient(135deg, rgba(31,78,140,.08), rgba(142,188,228,.18)); }
 .task-focus-card__copy { display: grid; min-width: 0; gap: 4px; }
 .task-focus-card__copy > span { color: #5e7590; font-size: 11px; font-weight: 850; letter-spacing: .12em; }

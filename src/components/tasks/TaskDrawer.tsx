@@ -75,6 +75,19 @@ function dueLabel(task: TaskRecord, today: string) {
   return task.dueDate;
 }
 
+function reminderLabel(timestamp: number | null, referenceDate: Date) {
+  if (timestamp === null) return "";
+  const reminderDate = new Date(timestamp);
+  const dayKey = toLocalDateKey(reminderDate);
+  const today = toLocalDateKey(referenceDate);
+  const tomorrow = addLocalDays(today, 1);
+  const time = reminderDate.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+  if (dayKey === today) return `通知 ${time}`;
+  if (dayKey === tomorrow) return `通知 明日 ${time}`;
+  const day = reminderDate.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" });
+  return `通知 ${day} ${time}`;
+}
+
 function sameLocalDay(timestamp: number, dateKey: string) {
   return toLocalDateKey(new Date(timestamp)) === dateKey;
 }
@@ -213,7 +226,8 @@ export function TaskDrawer({
   const [showProjectForm, setShowProjectForm] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
-  const today = toLocalDateKey(new Date());
+  const now = new Date();
+  const today = toLocalDateKey(now);
   const tomorrow = addLocalDays(today, 1);
   const activeProjects = useMemo(() => getActiveProjects(projects), [projects]);
   const completedPomodorosByTask = useMemo(() => {
@@ -268,6 +282,10 @@ export function TaskDrawer({
   const todayProgressLabel = todayTasks.length === 0
     ? "まだ今日のタスクはありません"
     : `${todayCompletedTasks} / ${todayTasks.length}件が完了`;
+  const nextReminderTask = tasks
+    .filter((task) => task.parentTaskId === null && task.status === "open" && task.reminderAt !== null && task.reminderAt >= now.getTime())
+    .sort((left, right) => (left.reminderAt ?? 0) - (right.reminderAt ?? 0))[0] ?? null;
+  const nextReminderText = reminderLabel(nextReminderTask?.reminderAt ?? null, now);
 
   useEffect(() => {
     if (!open) return;
@@ -431,6 +449,13 @@ export function TaskDrawer({
                 </div>
                 <progress max={100} value={todayCompletionRate} aria-label={`今日の進捗 ${todayCompletionRate}%`} />
               </div>
+              {nextReminderTask && nextReminderText && (
+                <div className="task-focus-hero__alert" role="status" aria-label="次のリマインダー">
+                  <strong>次の通知</strong>
+                  <span>{nextReminderTask.title}</span>
+                  <em>{nextReminderText}</em>
+                </div>
+              )}
               <div className="task-focus-card">
                 <div className="task-focus-card__copy">
                   <span>{focusHeadline}</span>
@@ -440,6 +465,7 @@ export function TaskDrawer({
                     <div className="task-focus-card__meta">
                       {focusCandidateProject && <em><i style={{ background: focusCandidateProject.color }} />{focusCandidateProject.name}</em>}
                       {focusCandidateDueLabel && <em className={focusCandidateDueLabel.startsWith("期限切れ") ? "is-overdue" : ""}>{focusCandidateDueLabel}</em>}
+                      {focusCandidate.reminderAt !== null && <em>{reminderLabel(focusCandidate.reminderAt, now)}</em>}
                       {(focusCandidate.estimatedPomodoros > 0 || (completedPomodorosByTask.get(focusCandidate.id) ?? 0) > 0) && (
                         <em>集中 {completedPomodorosByTask.get(focusCandidate.id) ?? 0} / {focusCandidate.estimatedPomodoros || "—"}</em>
                       )}
@@ -506,13 +532,14 @@ export function TaskDrawer({
                 {visibleTasks.map((task) => {
                   const project = activeProjects.find((item) => item.id === task.projectId);
                   const label = dueLabel(task, today);
+                  const reminder = reminderLabel(task.reminderAt, now);
                   const completedPomodoros = completedPomodorosByTask.get(task.id) ?? 0;
                   return (<div className="task-list__item" key={task.id}>
                     <article className={`task-row${selectedTaskId === task.id ? " is-selected" : ""}`} key={task.id}>
                       <button className="task-row__check" type="button" aria-label={task.status === "completed" ? `${task.title}を未完了に戻す` : `${task.title}を完了`} aria-pressed={task.status === "completed"} onClick={() => void onToggleTask(task.id)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 12 4 4 8-9" /></svg></button>
                       <button className="task-row__content" type="button" aria-expanded={selectedTaskId === task.id} aria-controls={`task-editor-${task.id}`} onClick={() => setSelectedTaskId((current) => current === task.id ? null : task.id)}>
                         <strong>{task.title}</strong>
-                        <span className="task-row__meta">{project && <span className="task-chip task-chip--project"><i style={{ background: project.color }} />{project.name}</span>}{label && <em className={label.startsWith("期限切れ") ? "is-overdue" : ""}>{label}</em>}{(task.estimatedPomodoros > 0 || completedPomodoros > 0) && <em>集中 {completedPomodoros} / {task.estimatedPomodoros || "—"}</em>}{activeTaskId === task.id && <em className="task-chip task-chip--active">進行中</em>}</span>
+                        <span className="task-row__meta">{project && <span className="task-chip task-chip--project"><i style={{ background: project.color }} />{project.name}</span>}{label && <em className={label.startsWith("期限切れ") ? "is-overdue" : ""}>{label}</em>}{reminder && <em>{reminder}</em>}{(task.estimatedPomodoros > 0 || completedPomodoros > 0) && <em>集中 {completedPomodoros} / {task.estimatedPomodoros || "—"}</em>}{activeTaskId === task.id && <em className="task-chip task-chip--active">進行中</em>}</span>
                       </button>
                       <button
                         className={`task-row__start${activeTaskId === task.id ? " is-active" : ""}`}

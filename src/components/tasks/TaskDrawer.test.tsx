@@ -117,6 +117,17 @@ describe("TaskDrawer", () => {
     expect(screen.getByText("0 / 1件が完了")).toBeTruthy();
   });
 
+  it("surfaces the next reminder in the focus hub and task row", () => {
+    const reminderAt = new Date(`${addLocalDays(today, 1)}T09:30:00`).getTime();
+    renderDrawer({
+      tasks: [{ ...task, reminderAt }]
+    });
+    expect(screen.getByLabelText("次のリマインダー").textContent).toContain("数学の復習");
+    expect(screen.getByLabelText("次のリマインダー").textContent).toContain("明日");
+    expect(screen.getByLabelText("次のリマインダー").textContent).toContain("09:30");
+    expect(screen.getAllByText(/通知/).length).toBeGreaterThan(0);
+  });
+
   it("completes a task and edits its details through named controls", async () => {
     const props = renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: "数学の復習を完了" }));
