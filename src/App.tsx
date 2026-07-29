@@ -470,12 +470,12 @@ export default function App() {
         timerSummary={taskLauncherSummary}
         onClick={() => {
           setSettingsOpen(false);
-          if (timer.status !== "idle" && timer.mode !== "work" && suggestedNextTask) {
+          if (timer.status !== "idle" && timer.mode !== "work" && launcherSuggestedTask) {
             setTaskDrawerResumeContext({
               label: "休憩のあと",
-              title: `${suggestedNextTask.title}を休憩後の候補として開いています`,
-              detail: `${suggestedNextTaskDetail ?? "休憩後に始める候補です。"}${todayOpenTaskCount > 0 ? ` 今日の未完了はあと${todayOpenTaskCount}件です。` : ""} 休憩タイマーを止めずに、次の集中を確認できます。`,
-              taskId: suggestedNextTask.id,
+              title: `${launcherSuggestedTask.title}を休憩後の候補として開いています`,
+              detail: `${launcherSuggestedTask.detail}。休憩タイマーを止めずに、次の集中を確認できます。`,
+              taskId: launcherSuggestedTask.id,
               actionLabel: "休憩後の候補を開く"
             });
           } else if (activeTask && timer.status !== "idle") {
