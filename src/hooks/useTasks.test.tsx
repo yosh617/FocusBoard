@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ProductivityBackup } from "../utils/productivityBackup";
 import type { TaskRecord } from "../types/task";
 import { createProductivityBackup } from "../utils/productivityBackup";
 import {
@@ -80,6 +81,14 @@ describe("useTasks", () => {
     expect(result.current.storageAvailable).toBe(false);
     await act(async () => { expect(await result.current.addTask({ title: "保存不可" })).toBe(false); });
     expect(saveTaskRecord).not.toHaveBeenCalled();
+  });
+
+  it("reports invalid stored productivity records without failing startup", async () => {
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask], projects: [], sessions: [], invalidRecordCount: 2 });
+    const { result } = renderHook(() => useTasks());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.tasks).toHaveLength(1);
+    expect(result.current.taskMessage).toBe("読み込めないタスクデータ2件を除外しました。");
   });
 
   it("stores an idempotent timer session with task snapshots", async () => {
@@ -178,5 +187,23 @@ describe("useTasks", () => {
     await act(async () => { expect(await result.current.importProductivityBackup(backup, "replace")).toBe(true); });
     expect(replaceProductivityData).toHaveBeenCalledWith({ tasks: [], projects: [], sessions: [] });
     expect(result.current.tasks).toEqual([]);
+  });
+
+  it("rejects backup data that would break parent or project relations after merge", async () => {
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask], projects: [], sessions: [], invalidRecordCount: 0 });
+    const { result } = renderHook(() => useTasks());
+    await waitFor(() => expect(result.current.tasks).toHaveLength(1));
+    const invalidBackup: ProductivityBackup = {
+      format: "focusboard-productivity-backup",
+      version: 1,
+      exportedAt: "2026-07-29T00:00:00.000Z",
+      tasks: [{ ...savedTask, id: "task-2", title: "壊れた参照", projectId: "missing-project" }],
+      projects: [],
+      sessions: []
+    };
+    await act(async () => { expect(await result.current.importProductivityBackup(invalidBackup, "replace")).toBe(false); });
+    expect(saveProductivityRecords).not.toHaveBeenCalled();
+    expect(replaceProductivityData).not.toHaveBeenCalled();
+    expect(result.current.taskMessage).toBe("マージ後の親子関係またはプロジェクト参照が不正なため、データを変更しませんでした。");
   });
 });

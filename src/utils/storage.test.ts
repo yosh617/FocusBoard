@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defaultSettings } from "../types/settings";
-import { SETTINGS_KEY, TIMER_KEY, clearAppLocalData, loadSettings, loadTimerState, migrateSettings } from "./storage";
+import { BACKGROUND_DB_NAME } from "./backgroundStorage";
+import { PRODUCTIVITY_DB_NAME } from "./productivityStorage";
+import { SETTINGS_KEY, TIMER_KEY, clearAppIndexedDb, clearAppLocalData, loadSettings, loadTimerState, migrateSettings } from "./storage";
 
 describe("settings storage", () => {
   beforeEach(() => localStorage.clear());
@@ -169,6 +171,42 @@ describe("settings storage", () => {
     expect(localStorage.getItem(TIMER_KEY)).toBeNull();
     expect(localStorage.getItem("another-app")).toBe("keep");
   });
+
+  it("clears background and productivity indexedDB stores for this app", async () => {
+    const originalIndexedDb = window.indexedDB;
+    const deletedNames: string[] = [];
+    const databases = vi.fn().mockResolvedValue([
+      { name: BACKGROUND_DB_NAME },
+      { name: PRODUCTIVITY_DB_NAME },
+      { name: "focusboard-extra-cache" },
+      { name: "other-app-db" }
+    ]);
+    const deleteDatabase = vi.fn((name: string) => {
+      const request = {} as IDBOpenDBRequest;
+      deletedNames.push(name);
+      queueMicrotask(() => request.onsuccess?.(new Event("success")));
+      return request;
+    });
+    Object.defineProperty(window, "indexedDB", {
+      configurable: true,
+      value: { databases, deleteDatabase }
+    });
+
+    try {
+      await clearAppIndexedDb();
+
+      expect(deletedNames).toEqual([
+        BACKGROUND_DB_NAME,
+        PRODUCTIVITY_DB_NAME,
+        "focusboard-extra-cache"
+      ]);
+    } finally {
+      Object.defineProperty(window, "indexedDB", {
+        configurable: true,
+        value: originalIndexedDb
+      });
+    }
+  });
 });
 
 describe("timer storage", () => {
@@ -198,9 +236,68 @@ describe("timer storage", () => {
     }));
 
     const timer = loadTimerState(25);
-    expect(timer.version).toBe(4);
+    expect(timer.version).toBe(5);
     expect(timer.program).toBe("countup");
     expect(timer.remainingMs).toBe(45_000);
     expect(timer.status).toBe("paused");
+  });
+
+  it("restores validated task-aware timer fields from the current format", () => {
+    localStorage.setItem(TIMER_KEY, JSON.stringify({
+      version: 5,
+      program: "pomodoro",
+      mode: "work",
+      category: "focus",
+      status: "paused",
+      durationMs: 1_500_000,
+      customDurationMs: 1_800_000,
+      remainingMs: 900_000,
+      endAt: null,
+      completedWorkSessions: 2,
+      floatingPosition: { x: .18, y: .38 },
+      floatingPositions: {
+        portrait: { x: .2, y: .7 },
+        landscape: { x: .78, y: .28 }
+      },
+      activeTaskId: "task_1",
+      activeSessionId: "session-1",
+      sessionStartedAt: 1234
+    }));
+
+    const timer = loadTimerState(25, "landscape");
+    expect(timer.version).toBe(5);
+    expect(timer.activeTaskId).toBe("task_1");
+    expect(timer.activeSessionId).toBe("session-1");
+    expect(timer.sessionStartedAt).toBe(1234);
+    expect(timer.floatingPosition).toEqual({ x: .78, y: .28 });
+  });
+
+  it("drops invalid task-aware timer fields while keeping the saved timer", () => {
+    localStorage.setItem(TIMER_KEY, JSON.stringify({
+      version: 5,
+      program: "countdown",
+      mode: "work",
+      category: "focus",
+      status: "paused",
+      durationMs: 1_500_000,
+      customDurationMs: 1_800_000,
+      remainingMs: 900_000,
+      endAt: null,
+      completedWorkSessions: 2,
+      floatingPosition: { x: .18, y: .38 },
+      floatingPositions: {
+        portrait: { x: .2, y: .7 },
+        landscape: { x: .78, y: .28 }
+      },
+      activeTaskId: "bad id",
+      activeSessionId: "",
+      sessionStartedAt: "later"
+    }));
+
+    const timer = loadTimerState(25);
+    expect(timer.program).toBe("countdown");
+    expect(timer.activeTaskId).toBeNull();
+    expect(timer.activeSessionId).toBeNull();
+    expect(timer.sessionStartedAt).toBeNull();
   });
 });

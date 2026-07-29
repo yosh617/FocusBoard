@@ -75,6 +75,10 @@ export type AppSettings = {
   timerColor: string;
   matchClockBackgroundColors: boolean;
   matchTimerBackgroundColors: boolean;
+  /** @deprecated Kept temporarily for compatibility while the main UI is being integrated. */
+  textColor: string;
+  /** @deprecated Kept temporarily for compatibility while the main UI is being integrated. */
+  accentColor: string;
   /** @deprecated Used only when migrating settings created before separate auto-color switches. */
   matchBackgroundColors: boolean;
   overlayOpacity: number;
@@ -131,6 +135,8 @@ export const defaultSettings: AppSettings = {
   timerColor: "#91bde8",
   matchClockBackgroundColors: true,
   matchTimerBackgroundColors: false,
+  textColor: "#17345f",
+  accentColor: "#91bde8",
   matchBackgroundColors: false,
   overlayOpacity: 0.16,
   backgroundScale: 100,

@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { AppSettings, Orientation } from "../types/settings";
-import type { FloatingPosition, SessionCategory, TimerMode, TimerProgram, TimerState } from "../types/timer";
+import type { FloatingPosition, SessionCategory, TimerMode, TimerProgram, TimerSessionEvent, TimerState } from "../types/timer";
 import { createInitialTimerState, loadTimerState, removeTimerState, saveTimerState } from "../utils/storage";
 import { getDurationMs, modeLabels } from "../utils/time";
 
 type AudioWindow = Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext };
+type SessionEndHandler = (event: TimerSessionEvent) => void;
+
 let audioContext: AudioContext | null = null;
 
 function prepareAudio() {
@@ -35,7 +37,18 @@ function playChime() {
 const categoryLabel: Record<SessionCategory, string> = { focus: "実施中", break: "休憩" };
 const createId = () => globalThis.crypto?.randomUUID?.() ?? `session-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-export function usePomodoroTimer(settings: AppSettings, orientation: Orientation = "portrait") {
+function resolveArgs(
+  orientationOrHandler: Orientation | SessionEndHandler | undefined,
+  maybeHandler: SessionEndHandler | undefined
+) {
+  if (typeof orientationOrHandler === "function") return { orientation: "portrait" as Orientation, onSessionEnd: orientationOrHandler };
+  return { orientation: orientationOrHandler ?? "portrait", onSessionEnd: maybeHandler };
+}
+
+export function usePomodoroTimer(settings: AppSettings, onSessionEnd?: SessionEndHandler): ReturnType<typeof createTimerApi>;
+export function usePomodoroTimer(settings: AppSettings, orientation: Orientation, onSessionEnd?: SessionEndHandler): ReturnType<typeof createTimerApi>;
+export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: Orientation | SessionEndHandler, maybeHandler?: SessionEndHandler) {
+  const { orientation, onSessionEnd } = resolveArgs(orientationOrHandler, maybeHandler);
   const [timer, setTimer] = useState<TimerState>(() => loadTimerState(settings.workMinutes, orientation));
   const [announcement, setAnnouncement] = useState("");
   const settingsRef = useRef(settings);
@@ -73,15 +86,6 @@ export function usePomodoroTimer(settings: AppSettings, orientation: Orientation
   }, [orientation]);
 
   useEffect(() => {
-    setTimer((current) => {
-      const floatingPosition = current.floatingPositions[orientation] ?? current.floatingPosition;
-      return current.floatingPosition.x === floatingPosition.x && current.floatingPosition.y === floatingPosition.y
-        ? current
-        : { ...current, floatingPosition };
-    });
-  }, [orientation]);
-
-  useEffect(() => {
     if (skipNextSaveRef.current) {
       skipNextSaveRef.current = false;
       return;
@@ -107,10 +111,38 @@ export function usePomodoroTimer(settings: AppSettings, orientation: Orientation
       }
       const now = Date.now();
       const remainingMs = Math.max(0, current.endAt - now);
-      if (remainingMs <= 0) return { ...current, status: "overtime", remainingMs: Math.max(0, now - current.endAt) };
-      return Math.ceil(current.remainingMs / 1000) === Math.ceil(remainingMs / 1000)
-        ? current
-        : { ...current, remainingMs };
+      if (remainingMs > 0) {
+        return Math.ceil(current.remainingMs / 1000) === Math.ceil(remainingMs / 1000)
+          ? current
+          : { ...current, remainingMs };
+      }
+      if (current.program === "pomodoro") {
+        const completedWorkSessions = current.mode === "work" ? current.completedWorkSessions + 1 : current.completedWorkSessions;
+        const nextMode: TimerMode = current.mode === "work"
+          ? (completedWorkSessions % 4 === 0 ? "longBreak" : "shortBreak")
+          : "work";
+        const nextDurationMs = getDurationMs(nextMode, settingsRef.current);
+        return {
+          ...current,
+          mode: nextMode,
+          category: nextMode === "work" ? "focus" : "break",
+          status: "paused",
+          durationMs: nextDurationMs,
+          remainingMs: nextDurationMs,
+          endAt: null,
+          completedWorkSessions,
+          activeTaskId: null,
+          activeSessionId: null,
+          sessionStartedAt: null
+        };
+      }
+      return {
+        ...current,
+        status: "overtime",
+        remainingMs: Math.max(0, now - current.endAt),
+        activeSessionId: null,
+        sessionStartedAt: null
+      };
     });
   }, []);
 
@@ -125,21 +157,48 @@ export function usePomodoroTimer(settings: AppSettings, orientation: Orientation
   }, [tick]);
 
   useEffect(() => {
+    const previous = previousTimerSnapshotRef.current;
+    if (previous.status === "running" && previous.endAt !== null) {
+      const endedAt = previous.endAt;
+      const pomodoroCompleted = previous.program === "pomodoro"
+        && timer.program === "pomodoro"
+        && timer.status === "paused"
+        && timer.mode !== previous.mode;
+      const countdownCompleted = previous.program !== "pomodoro" && timer.status === "overtime";
+      if (pomodoroCompleted) {
+        if (settingsRef.current.soundEnabled) playChime();
+        setAnnouncement(`${modeLabels[previous.mode]}が終了しました。次は${modeLabels[timer.mode]}です。`);
+        emitSession(previous, "completed", endedAt);
+      }
+      if (countdownCompleted) emitSession(previous, "completed", endedAt);
+    }
+    previousTimerSnapshotRef.current = timer;
+  }, [emitSession, timer]);
+
+  useEffect(() => {
     if (timer.status !== "overtime") return;
     if (settingsRef.current.soundEnabled) playChime();
-
     const direction = timer.program === "countup" ? "カウントアップ" : timer.program === "pomodoro" ? modeLabels[timer.mode] : "カウントダウン";
     setAnnouncement(`${categoryLabel[timer.category]}の${direction}が終了しました。延長中です。`);
   }, [timer.status, timer.program, timer.mode, timer.category]);
 
-  const start = useCallback(() => {
+  const start = useCallback((taskId?: string) => {
     if (settingsRef.current.soundEnabled) prepareAudio();
     setAnnouncement("");
     setTimer((current) => {
       if (current.status === "running" || current.status === "overtime" || (current.status === "completed" && current.program !== "countup")) return current;
+      const now = Date.now();
       if (current.program === "countup") {
         const elapsedMs = Math.max(0, current.remainingMs);
-        return { ...current, status: "running", remainingMs: elapsedMs, endAt: Date.now() - elapsedMs };
+        return {
+          ...current,
+          status: "running",
+          remainingMs: elapsedMs,
+          endAt: now - elapsedMs,
+          activeTaskId: taskId === undefined ? current.activeTaskId : taskId,
+          activeSessionId: current.activeSessionId ?? createId(),
+          sessionStartedAt: current.sessionStartedAt ?? now
+        };
       }
       const remainingMs = current.remainingMs > 0 ? current.remainingMs : current.durationMs;
       return {
@@ -170,11 +229,20 @@ export function usePomodoroTimer(settings: AppSettings, orientation: Orientation
     const current = timerRef.current;
     if (current.activeSessionId) emitSession(current, "cancelled", Date.now());
     setAnnouncement("");
-    setTimer((current) => {
-      const durationMs = current.program === "pomodoro"
-        ? getDurationMs(current.mode, settingsRef.current)
-        : current.customDurationMs;
-      return { ...current, status: "idle", durationMs, remainingMs: current.program === "countup" ? 0 : durationMs, endAt: null };
+    setTimer((state) => {
+      const durationMs = state.program === "pomodoro"
+        ? getDurationMs(state.mode, settingsRef.current)
+        : state.customDurationMs;
+      return {
+        ...state,
+        status: "idle",
+        durationMs,
+        remainingMs: state.program === "countup" ? 0 : durationMs,
+        endAt: null,
+        activeTaskId: null,
+        activeSessionId: null,
+        sessionStartedAt: null
+      };
     });
   }, [emitSession]);
 
@@ -210,7 +278,10 @@ export function usePomodoroTimer(settings: AppSettings, orientation: Orientation
         status: "idle",
         durationMs,
         remainingMs: program === "countup" ? 0 : durationMs,
-        endAt: null
+        endAt: null,
+        activeTaskId: null,
+        activeSessionId: null,
+        sessionStartedAt: null
       };
     });
   }, []);
@@ -235,13 +306,15 @@ export function usePomodoroTimer(settings: AppSettings, orientation: Orientation
   }, [orientation]);
 
   const clearTimer = useCallback(() => {
+    const current = timerRef.current;
+    if (current.activeSessionId) emitSession(current, "cancelled", Date.now());
     removeTimerState();
     skipNextSaveRef.current = true;
     setAnnouncement("タイマー状態を削除しました。");
     setTimer(createInitialTimerState(settingsRef.current.workMinutes, orientation));
-  }, [orientation]);
+  }, [emitSession, orientation]);
 
-  return {
+  return createTimerApi({
     timer,
     announcement,
     setAnnouncement,
@@ -254,5 +327,22 @@ export function usePomodoroTimer(settings: AppSettings, orientation: Orientation
     setCustomDurationMinutes,
     setFloatingPosition,
     clearTimer
-  };
+  });
+}
+
+function createTimerApi(api: {
+  timer: TimerState;
+  announcement: string;
+  setAnnouncement: Dispatch<SetStateAction<string>>;
+  start: (taskId?: string) => void;
+  pause: () => void;
+  reset: () => void;
+  selectMode: (mode: TimerMode) => void;
+  selectProgram: (program: TimerProgram) => void;
+  selectCategory: (category: SessionCategory) => void;
+  setCustomDurationMinutes: (minutes: number) => void;
+  setFloatingPosition: (position: FloatingPosition) => void;
+  clearTimer: () => void;
+}) {
+  return api;
 }

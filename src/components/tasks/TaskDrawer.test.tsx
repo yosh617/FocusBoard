@@ -1,8 +1,9 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import type { FocusSessionRecord } from "../../types/focusSession";
 import type { ProjectRecord } from "../../types/project";
 import type { TaskRecord } from "../../types/task";
-import { toLocalDateKey } from "../../utils/taskQueries";
+import { addLocalDays, toLocalDateKey } from "../../utils/taskQueries";
 import { TaskDrawer } from "./TaskDrawer";
 
 const today = toLocalDateKey(new Date());
@@ -37,6 +38,22 @@ const project: ProjectRecord = {
   updatedAt: 1
 };
 
+const session: FocusSessionRecord = {
+  version: 1,
+  id: "session-1",
+  taskId: task.id,
+  taskTitleSnapshot: task.title,
+  projectIdSnapshot: project.id,
+  projectNameSnapshot: project.name,
+  program: "pomodoro",
+  mode: "work",
+  result: "completed",
+  startedAt: 1,
+  endedAt: new Date(`${today}T09:00:00`).getTime(),
+  plannedDurationMs: 25 * 60_000,
+  focusedDurationMs: 25 * 60_000
+};
+
 function renderDrawer(overrides: Partial<React.ComponentProps<typeof TaskDrawer>> = {}) {
   const props: React.ComponentProps<typeof TaskDrawer> = {
     open: true,
@@ -69,11 +86,26 @@ function renderDrawer(overrides: Partial<React.ComponentProps<typeof TaskDrawer>
 }
 
 describe("TaskDrawer", () => {
+  it("shows a daily focus summary before the task list", () => {
+    renderDrawer({ sessions: [session] });
+    expect(screen.getByRole("region", { name: "今日の集中サマリー" }).textContent).toContain("今日の集中ハブ");
+    expect(screen.getByText("25分")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "開始" })).toBeTruthy();
+  });
+
   it("adds a task to today's list with a single title", async () => {
     const props = renderDrawer();
     fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "英単語を覚える" } });
     fireEvent.click(screen.getByRole("button", { name: "追加" }));
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "英単語を覚える", dueDate: today })));
+  });
+
+  it("uses the quick due-date presets for fast mobile entry", async () => {
+    const props = renderDrawer();
+    fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "理科の暗記" } });
+    fireEvent.click(screen.getByRole("button", { name: "明日" }));
+    fireEvent.click(screen.getByRole("button", { name: "追加" }));
+    await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "理科の暗記", dueDate: addLocalDays(today, 1) })));
   });
 
   it("completes a task and edits its details through named controls", async () => {
@@ -100,8 +132,10 @@ describe("TaskDrawer", () => {
       tasks: [task, { ...task, id: "task-2", title: "国語の予習", note: "教科書を読む", order: 1 }]
     });
     fireEvent.change(screen.getByLabelText("タスクを検索"), { target: { value: "公式" } });
-    expect(screen.getByText("数学の復習")).toBeTruthy();
-    expect(screen.queryByText("国語の予習")).toBeNull();
+    const list = screen.getAllByLabelText("タスク一覧").at(-1);
+    expect(list).toBeTruthy();
+    expect(within(list as HTMLElement).getByText("数学の復習")).toBeTruthy();
+    expect(within(list as HTMLElement).queryByText("国語の予習")).toBeNull();
 
     fireEvent.change(screen.getByLabelText("タスクを検索"), { target: { value: "見つからない" } });
     expect(screen.getByText("一致するタスクはありません")).toBeTruthy();

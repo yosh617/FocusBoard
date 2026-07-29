@@ -13,7 +13,10 @@ import { usePomodoroTimer } from "./hooks/usePomodoroTimer";
 import { useCustomBackgrounds } from "./hooks/useCustomBackgrounds";
 import { useFullscreen } from "./hooks/useFullscreen";
 import { useOrientation } from "./hooks/useOrientation";
+import { useTasks } from "./hooks/useTasks";
+import { useTaskReminders } from "./hooks/useTaskReminders";
 import { defaultSettings, fontOptions, positionPresets, type OrientationPositions, type PositionPreset } from "./types/settings";
+import type { TimerSessionEvent } from "./types/timer";
 import { getAdaptivePalette, fallbackBackgroundRgb, getStrongAccent, type AdaptivePalette } from "./utils/adaptiveColor";
 import { toLocalDateKey } from "./utils/taskQueries";
 
@@ -23,6 +26,32 @@ const settingsButtonFadeMs = 280;
 export default function App() {
   const { settings, updateSettings, undoSettings, resetSettings, storageMessage, setStorageMessage, saveState } = useLocalStorageSettings();
   const orientation = useOrientation();
+  const {
+    tasks,
+    projects,
+    sessions,
+    loading: tasksLoading,
+    storageAvailable: taskStorageAvailable,
+    taskMessage,
+    setTaskMessage,
+    canUndo: canUndoTask,
+    addTask,
+    updateTask,
+    toggleTask,
+    archiveTask,
+    moveTask,
+    addProject,
+    archiveProject,
+    undo: undoTask,
+    recordTimerSession,
+    importProductivityBackup
+  } = useTasks();
+  const { reminderMessage, setReminderMessage, notificationPermission, requestNotificationPermission } = useTaskReminders(tasks);
+  const [completedSession, setCompletedSession] = useState<TimerSessionEvent | null>(null);
+  const handleSessionEnd = useCallback((event: TimerSessionEvent) => {
+    recordTimerSession(event);
+    if (event.result === "completed" && event.mode === "work" && event.taskId) setCompletedSession(event);
+  }, [recordTimerSession]);
   const {
     timer,
     announcement,
@@ -36,9 +65,10 @@ export default function App() {
     setCustomDurationMinutes,
     setFloatingPosition,
     clearTimer
-  } = usePomodoroTimer(settings, orientation);
+  } = usePomodoroTimer(settings, orientation, handleSessionEnd);
   const { backgrounds, addBackgrounds, removeBackground, reorderBackgrounds, backgroundMessage, setBackgroundMessage } = useCustomBackgrounds();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [tasksOpen, setTasksOpen] = useState(false);
   const [timerSetupVisible, setTimerSetupVisible] = useState(false);
   const [settingsButtonVisible, setSettingsButtonVisible] = useState(false);
   const [settingsButtonFading, setSettingsButtonFading] = useState(false);
@@ -47,6 +77,7 @@ export default function App() {
   const [adaptivePalette, setAdaptivePalette] = useState<AdaptivePalette>(() => getAdaptivePalette(fallbackBackgroundRgb, settings.overlayOpacity));
   const settingsButtonTimeoutRef = useRef<number | null>(null);
   const settingsButtonFadeTimeoutRef = useRef<number | null>(null);
+  const taskLauncherRef = useRef<HTMLButtonElement>(null);
   const now = useClock(settings.showSeconds);
   const todayKey = toLocalDateKey(now);
   const activeTask = timer.activeTaskId ? tasks.find((task) => task.id === timer.activeTaskId) ?? null : null;
@@ -83,6 +114,15 @@ export default function App() {
   }, [activeBackgroundId, orientation, updateSettings]);
 
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
+  const closeTasks = useCallback(() => {
+    setTasksOpen(false);
+    window.setTimeout(() => taskLauncherRef.current?.focus(), 0);
+  }, []);
+  const startTask = useCallback((taskId: string) => {
+    setTaskMessage("");
+    start(taskId);
+    setTasksOpen(false);
+  }, [setTaskMessage, start]);
   const hideSettingsButton = useCallback(() => {
     if (settingsButtonTimeoutRef.current !== null) window.clearTimeout(settingsButtonTimeoutRef.current);
     if (settingsButtonFadeTimeoutRef.current !== null) window.clearTimeout(settingsButtonFadeTimeoutRef.current);
@@ -92,7 +132,7 @@ export default function App() {
     setSettingsButtonVisible(false);
   }, []);
   const revealSettingsButton = useCallback((event: ReactPointerEvent<HTMLElement>) => {
-    if (settingsOpen || backgroundEditing || !(event.target instanceof Element)) return;
+    if (settingsOpen || tasksOpen || backgroundEditing || !(event.target instanceof Element)) return;
     const interactiveTarget = event.target.closest("button, input, select, textarea, a, [role='dialog'], .clock-widget, .floating-timer, .timer-card");
     if (interactiveTarget) return;
     if (settingsButtonTimeoutRef.current !== null) window.clearTimeout(settingsButtonTimeoutRef.current);
@@ -108,7 +148,7 @@ export default function App() {
       setSettingsButtonFading(false);
       setSettingsButtonVisible(false);
     }, settingsButtonDisplayMs + settingsButtonFadeMs);
-  }, [backgroundEditing, settingsOpen]);
+  }, [backgroundEditing, settingsOpen, tasksOpen]);
   const startBackgroundEditing = useCallback(() => {
     hideSettingsButton();
     setSettingsOpen(false);
@@ -174,9 +214,9 @@ export default function App() {
       />
     );
     return slots;
-  }, [orientation, settings, timer, timerSetupVisible, startTimer, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, showFloatingTimer, updateSettings]);
+  }, [orientation, settings, timer, timerSetupVisible, startTimer, resetTimer, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, showFloatingTimer, updateSettings]);
 
-  const liveMessage = backgroundMessage || announcement || storageMessage;
+  const liveMessage = reminderMessage || taskMessage || backgroundMessage || announcement || storageMessage;
   const clockColor = activeClockSetting.matchColors ? adaptivePalette.text : activeClockSetting.color;
   const timerColor = settings.matchTimerBackgroundColors ? adaptivePalette.accent : settings.timerColor;
   const appStyle = {
@@ -184,6 +224,8 @@ export default function App() {
     fontFamily: fontOptions[settings.fontFamily as keyof typeof fontOptions] ?? fontOptions.system,
     "--timer-accent": timerColor,
     "--timer-accent-strong": getStrongAccent(timerColor),
+    "--adaptive-accent": timerColor,
+    "--adaptive-accent-strong": getStrongAccent(timerColor),
     "--timer-background-opacity": settings.timerBackgroundOpacity
   } as CSSProperties;
 
@@ -250,6 +292,7 @@ export default function App() {
       {settings.showTimer && (timer.status !== "idle" || settings.timerSetupCollapsed) && !timerSetupVisible && (
         <FloatingTimer
           timer={timer}
+          taskTitle={activeTask?.title ?? null}
           onStart={startTimer}
           onPause={pause}
           onEnd={endTimer}
@@ -260,12 +303,21 @@ export default function App() {
       )}
 
       {liveMessage && <div className="toast" role="status" aria-live="polite">{liveMessage}</div>}
+      <TaskLauncher
+        todayCount={tasks.filter((task) => task.status === "open" && task.parentTaskId === null && task.dueDate !== null && task.dueDate <= todayKey).length}
+        activeTaskTitle={activeTask?.title ?? null}
+        onClick={() => {
+          setSettingsOpen(false);
+          setTasksOpen(true);
+        }}
+        ref={taskLauncherRef}
+      />
       {settingsButtonVisible && <button className={`settings-button${settingsButtonFading ? " settings-button--fading" : ""}`} type="button" aria-label="設定" title="設定を開く" onClick={() => { hideSettingsButton(); setSettingsOpen(true); }}>
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 15.3a3.3 3.3 0 1 0 0-6.6 3.3 3.3 0 0 0 0 6.6Z" />
-            <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" />
-          </svg>
-          <span>設定</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 15.3a3.3 3.3 0 1 0 0-6.6 3.3 3.3 0 0 0 0 6.6Z" />
+          <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" />
+        </svg>
+        <span>設定</span>
       </button>}
 
       <SettingsPanel
