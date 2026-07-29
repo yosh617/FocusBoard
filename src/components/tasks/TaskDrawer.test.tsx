@@ -140,6 +140,74 @@ describe("TaskDrawer", () => {
     expect(screen.getByRole("button", { name: "数学の復習の詳細からタイマーへ戻る" })).toBeTruthy();
   });
 
+  it("offers a next-step smart jump while idle and exposes a skip link for keyboard users", async () => {
+    renderDrawer();
+    expect(screen.getByRole("link", { name: "現在の一覧へ移動" }).getAttribute("href")).toBe("#task-workspace-main");
+    fireEvent.click(screen.getByRole("button", { name: "次の1件 数学の復習" }));
+    await waitFor(() => expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy());
+  });
+
+  it("reveals the active task from the banner even after search and filter narrowing", async () => {
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView
+    });
+
+    try {
+      renderDrawer({ timerStatus: "running", activeTaskId: task.id });
+      fireEvent.change(screen.getByLabelText("タスクを検索"), { target: { value: "見つからない" } });
+      fireEvent.click(screen.getByRole("button", { name: "期限切れ 0" }));
+
+      fireEvent.click(screen.getByRole("button", { name: "進行中を開く" }));
+
+      await waitFor(() => expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy());
+      expect((screen.getByLabelText("タスクを検索") as HTMLInputElement).value).toBe("");
+      expect(screen.getByRole("button", { name: "すべて 1" }).getAttribute("aria-pressed")).toBe("true");
+      expect(scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({ block: "start" }));
+    } finally {
+      Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+        configurable: true,
+        value: originalScrollIntoView
+      });
+    }
+  });
+
+  it("offers smart jumps for active focus, reminders, and overdue work", async () => {
+    const reminderTask: TaskRecord = {
+      ...task,
+      id: "task-2",
+      title: "理科の暗記",
+      reminderAt: new Date(`${today}T21:30:00`).getTime(),
+      estimatedPomodoros: 0,
+      order: 1,
+      updatedAt: 2
+    };
+    const overdueTask: TaskRecord = {
+      ...task,
+      id: "task-3",
+      title: "英語の宿題",
+      dueDate: addLocalDays(today, -1),
+      estimatedPomodoros: 0,
+      order: 2,
+      updatedAt: 3
+    };
+
+    renderDrawer({
+      tasks: [task, reminderTask, overdueTask],
+      timerStatus: "running",
+      activeTaskId: task.id
+    });
+
+    expect(screen.getByRole("button", { name: "進行中 数学の復習" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "次の通知 理科の暗記" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "期限切れ 1件を見直す" }));
+    const list = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
+    await waitFor(() => expect(within(list).getByText("英語の宿題")).toBeTruthy());
+    expect(within(list).queryByText("理科の暗記")).toBeNull();
+  });
+
   it("groups today tasks by project and exposes focus meters for each section", () => {
     const workProject: ProjectRecord = {
       ...project,

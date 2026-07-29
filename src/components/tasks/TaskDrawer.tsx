@@ -55,6 +55,14 @@ type TaskListSection = {
   estimatedPomodoros: number;
 };
 
+type SmartJump = {
+  key: string;
+  label: string;
+  detail: string;
+  tone?: "default" | "focus" | "alert";
+  onSelect: () => void;
+};
+
 const views: { value: TaskView; label: string }[] = [
   { value: "inbox", label: "Inbox" },
   { value: "today", label: "今日" },
@@ -365,6 +373,7 @@ export function TaskDrawer({
   const taskRowRefs = useRef(new Map<string, HTMLDivElement>());
   const taskContentButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const appliedResumeTaskIdRef = useRef<string | null>(null);
+  const selectedTaskScrollModeRef = useRef<"nearest" | "start">("nearest");
   const now = new Date();
   const today = toLocalDateKey(now);
   const tomorrow = addLocalDays(today, 1);
@@ -525,7 +534,6 @@ export function TaskDrawer({
     .filter((task) => task.parentTaskId === null && task.status === "open" && task.reminderAt !== null && task.reminderAt >= now.getTime())
     .sort((left, right) => (left.reminderAt ?? 0) - (right.reminderAt ?? 0))[0] ?? null;
   const nextReminderText = reminderLabel(nextReminderTask?.reminderAt ?? null, now);
-
   useEffect(() => {
     if (!open) return;
     const previous = document.activeElement as HTMLElement | null;
@@ -566,35 +574,6 @@ export function TaskDrawer({
   useEffect(() => {
     setShowResumeBanner(open && toolbarContext !== null);
   }, [open, toolbarContext]);
-
-  useEffect(() => {
-    if (!resumeContext?.taskId) {
-      appliedResumeTaskIdRef.current = null;
-      return;
-    }
-    if (!open || appliedResumeTaskIdRef.current === resumeContext.taskId) return;
-    const task = tasks.find((item) => item.id === resumeContext.taskId && item.status !== "archived");
-    if (!task) return;
-    appliedResumeTaskIdRef.current = resumeContext.taskId;
-    openTaskDetails(task);
-  }, [open, resumeContext, tasks]);
-
-  useEffect(() => {
-    if (!open || !selectedTaskId) return;
-    const target = taskRowRefs.current.get(selectedTaskId);
-    if (!target) return;
-    let prefersReducedMotion = false;
-    try {
-      prefersReducedMotion = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    } catch {
-      prefersReducedMotion = false;
-    }
-    if (typeof target.scrollIntoView === "function") {
-      target.scrollIntoView({ block: "nearest", behavior: prefersReducedMotion ? "auto" : "smooth" });
-    }
-  }, [open, selectedTaskId]);
-
-  if (!open) return null;
 
   const addTask = async (event: FormEvent) => {
     event.preventDefault();
@@ -675,7 +654,14 @@ export function TaskDrawer({
       : "まずは下の入力欄から、次の1件を追加してください。";
   const isActiveFocusTask = focusCandidate !== null && activeTaskId === focusCandidate.id && timerStatus !== "idle";
 
-  const openTaskDetails = (task: TaskRecord) => {
+  const openTaskDetails = (task: TaskRecord, options?: { revealInList?: boolean }) => {
+    if (options?.revealInList) {
+      setSearchQuery("");
+      setListFilter("all");
+      selectedTaskScrollModeRef.current = "start";
+    } else {
+      selectedTaskScrollModeRef.current = "nearest";
+    }
     setWorkspaceMode("tasks");
     setSelectedTaskId(task.id);
     if (task.projectId && activeProjects.some((project) => project.id === task.projectId)) {
@@ -692,10 +678,83 @@ export function TaskDrawer({
     setSelectedTaskId(null);
     focusTaskTrigger(taskId);
   };
+  const smartJumps: SmartJump[] = [];
+  const jumpedTaskIds = new Set<string>();
+  const pushTaskJump = (task: TaskRecord, label: string, keyPrefix: string, tone: SmartJump["tone"] = "default") => {
+    if (jumpedTaskIds.has(task.id)) return;
+    jumpedTaskIds.add(task.id);
+    smartJumps.push({
+      key: `${keyPrefix}-${task.id}`,
+      label,
+      detail: task.title,
+      tone,
+      onSelect: () => openTaskDetails(task, { revealInList: true })
+    });
+  };
+  if (activeFocusTask && timerStatus !== "idle") {
+    pushTaskJump(activeFocusTask, "進行中", "active", "focus");
+  }
+  if (focusCandidate && focusCandidate.status === "open" && activeTaskId !== focusCandidate.id) {
+    pushTaskJump(focusCandidate, "次の1件", "focus", "focus");
+  }
+  if (nextReminderTask) {
+    pushTaskJump(nextReminderTask, "次の通知", "reminder");
+  }
+  if (overdueCount > 0) {
+    smartJumps.push({
+      key: "overdue",
+      label: "期限切れ",
+      detail: `${overdueCount}件を見直す`,
+      tone: "alert",
+      onSelect: () => {
+        selectedTaskScrollModeRef.current = "start";
+        setProjectId(null);
+        setView("today");
+        setWorkspaceMode("tasks");
+        setSearchQuery("");
+        setSelectedTaskId(null);
+        setListFilter("overdue");
+      }
+    });
+  }
+
+  useEffect(() => {
+    if (!resumeContext?.taskId) {
+      appliedResumeTaskIdRef.current = null;
+      return;
+    }
+    if (!open || appliedResumeTaskIdRef.current === resumeContext.taskId) return;
+    const task = tasks.find((item) => item.id === resumeContext.taskId && item.status !== "archived");
+    if (!task) return;
+    appliedResumeTaskIdRef.current = resumeContext.taskId;
+    openTaskDetails(task, { revealInList: true });
+  }, [open, resumeContext, tasks]);
+
+  useEffect(() => {
+    if (!open || !selectedTaskId) return;
+    const target = taskRowRefs.current.get(selectedTaskId);
+    if (!target) return;
+    let prefersReducedMotion = false;
+    try {
+      prefersReducedMotion = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    } catch {
+      prefersReducedMotion = false;
+    }
+    if (typeof target.scrollIntoView === "function") {
+      target.scrollIntoView({
+        block: selectedTaskScrollModeRef.current,
+        behavior: prefersReducedMotion ? "auto" : "smooth"
+      });
+      selectedTaskScrollModeRef.current = "nearest";
+    }
+  }, [open, selectedTaskId]);
+
+  if (!open) return null;
 
   return (
     <div className="task-backdrop" onPointerDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <aside className="task-drawer" role="dialog" aria-modal="true" aria-labelledby="task-drawer-title" ref={drawerRef}>
+        <a className="task-skip-link" href="#task-workspace-main">現在の一覧へ移動</a>
         <div className="task-drawer__sheet-handle" aria-hidden="true" />
         <header className="task-drawer__header">
           <div><p className="eyebrow">FOCUSBOARD</p><h2 id="task-drawer-title">タスクと集中</h2></div>
@@ -737,7 +796,7 @@ export function TaskDrawer({
             </div>
           </nav>}
 
-          <section className={`task-workspace${workspaceMode !== "tasks" ? " task-workspace--standalone" : ""}`} aria-label={workspaceMode === "report" ? "集中レポート" : workspaceMode === "backup" ? "バックアップと復元" : currentListLabel}>
+          <section className={`task-workspace${workspaceMode !== "tasks" ? " task-workspace--standalone" : ""}`} id="task-workspace-main" tabIndex={-1} aria-label={workspaceMode === "report" ? "集中レポート" : workspaceMode === "backup" ? "バックアップと復元" : currentListLabel}>
             {workspaceMode === "report" ? <ProductivityReport tasks={tasks} sessions={sessions} workMinutes={workMinutes} /> : workspaceMode === "backup" ? <ProductivityBackupPanel tasks={tasks} projects={projects} sessions={sessions} storageAvailable={storageAvailable} onImport={onImportBackup} /> : <>
             <section className="task-focus-hero" aria-label="今日の集中サマリー">
               <div className="task-focus-hero__header">
@@ -801,7 +860,7 @@ export function TaskDrawer({
                     <button
                       className="task-focus-card__secondary"
                       type="button"
-                      onClick={() => openTaskDetails(focusCandidate)}
+                      onClick={() => openTaskDetails(focusCandidate, { revealInList: true })}
                       aria-label={`${focusCandidate.title}の詳細を開く`}
                     >
                       詳細
@@ -855,7 +914,7 @@ export function TaskDrawer({
                           <button
                             className={`task-focus-queue__item${isQueueTaskActive ? " is-active" : ""}`}
                             type="button"
-                            onClick={() => openTaskDetails(queueTask)}
+                            onClick={() => openTaskDetails(queueTask, { revealInList: true })}
                             aria-label={`${queueTask.title}の順番と詳細を開く`}
                           >
                             <span className="task-focus-queue__index" aria-hidden="true">{index + 1}</span>
@@ -925,7 +984,7 @@ export function TaskDrawer({
                         type="button"
                         onClick={() => {
                           const task = tasks.find((item) => item.id === toolbarContext.taskId && item.status !== "archived");
-                          if (task) openTaskDetails(task);
+                          if (task) openTaskDetails(task, { revealInList: true });
                         }}
                       >
                         {toolbarContext.actionLabel ?? "候補を開く"}
@@ -934,6 +993,16 @@ export function TaskDrawer({
                     <button className="text-button" type="button" onClick={() => setShowResumeBanner(false)}>閉じる</button>
                   </div>
                 </section>
+              )}
+              {smartJumps.length > 0 && (
+                <div className="task-smart-jumps" role="group" aria-label="すぐ移動">
+                  {smartJumps.map((jump) => (
+                    <button className={jump.tone ? `is-${jump.tone}` : undefined} key={jump.key} type="button" onClick={jump.onSelect}>
+                      <span>{jump.label}</span>
+                      <strong>{jump.detail}</strong>
+                    </button>
+                  ))}
+                </div>
               )}
               <div className="task-list-filters" role="group" aria-label="表示するタスクを絞り込む">
                 <button className={listFilter === "all" ? "is-active" : ""} type="button" aria-pressed={listFilter === "all"} onClick={() => setListFilter("all")}><span>すべて</span><strong>{filterCounts.all}</strong></button>
@@ -1010,6 +1079,7 @@ export function TaskDrawer({
                                   focusTaskTrigger(task.id);
                                   return null;
                                 }
+                                selectedTaskScrollModeRef.current = "nearest";
                                 return task.id;
                               })}
                             >
