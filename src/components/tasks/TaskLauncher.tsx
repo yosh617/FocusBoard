@@ -4,6 +4,7 @@ type Props = {
   todayCount: number;
   activeTaskTitle: string | null;
   suggestedTask: {
+    id: string;
     title: string;
     detail: string;
   } | null;
@@ -11,6 +12,7 @@ type Props = {
     statusText: string;
     title: string;
     detail: string;
+    accessibleLabel?: string;
   } | null;
   onClick: () => void;
 };
@@ -31,11 +33,12 @@ export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLa
       : todayCount === 0
         ? "追加"
         : "整理";
-  const accessibleLabel = activeTaskTitle
-    ? `タスクを開く。集中中のタスクは${activeTaskTitle}。今日の未完了は${todayCount}件`
-    : suggestedTask
-      ? `タスクを開く。次のおすすめは${suggestedTask.title}。今日の未完了は${todayCount}件`
-      : `タスクを開く。今日の未完了は${todayCount}件`;
+  const accessibleLabel = timerSummary?.accessibleLabel
+    ?? (activeTaskTitle
+      ? `タスクを開く。集中中のタスクは${activeTaskTitle}。今日の未完了は${todayCount}件`
+      : suggestedTask
+        ? `タスクを開く。次のおすすめは${suggestedTask.title}。今日の未完了は${todayCount}件`
+        : `タスクを開く。今日の未完了は${todayCount}件`);
   const [isDimmed, setIsDimmed] = useState(false);
   const dimTimeoutRef = useRef<number | null>(null);
 

@@ -53,7 +53,12 @@ export function useTasks() {
         setProjects(data.projects);
         setSessions(data.sessions);
         setStorageAvailable(true);
-        if (data.invalidRecordCount > 0) setMessage(`読み込めないタスクデータ${data.invalidRecordCount}件を除外しました。`);
+        if (data.invalidRecordCount > 0 || data.repairedRecordCount > 0) {
+          const notices: string[] = [];
+          if (data.invalidRecordCount > 0) notices.push(`読み込めないタスクデータ${data.invalidRecordCount}件を除外しました。`);
+          if (data.repairedRecordCount > 0) notices.push(`参照切れや親子関係が崩れたタスク${data.repairedRecordCount}件を修復しました。`);
+          setMessage(notices.join(" "));
+        }
       })
       .catch(() => {
         if (!cancelled) setStorageAvailable(false);
@@ -72,11 +77,11 @@ export function useTasks() {
   }, []);
 
   const addTask = useCallback(async (draft: TaskDraft) => {
-    if (!storageAvailable) return false;
+    if (!storageAvailable) return null;
     const title = draft.title.trim();
     if (!title) {
       setMessage("タスク名を入力してください。");
-      return false;
+      return null;
     }
     const now = Date.now();
     const task: TaskRecord = {
@@ -101,16 +106,16 @@ export function useTasks() {
     const validTask = validateTaskRecord(task);
     if (!validTask) {
       setMessage("タスクの入力内容を確認してください。");
-      return false;
+      return null;
     }
     try {
       await saveTaskRecord(validTask);
       setTasks((current) => [...current, validTask]);
       setMessage("タスクを追加しました。");
-      return true;
+      return validTask.id;
     } catch {
       fail();
-      return false;
+      return null;
     }
   }, [fail, storageAvailable]);
 

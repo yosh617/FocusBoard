@@ -345,6 +345,66 @@ describe("productivityStorage", () => {
     expect(loaded.projects).toEqual([project]);
     expect(loaded.sessions).toEqual([session]);
     expect(loaded.invalidRecordCount).toBe(2);
+    expect(loaded.repairedRecordCount).toBe(0);
+  });
+
+  it("repairs orphaned project or parent references and persists the repaired tasks", async () => {
+    const orphanProjectTask: TaskRecord = {
+      ...task,
+      id: "task-2",
+      title: "参照切れプロジェクト",
+      projectId: "missing-project",
+      updatedAt: 2
+    };
+    const orphanParentTask: TaskRecord = {
+      ...task,
+      id: "task-3",
+      title: "参照切れ親タスク",
+      parentTaskId: "missing-task",
+      updatedAt: 3
+    };
+
+    await saveProductivityRecords({ tasks: [orphanProjectTask, orphanParentTask], projects: [project] });
+
+    const loaded = await loadProductivityData();
+    expect(loaded.repairedRecordCount).toBe(2);
+    expect(loaded.tasks).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "task-2", projectId: null, bucket: "inbox" }),
+      expect.objectContaining({ id: "task-3", parentTaskId: null })
+    ]));
+
+    const loadedAgain = await loadProductivityData();
+    expect(loadedAgain.repairedRecordCount).toBe(0);
+    expect(loadedAgain.tasks).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "task-2", projectId: null, bucket: "inbox" }),
+      expect.objectContaining({ id: "task-3", parentTaskId: null })
+    ]));
+  });
+
+  it("breaks cyclic task parents by lifting the affected tasks to the top level", async () => {
+    const cyclicA: TaskRecord = {
+      ...task,
+      id: "task-2",
+      title: "循環A",
+      parentTaskId: "task-3",
+      updatedAt: 2
+    };
+    const cyclicB: TaskRecord = {
+      ...task,
+      id: "task-3",
+      title: "循環B",
+      parentTaskId: "task-2",
+      updatedAt: 3
+    };
+
+    await saveProductivityRecords({ tasks: [cyclicA, cyclicB], projects: [project] });
+
+    const loaded = await loadProductivityData();
+    expect(loaded.repairedRecordCount).toBe(2);
+    expect(loaded.tasks).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "task-2", parentTaskId: null }),
+      expect.objectContaining({ id: "task-3", parentTaskId: null })
+    ]));
   });
 
   it("replaces missing data during a full import", async () => {

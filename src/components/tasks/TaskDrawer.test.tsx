@@ -68,7 +68,7 @@ function renderDrawer(overrides: Partial<React.ComponentProps<typeof TaskDrawer>
     workMinutes: 25,
     notificationPermission: "unsupported",
     onClose: vi.fn(),
-    onAddTask: vi.fn().mockResolvedValue(true),
+    onAddTask: vi.fn().mockResolvedValue("task-created"),
     onUpdateTask: vi.fn().mockResolvedValue(true),
     onToggleTask: vi.fn().mockResolvedValue(true),
     onArchiveTask: vi.fn().mockResolvedValue(true),
@@ -89,6 +89,7 @@ describe("TaskDrawer", () => {
   it("shows a daily focus summary before the task list", () => {
     renderDrawer({ sessions: [session] });
     expect(screen.getByRole("region", { name: "今日の集中サマリー" }).textContent).toContain("今日の集中ハブ");
+    expect(screen.getByRole("region", { name: "次のおすすめ操作" }).textContent).toContain("数学の復習を始める");
     expect(screen.getByRole("region", { name: "現在の一覧" }).textContent).toContain("今日動かすタスクを、この画面だけで追加して集中できます。");
     expect(screen.getByRole("heading", { name: "今日の流れ" })).toBeTruthy();
     expect(screen.getByText("25分")).toBeTruthy();
@@ -135,9 +136,29 @@ describe("TaskDrawer", () => {
     renderDrawer({ timerStatus: "running", activeTaskId: task.id });
     expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("いまの集中");
     expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("数学の復習に集中中です");
+    expect(screen.getByRole("region", { name: "次のおすすめ操作" }).textContent).toContain("数学の復習を続ける");
     fireEvent.click(screen.getByRole("button", { name: "進行中を開く" }));
     await waitFor(() => expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy());
     expect(screen.getByRole("button", { name: "数学の復習の詳細からタイマーへ戻る" })).toBeTruthy();
+  });
+
+  it("uses the current-list primary action to return to the running timer", () => {
+    const props = renderDrawer({ timerStatus: "running", activeTaskId: task.id });
+    fireEvent.click(screen.getByRole("button", { name: "タイマーへ戻る 数学の復習" }));
+    expect(props.onClose).toHaveBeenCalledTimes(1);
+    expect(props.onStartTask).not.toHaveBeenCalled();
+  });
+
+  it("uses the current-list primary action to start the next focus candidate", () => {
+    const props = renderDrawer();
+    fireEvent.click(screen.getByRole("button", { name: "次を開始 数学の復習" }));
+    expect(props.onStartTask).toHaveBeenCalledWith(task.id);
+  });
+
+  it("moves focus to the quick add input when no next focus candidate is available", () => {
+    renderDrawer({ tasks: [] });
+    fireEvent.click(screen.getByRole("button", { name: "入力へ移動 今日に1件追加" }));
+    expect(document.activeElement).toBe(screen.getByLabelText("新しいタスク"));
   });
 
   it("offers a next-step smart jump while idle and exposes a skip link for keyboard users", async () => {
@@ -260,6 +281,78 @@ describe("TaskDrawer", () => {
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "英単語を覚える", dueDate: today })));
   });
 
+  it("opens the newly added task details after quick capture", async () => {
+    const createdTask: TaskRecord = {
+      ...task,
+      id: "task-created",
+      title: "英単語を覚える",
+      order: 1,
+      updatedAt: 2
+    };
+    const onAddTask = vi.fn().mockResolvedValue(createdTask.id);
+    const { rerender } = render(
+      <TaskDrawer
+        open
+        tasks={[task]}
+        projects={[project]}
+        sessions={[]}
+        loading={false}
+        storageAvailable={true}
+        canUndo={false}
+        timerStatus="idle"
+        activeTaskId={null}
+        workMinutes={25}
+        notificationPermission="unsupported"
+        onClose={vi.fn()}
+        onAddTask={onAddTask}
+        onUpdateTask={vi.fn().mockResolvedValue(true)}
+        onToggleTask={vi.fn().mockResolvedValue(true)}
+        onArchiveTask={vi.fn().mockResolvedValue(true)}
+        onMoveTask={vi.fn().mockResolvedValue(true)}
+        onAddProject={vi.fn().mockResolvedValue(true)}
+        onArchiveProject={vi.fn().mockResolvedValue(true)}
+        onUndo={vi.fn().mockResolvedValue(true)}
+        onStartTask={vi.fn()}
+        onRequestNotification={vi.fn().mockResolvedValue(false)}
+        onImportBackup={vi.fn().mockResolvedValue(true)}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: createdTask.title } });
+    fireEvent.click(screen.getByRole("button", { name: "追加" }));
+    await waitFor(() => expect(onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: createdTask.title })));
+
+    rerender(
+      <TaskDrawer
+        open
+        tasks={[task, createdTask]}
+        projects={[project]}
+        sessions={[]}
+        loading={false}
+        storageAvailable={true}
+        canUndo={false}
+        timerStatus="idle"
+        activeTaskId={null}
+        workMinutes={25}
+        notificationPermission="unsupported"
+        onClose={vi.fn()}
+        onAddTask={onAddTask}
+        onUpdateTask={vi.fn().mockResolvedValue(true)}
+        onToggleTask={vi.fn().mockResolvedValue(true)}
+        onArchiveTask={vi.fn().mockResolvedValue(true)}
+        onMoveTask={vi.fn().mockResolvedValue(true)}
+        onAddProject={vi.fn().mockResolvedValue(true)}
+        onArchiveProject={vi.fn().mockResolvedValue(true)}
+        onUndo={vi.fn().mockResolvedValue(true)}
+        onStartTask={vi.fn()}
+        onRequestNotification={vi.fn().mockResolvedValue(false)}
+        onImportBackup={vi.fn().mockResolvedValue(true)}
+      />
+    );
+
+    await waitFor(() => expect(screen.getByRole("form", { name: `${createdTask.title}の詳細` })).toBeTruthy());
+  });
+
   it("uses the quick due-date presets for fast mobile entry", async () => {
     const props = renderDrawer();
     fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "理科の暗記" } });
@@ -303,6 +396,11 @@ describe("TaskDrawer", () => {
     expect(props.onToggleTask).toHaveBeenCalledWith(task.id);
 
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/ , expanded: false }));
+    fireEvent.click(screen.getByRole("button", { name: "数学の復習を詳細から完了" }));
+    await waitFor(() => expect(props.onToggleTask).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("form", { name: "数学の復習の詳細" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /数学の復習/ , expanded: false }));
     fireEvent.change(screen.getByLabelText("タスク名"), { target: { value: "数学Iの復習" } });
     fireEvent.change(screen.getByLabelText("見積もり"), { target: { value: "3" } });
     fireEvent.change(screen.getByLabelText("繰り返し"), { target: { value: "daily" } });
@@ -321,6 +419,23 @@ describe("TaskDrawer", () => {
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
     fireEvent.click(screen.getByRole("button", { name: "数学の復習を詳細から開始" }));
     expect(props.onStartTask).toHaveBeenCalledWith(task.id);
+  });
+
+  it("completes the selected task and immediately starts the next focus candidate", async () => {
+    const nextTask: TaskRecord = {
+      ...task,
+      id: "task-2",
+      title: "英語の宿題",
+      dueDate: addLocalDays(today, 1),
+      estimatedPomodoros: 1,
+      order: 1,
+      updatedAt: 2
+    };
+    const props = renderDrawer({ tasks: [task, nextTask] });
+    fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
+    fireEvent.click(screen.getByRole("button", { name: "数学の復習を完了して英語の宿題を開始" }));
+    await waitFor(() => expect(props.onToggleTask).toHaveBeenCalledWith(task.id));
+    expect(props.onStartTask).toHaveBeenCalledWith(nextTask.id);
   });
 
   it("returns to the running timer instead of showing a disabled start for the active task", () => {

@@ -53,7 +53,7 @@ describe("App", () => {
     mockTasksState.taskMessage = "";
     mockTasksState.canUndo = false;
     mockTasksState.setTaskMessage.mockReset();
-    mockTasksState.addTask.mockReset().mockResolvedValue(true);
+    mockTasksState.addTask.mockReset().mockResolvedValue("task-new");
     mockTasksState.updateTask.mockReset().mockResolvedValue(true);
     mockTasksState.toggleTask.mockReset().mockResolvedValue(true);
     mockTasksState.archiveTask.mockReset().mockResolvedValue(true);
@@ -156,6 +156,19 @@ describe("App", () => {
     expect(screen.getByRole("dialog", { name: "設定" })).toBeTruthy();
   });
 
+  it("closes settings on browser back", () => {
+    render(<App />);
+    revealSettings();
+    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    expect(screen.getByRole("dialog", { name: "設定" })).toBeTruthy();
+
+    act(() => {
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+
+    expect(screen.queryByRole("dialog", { name: "設定" })).toBeNull();
+  });
+
   it("uses familiar icons alongside labels for every settings category", () => {
     render(<App />);
     revealSettings();
@@ -202,6 +215,25 @@ describe("App", () => {
       fireEvent.click(screen.getByRole("button", { name: "休憩を開始" }));
       expect(screen.queryByRole("dialog", { name: "集中セッション完了" })).toBeNull();
       expect(screen.getByText("休憩中")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("surfaces the post-break candidate from the launcher while resting", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-29T09:00:00+09:00"));
+    try {
+      prepareTaskFlow([focusTask, nextFocusTask]);
+      await act(async () => { await vi.advanceTimersByTimeAsync(25 * 60_000 + 250); });
+
+      fireEvent.click(screen.getByRole("button", { name: "休憩を開始" }));
+      const launcher = screen.getByRole("button", { name: "タスクを開く。短い休憩中。次のおすすめは英語の宿題。今日の未完了は2件" });
+      expect(launcher.textContent).toContain("短い休憩");
+      expect(launcher.textContent).toContain("次は 英語の宿題");
+      fireEvent.click(launcher);
+      expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("休憩のあと");
+      await waitFor(() => expect(screen.getByRole("form", { name: "英語の宿題の詳細" })).toBeTruthy());
     } finally {
       vi.useRealTimers();
     }
@@ -265,6 +297,21 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "数学の復習の詳細からタイマーへ戻る" })).toBeTruthy();
   });
 
+  it("closes the task drawer on browser back and restores focus to the launcher", async () => {
+    prepareTaskFlow([focusTask, nextFocusTask]);
+    const launcher = screen.getByRole("button", { name: "タスクを開く。集中中のタスクは数学の復習。今日の未完了は2件" });
+
+    fireEvent.click(launcher);
+    expect(screen.getByRole("dialog", { name: "タスクと集中" })).toBeTruthy();
+
+    act(() => {
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "タスクと集中" })).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(launcher));
+  });
+
   it("opens the task drawer from the session complete dialog without restarting the timer", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-29T09:00:00+09:00"));
@@ -279,6 +326,23 @@ describe("App", () => {
       expect(screen.getByRole("form", { name: "英語の宿題の詳細" })).toBeTruthy();
       expect(screen.getByText("今日の集中ハブ")).toBeTruthy();
       expect(screen.queryByText("集中中")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("closes the session complete dialog on browser back", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-29T09:00:00+09:00"));
+    try {
+      prepareTaskFlow();
+      await act(async () => { await vi.advanceTimersByTimeAsync(25 * 60_000 + 250); });
+
+      expect(screen.getByRole("dialog", { name: "集中セッション完了" })).toBeTruthy();
+      act(() => {
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      });
+      expect(screen.queryByRole("dialog", { name: "集中セッション完了" })).toBeNull();
     } finally {
       vi.useRealTimers();
     }
@@ -728,5 +792,17 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "タスクを閉じる" }));
     expect(screen.queryByRole("dialog", { name: "タスクと集中" })).toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(launcher));
+  });
+
+  it("opens the suggested next task directly from the launcher while idle", async () => {
+    mockTasksState.tasks = [focusTask, nextFocusTask];
+    mockTasksState.projects = [focusProject];
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "タスクを開く。次のおすすめは数学の復習。今日の未完了は2件" }));
+    expect(screen.getByRole("dialog", { name: "タスクと集中" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("今日のおすすめ");
+    await waitFor(() => expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy());
+    expect(screen.getByRole("button", { name: "おすすめを開く" })).toBeTruthy();
   });
 });

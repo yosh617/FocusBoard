@@ -45,7 +45,7 @@ const savedTask: TaskRecord = {
 describe("useTasks", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [], projects: [], sessions: [], invalidRecordCount: 0 });
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [], projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0 });
     vi.mocked(saveTaskRecord).mockResolvedValue(undefined);
     vi.mocked(saveFocusSessionRecord).mockResolvedValue(undefined);
     vi.mocked(saveProjectRecord).mockResolvedValue(undefined);
@@ -56,14 +56,16 @@ describe("useTasks", () => {
   it("loads local data and adds a validated task", async () => {
     const { result } = renderHook(() => useTasks());
     await waitFor(() => expect(result.current.loading).toBe(false));
-    await act(async () => { await result.current.addTask({ title: "  英単語  ", estimatedPomodoros: 120 }); });
+    let addedTaskId: string | null = null;
+    await act(async () => { addedTaskId = await result.current.addTask({ title: "  英単語  ", estimatedPomodoros: 120 }); });
     expect(result.current.tasks).toHaveLength(1);
     expect(result.current.tasks[0]).toMatchObject({ title: "英単語", estimatedPomodoros: 99, status: "open" });
+    expect(addedTaskId).toBe(result.current.tasks[0].id);
     expect(saveTaskRecord).toHaveBeenCalledWith(result.current.tasks[0]);
   });
 
   it("completes and restores a task without losing its previous state", async () => {
-    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask], projects: [], sessions: [], invalidRecordCount: 0 });
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask], projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0 });
     const { result } = renderHook(() => useTasks());
     await waitFor(() => expect(result.current.tasks).toHaveLength(1));
     await act(async () => { await result.current.toggleTask(savedTask.id); });
@@ -79,16 +81,23 @@ describe("useTasks", () => {
     const { result } = renderHook(() => useTasks());
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.storageAvailable).toBe(false);
-    await act(async () => { expect(await result.current.addTask({ title: "保存不可" })).toBe(false); });
+    await act(async () => { expect(await result.current.addTask({ title: "保存不可" })).toBeNull(); });
     expect(saveTaskRecord).not.toHaveBeenCalled();
   });
 
   it("reports invalid stored productivity records without failing startup", async () => {
-    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask], projects: [], sessions: [], invalidRecordCount: 2 });
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask], projects: [], sessions: [], invalidRecordCount: 2, repairedRecordCount: 0 });
     const { result } = renderHook(() => useTasks());
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.tasks).toHaveLength(1);
     expect(result.current.taskMessage).toBe("読み込めないタスクデータ2件を除外しました。");
+  });
+
+  it("reports repaired productivity relations without failing startup", async () => {
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask], projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 2 });
+    const { result } = renderHook(() => useTasks());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.taskMessage).toBe("参照切れや親子関係が崩れたタスク2件を修復しました。");
   });
 
   it("stores an idempotent timer session with task snapshots", async () => {
@@ -96,7 +105,8 @@ describe("useTasks", () => {
       tasks: [{ ...savedTask, projectId: "project-1" }],
       projects: [{ version: 1, id: "project-1", name: "勉強", color: "#3f6fab", order: 0, archivedAt: null, createdAt: 1, updatedAt: 1 }],
       sessions: [],
-      invalidRecordCount: 0
+      invalidRecordCount: 0,
+      repairedRecordCount: 0
     });
     const { result } = renderHook(() => useTasks());
     await waitFor(() => expect(result.current.tasks).toHaveLength(1));
@@ -133,7 +143,8 @@ describe("useTasks", () => {
       tasks: [{ ...savedTask, dueDate: "2026-07-18", repeatRule: { type: "daily", interval: 1 } }],
       projects: [],
       sessions: [],
-      invalidRecordCount: 0
+      invalidRecordCount: 0,
+      repairedRecordCount: 0
     });
     const { result } = renderHook(() => useTasks());
     await waitFor(() => expect(result.current.tasks).toHaveLength(1));
@@ -147,7 +158,7 @@ describe("useTasks", () => {
 
   it("does not complete a subtask when its parent is completed", async () => {
     const child = { ...savedTask, id: "subtask-1", title: "例題", parentTaskId: savedTask.id, order: 1 };
-    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask, child], projects: [], sessions: [], invalidRecordCount: 0 });
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask, child], projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0 });
     const { result } = renderHook(() => useTasks());
     await waitFor(() => expect(result.current.tasks).toHaveLength(2));
     await act(async () => { await result.current.toggleTask(savedTask.id); });
@@ -155,7 +166,7 @@ describe("useTasks", () => {
   });
 
   it("restores a validated backup and overwrites records with the same id", async () => {
-    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask], projects: [], sessions: [], invalidRecordCount: 0 });
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask], projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0 });
     const { result } = renderHook(() => useTasks());
     await waitFor(() => expect(result.current.tasks).toHaveLength(1));
     const backup = createProductivityBackup([{ ...savedTask, title: "復元した数学", updatedAt: 2 }], [], []);
@@ -170,7 +181,7 @@ describe("useTasks", () => {
   });
 
   it("does not overwrite newer local data during smart merge", async () => {
-    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [{ ...savedTask, updatedAt: 10 }], projects: [], sessions: [], invalidRecordCount: 0 });
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [{ ...savedTask, updatedAt: 10 }], projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0 });
     const { result } = renderHook(() => useTasks());
     await waitFor(() => expect(result.current.tasks).toHaveLength(1));
     const backup = createProductivityBackup([{ ...savedTask, title: "古い数学", updatedAt: 2 }], [], []);
@@ -180,7 +191,7 @@ describe("useTasks", () => {
   });
 
   it("clears records missing from a complete replacement", async () => {
-    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask], projects: [], sessions: [], invalidRecordCount: 0 });
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask], projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0 });
     const { result } = renderHook(() => useTasks());
     await waitFor(() => expect(result.current.tasks).toHaveLength(1));
     const backup = createProductivityBackup([], [], []);
@@ -190,7 +201,7 @@ describe("useTasks", () => {
   });
 
   it("rejects backup data that would break parent or project relations after merge", async () => {
-    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask], projects: [], sessions: [], invalidRecordCount: 0 });
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask], projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0 });
     const { result } = renderHook(() => useTasks());
     await waitFor(() => expect(result.current.tasks).toHaveLength(1));
     const invalidBackup: ProductivityBackup = {

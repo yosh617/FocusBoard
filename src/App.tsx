@@ -24,6 +24,17 @@ import { formatDuration, getTimerElapsedMs, getTimerOvertimeMs, modeLabels } fro
 const settingsButtonDisplayMs = 2_500;
 const settingsButtonFadeMs = 280;
 
+const toHistoryStateObject = (state: unknown): Record<string, unknown> => {
+  if (state && typeof state === "object" && !Array.isArray(state)) return { ...(state as Record<string, unknown>) };
+  return {};
+};
+
+const withoutOverlayHistoryState = (state: unknown): Record<string, unknown> | null => {
+  const historyState = toHistoryStateObject(state);
+  const { focusboardOverlay: _focusboardOverlay, ...nextState } = historyState;
+  return Object.keys(nextState).length > 0 ? nextState : null;
+};
+
 export default function App() {
   const { settings, updateSettings, undoSettings, resetSettings, storageMessage, setStorageMessage, saveState } = useLocalStorageSettings();
   const orientation = useOrientation();
@@ -77,6 +88,7 @@ export default function App() {
     taskId: string | null;
     actionLabel?: string;
   } | null>(null);
+  const [breakResumeTaskId, setBreakResumeTaskId] = useState<string | null>(null);
   const [timerSetupVisible, setTimerSetupVisible] = useState(false);
   const [settingsButtonVisible, setSettingsButtonVisible] = useState(false);
   const [settingsButtonFading, setSettingsButtonFading] = useState(false);
@@ -86,6 +98,10 @@ export default function App() {
   const settingsButtonTimeoutRef = useRef<number | null>(null);
   const settingsButtonFadeTimeoutRef = useRef<number | null>(null);
   const taskLauncherRef = useRef<HTMLButtonElement>(null);
+  const overlayHistoryKindRef = useRef<"settings" | "tasks" | "session" | null>(null);
+  const tasksOpenRef = useRef(false);
+  const settingsOpenRef = useRef(false);
+  const sessionOverlayOpenRef = useRef(false);
   const now = useClock(settings.showSeconds);
   const todayKey = toLocalDateKey(now);
   const activeTask = timer.activeTaskId ? tasks.find((task) => task.id === timer.activeTaskId) ?? null : null;
@@ -114,30 +130,12 @@ export default function App() {
     if (suggestedNextTask.estimatedPomodoros > 0) labels.push(`目安 ${suggestedNextTask.estimatedPomodoros}セット`);
     return labels.join(" ・ ");
   }, [suggestedNextTask, suggestedNextTaskProject, todayKey]);
-  const taskLauncherSummary = useMemo(() => {
-    if (timer.status === "idle") return null;
-    const statusText = timer.status === "running"
-      ? timer.mode === "work" ? "集中中" : "休憩中"
-      : timer.status === "paused"
-        ? "一時停止中"
-        : "延長中";
-    const title = activeTask?.title
-      ?? (timer.program === "pomodoro"
-        ? modeLabels[timer.mode]
-        : timer.category === "focus" ? "集中タイマー" : "休憩タイマー");
-    const displayMs = timer.program === "countup"
-      ? getTimerElapsedMs(timer)
-      : timer.status === "overtime"
-        ? getTimerOvertimeMs(timer)
-        : timer.remainingMs;
-    const detail = timer.program === "countup"
-      ? `${statusText} · ${formatDuration(displayMs)}`
-      : `${modeLabels[timer.mode]} · ${statusText} · ${formatDuration(displayMs)}`;
-    return { statusText, title, detail };
-  }, [activeTask?.title, timer]);
+  const breakResumeTask = useMemo(() => {
+    if (timer.status === "idle" || timer.mode === "work" || !breakResumeTaskId) return null;
+    return tasks.find((task) => task.id === breakResumeTaskId && task.status === "open") ?? null;
+  }, [breakResumeTaskId, tasks, timer.mode, timer.status]);
   const launcherSuggestedTask = useMemo(() => {
-    if (timer.status !== "idle") return null;
-    const task = sortTasksForFocus(tasks, todayKey)[0] ?? null;
+    const task = breakResumeTask ?? (timer.status === "idle" ? sortTasksForFocus(tasks, todayKey)[0] ?? null : null);
     if (!task) return null;
     const project = task.projectId ? projects.find((item) => item.id === task.projectId) ?? null : null;
     const detailParts: string[] = [];
@@ -153,10 +151,43 @@ export default function App() {
     }
     detailParts.push(todayOpenTaskCount === 0 ? "次の追加を決める" : `未完了 ${todayOpenTaskCount}件`);
     return {
+      id: task.id,
       title: task.title,
       detail: detailParts.join(" · ")
     };
-  }, [projects, tasks, timer.status, todayKey, todayOpenTaskCount]);
+  }, [breakResumeTask, projects, tasks, timer.status, todayKey, todayOpenTaskCount]);
+  const taskLauncherSummary = useMemo(() => {
+    if (timer.status === "idle") return null;
+    const isBreakFlow = timer.mode !== "work";
+    const statusText = timer.status === "running"
+      ? timer.mode === "work" ? "集中中" : "休憩中"
+      : timer.status === "paused"
+        ? "一時停止中"
+        : "延長中";
+    const defaultTitle = timer.program === "pomodoro"
+      ? modeLabels[timer.mode]
+      : timer.category === "focus" ? "集中タイマー" : "休憩タイマー";
+    const title = isBreakFlow
+      ? defaultTitle
+      : activeTask?.title ?? defaultTitle;
+    const displayMs = timer.program === "countup"
+      ? getTimerElapsedMs(timer)
+      : timer.status === "overtime"
+        ? getTimerOvertimeMs(timer)
+        : timer.remainingMs;
+    const detailPrefix = timer.program === "countup"
+      ? `${statusText} · ${formatDuration(displayMs)}`
+      : `${modeLabels[timer.mode]} · ${statusText} · ${formatDuration(displayMs)}`;
+    const detail = isBreakFlow && launcherSuggestedTask?.title
+      ? `${detailPrefix} · 次は ${launcherSuggestedTask.title}`
+      : detailPrefix;
+    const accessibleLabel = isBreakFlow
+      ? `タスクを開く。${defaultTitle}中。${launcherSuggestedTask?.title ? `次のおすすめは${launcherSuggestedTask.title}。` : ""}今日の未完了は${todayOpenTaskCount}件`
+      : activeTask?.title
+        ? `タスクを開く。集中中のタスクは${activeTask.title}。今日の未完了は${todayOpenTaskCount}件`
+        : `タスクを開く。${statusText}。今日の未完了は${todayOpenTaskCount}件`;
+    return { statusText, title, detail, accessibleLabel };
+  }, [activeTask?.title, launcherSuggestedTask?.title, timer, todayOpenTaskCount]);
 
   const activeClockSetting = settings.clockBackgroundSettings[activeBackgroundId] ?? {
     positions: { portrait: defaultSettings.clockDatePosition, landscape: defaultSettings.clockDatePosition } satisfies OrientationPositions,
@@ -194,9 +225,11 @@ export default function App() {
     setTasksOpen(false);
     window.setTimeout(() => taskLauncherRef.current?.focus(), 0);
   }, []);
+  const closeCompletedSession = useCallback(() => setCompletedSession(null), []);
   const startTask = useCallback((taskId: string) => {
     setTaskMessage("");
     setTaskDrawerResumeContext(null);
+    setBreakResumeTaskId(null);
     start(taskId);
     setTasksOpen(false);
   }, [setTaskMessage, start]);
@@ -294,6 +327,16 @@ export default function App() {
   }, [orientation, settings, timer, timerSetupVisible, startTimer, resetTimer, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, showFloatingTimer, updateSettings]);
 
   const liveMessage = reminderMessage || taskMessage || backgroundMessage || announcement || storageMessage;
+  const activeOverlay = completedSession !== null && completedTask !== null
+    ? "session"
+    : tasksOpen
+      ? "tasks"
+      : settingsOpen
+        ? "settings"
+        : null;
+  tasksOpenRef.current = tasksOpen;
+  settingsOpenRef.current = settingsOpen;
+  sessionOverlayOpenRef.current = completedSession !== null && completedTask !== null;
   const clockColor = activeClockSetting.matchColors ? adaptivePalette.text : activeClockSetting.color;
   const timerColor = settings.matchTimerBackgroundColors ? adaptivePalette.accent : settings.timerColor;
   const appStyle = {
@@ -322,6 +365,46 @@ export default function App() {
     if (settingsButtonTimeoutRef.current !== null) window.clearTimeout(settingsButtonTimeoutRef.current);
     if (settingsButtonFadeTimeoutRef.current !== null) window.clearTimeout(settingsButtonFadeTimeoutRef.current);
   }, []);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (sessionOverlayOpenRef.current) {
+        overlayHistoryKindRef.current = null;
+        closeCompletedSession();
+        return;
+      }
+      if (tasksOpenRef.current) {
+        overlayHistoryKindRef.current = null;
+        closeTasks();
+        return;
+      }
+      if (settingsOpenRef.current) {
+        overlayHistoryKindRef.current = null;
+        closeSettings();
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [closeCompletedSession, closeSettings, closeTasks]);
+
+  useEffect(() => {
+    if (activeOverlay === null) {
+      if (overlayHistoryKindRef.current !== null) {
+        overlayHistoryKindRef.current = null;
+        window.history.replaceState(withoutOverlayHistoryState(window.history.state), "", window.location.href);
+      }
+      return;
+    }
+    if (overlayHistoryKindRef.current === null) {
+      overlayHistoryKindRef.current = activeOverlay;
+      window.history.pushState({ ...toHistoryStateObject(window.history.state), focusboardOverlay: activeOverlay }, "", window.location.href);
+      return;
+    }
+    if (overlayHistoryKindRef.current !== activeOverlay) {
+      overlayHistoryKindRef.current = activeOverlay;
+      window.history.replaceState({ ...toHistoryStateObject(window.history.state), focusboardOverlay: activeOverlay }, "", window.location.href);
+    }
+  }, [activeOverlay]);
 
   return (
     <main
@@ -382,12 +465,20 @@ export default function App() {
       {liveMessage && <div className="toast" role="status" aria-live="polite">{liveMessage}</div>}
       <TaskLauncher
         todayCount={todayOpenTaskCount}
-        activeTaskTitle={activeTask?.title ?? null}
+        activeTaskTitle={timer.status !== "idle" && timer.mode === "work" ? activeTask?.title ?? null : null}
         suggestedTask={launcherSuggestedTask}
         timerSummary={taskLauncherSummary}
         onClick={() => {
           setSettingsOpen(false);
-          if (activeTask && timer.status !== "idle") {
+          if (timer.status !== "idle" && timer.mode !== "work" && suggestedNextTask) {
+            setTaskDrawerResumeContext({
+              label: "休憩のあと",
+              title: `${suggestedNextTask.title}を休憩後の候補として開いています`,
+              detail: `${suggestedNextTaskDetail ?? "休憩後に始める候補です。"}${todayOpenTaskCount > 0 ? ` 今日の未完了はあと${todayOpenTaskCount}件です。` : ""} 休憩タイマーを止めずに、次の集中を確認できます。`,
+              taskId: suggestedNextTask.id,
+              actionLabel: "休憩後の候補を開く"
+            });
+          } else if (activeTask && timer.status !== "idle") {
             const activeTaskProject = activeTask.projectId
               ? projects.find((project) => project.id === activeTask.projectId) ?? null
               : null;
@@ -402,6 +493,14 @@ export default function App() {
               detail: `${activeTaskDetailParts.join(" ・ ")} 集中を止めずに、詳細と一覧を見直せます。`,
               taskId: activeTask.id,
               actionLabel: "進行中を開く"
+            });
+          } else if (launcherSuggestedTask) {
+            setTaskDrawerResumeContext({
+              label: "今日のおすすめ",
+              title: `${launcherSuggestedTask.title}を開いています`,
+              detail: `${launcherSuggestedTask.detail}。そのまま開始するか、一覧で順番を見直せます。`,
+              taskId: launcherSuggestedTask.id,
+              actionLabel: "おすすめを開く"
             });
           } else {
             setTaskDrawerResumeContext(null);
@@ -479,11 +578,13 @@ export default function App() {
         nextTaskTitle={suggestedNextTask?.title ?? null}
         nextTaskDetail={suggestedNextTaskDetail}
         onStartBreak={() => {
+          setBreakResumeTaskId(suggestedNextTask?.id ?? null);
           setCompletedSession(null);
           startTimer();
         }}
         onStartNextTask={() => {
           const taskId = suggestedNextTask?.id;
+          setBreakResumeTaskId(null);
           setCompletedSession(null);
           if (!taskId) return;
           selectMode("work");
@@ -491,6 +592,7 @@ export default function App() {
         }}
         onContinueTask={() => {
           const taskId = completedSession?.taskId;
+          setBreakResumeTaskId(null);
           setCompletedSession(null);
           if (!taskId) return;
           selectMode("work");
@@ -498,6 +600,7 @@ export default function App() {
         }}
         onCompleteTask={() => {
           const task = completedTask;
+          setBreakResumeTaskId(null);
           setCompletedSession(null);
           if (task?.status === "open") void toggleTask(task.id);
         }}
@@ -522,7 +625,7 @@ export default function App() {
           });
           setTasksOpen(true);
         }}
-        onClose={() => setCompletedSession(null)}
+        onClose={closeCompletedSession}
       />
     </main>
   );

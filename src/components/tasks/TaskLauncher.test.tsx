@@ -33,7 +33,7 @@ describe("TaskLauncher", () => {
       <TaskLauncher
         todayCount={2}
         activeTaskTitle={null}
-        suggestedTask={{ title: "英単語の復習", detail: "勉強 · 今日の予定 · 未完了 2件" }}
+        suggestedTask={{ id: "task-1", title: "英単語の復習", detail: "勉強 · 今日の予定 · 未完了 2件" }}
         timerSummary={null}
         onClick={vi.fn()}
       />
@@ -50,7 +50,7 @@ describe("TaskLauncher", () => {
       <TaskLauncher
         todayCount={1}
         activeTaskTitle="英単語の復習"
-        suggestedTask={{ title: "数学", detail: "勉強 · 今日の予定 · 未完了 1件" }}
+        suggestedTask={{ id: "task-2", title: "数学", detail: "勉強 · 今日の予定 · 未完了 1件" }}
         timerSummary={{ statusText: "集中中", title: "英単語の復習", detail: "集中 · 集中中 · 12:30" }}
         onClick={vi.fn()}
       />
@@ -58,6 +58,27 @@ describe("TaskLauncher", () => {
     const button = screen.getByRole("button", { name: "タスクを開く。集中中のタスクは英単語の復習。今日の未完了は1件" });
     expect(button.textContent).toContain("集中中");
     expect(button.textContent).toContain("12:30");
+    expect(button.textContent).toContain("戻る");
+  });
+
+  it("shows the next recommended task while a break is running", () => {
+    render(
+      <TaskLauncher
+        todayCount={2}
+        activeTaskTitle={null}
+        suggestedTask={{ id: "task-2", title: "英語の宿題", detail: "勉強 · 今日の予定 · 未完了 2件" }}
+        timerSummary={{
+          statusText: "休憩中",
+          title: "短い休憩",
+          detail: "短い休憩 · 休憩中 · 05:00 · 次は 英語の宿題",
+          accessibleLabel: "タスクを開く。短い休憩中。次のおすすめは英語の宿題。今日の未完了は2件"
+        }}
+        onClick={vi.fn()}
+      />
+    );
+    const button = screen.getByRole("button", { name: "タスクを開く。短い休憩中。次のおすすめは英語の宿題。今日の未完了は2件" });
+    expect(button.textContent).toContain("短い休憩");
+    expect(button.textContent).toContain("次は 英語の宿題");
     expect(button.textContent).toContain("戻る");
   });
 });

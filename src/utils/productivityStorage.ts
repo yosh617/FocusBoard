@@ -15,12 +15,68 @@ type ProductivityData = {
   projects: ProjectRecord[];
   sessions: FocusSessionRecord[];
   invalidRecordCount: number;
+  repairedRecordCount: number;
 };
 
 function createIndexes(store: IDBObjectStore, indexes: { name: string; keyPath: string | string[] }[]) {
   for (const index of indexes) {
     if (!store.indexNames.contains(index.name)) store.createIndex(index.name, index.keyPath);
   }
+}
+
+function collectCyclicTaskIds(tasks: TaskRecord[]) {
+  const parentById = new Map(tasks.map((task) => [task.id, task.parentTaskId]));
+  const cyclicIds = new Set<string>();
+
+  for (const task of tasks) {
+    const path: string[] = [];
+    const visitedInPath = new Map<string, number>();
+    let currentId: string | null = task.id;
+
+    while (currentId !== null) {
+      const repeatedIndex = visitedInPath.get(currentId);
+      if (repeatedIndex !== undefined) {
+        for (const cyclicId of path.slice(repeatedIndex)) cyclicIds.add(cyclicId);
+        break;
+      }
+      visitedInPath.set(currentId, path.length);
+      path.push(currentId);
+      const parentId: string | null = parentById.get(currentId) ?? null;
+      currentId = parentId !== null && parentById.has(parentId) ? parentId : null;
+    }
+  }
+
+  return cyclicIds;
+}
+
+function repairTaskRelationships(tasks: TaskRecord[], projects: ProjectRecord[]) {
+  const projectIds = new Set(projects.map((project) => project.id));
+  const taskIds = new Set(tasks.map((task) => task.id));
+  const cyclicIds = collectCyclicTaskIds(tasks);
+  const repairedTaskIds = new Set<string>();
+
+  const repairedTasks = tasks.map((task) => {
+    let nextTask = task;
+
+    if (task.projectId !== null && !projectIds.has(task.projectId)) {
+      nextTask = { ...nextTask, projectId: null, bucket: "inbox" };
+      repairedTaskIds.add(task.id);
+    }
+
+    if (nextTask.parentTaskId !== null && !taskIds.has(nextTask.parentTaskId)) {
+      nextTask = { ...nextTask, parentTaskId: null };
+      repairedTaskIds.add(task.id);
+    }
+
+    if (cyclicIds.has(task.id) && nextTask.parentTaskId !== null) {
+      nextTask = { ...nextTask, parentTaskId: null };
+      repairedTaskIds.add(task.id);
+    }
+
+    return nextTask;
+  });
+
+  return { repairedTasks, repairedTaskIds };
 }
 
 function openDatabase(): Promise<IDBDatabase> {
@@ -147,6 +203,8 @@ export async function replaceProductivityData(records: { tasks: TaskRecord[]; pr
 }
 
 export async function loadProductivityData(): Promise<ProductivityData> {
+  let repairedTasksToSave: TaskRecord[] = [];
+  let result: ProductivityData | null = null;
   const database = await openDatabase();
   try {
     const transaction = database.transaction([TASK_STORE, PROJECT_STORE, SESSION_STORE], "readonly");
@@ -160,15 +218,23 @@ export async function loadProductivityData(): Promise<ProductivityData> {
     const tasks = rawTasks.map(validateTaskRecord).filter((task): task is TaskRecord => task !== null);
     const projects = rawProjects.map(validateProjectRecord).filter((project): project is ProjectRecord => project !== null);
     const sessions = rawSessions.map(validateFocusSessionRecord).filter((session): session is FocusSessionRecord => session !== null);
-    return {
-      tasks,
+    const { repairedTasks, repairedTaskIds } = repairTaskRelationships(tasks, projects);
+    repairedTasksToSave = repairedTasks.filter((task) => repairedTaskIds.has(task.id));
+    result = {
+      tasks: repairedTasks,
       projects,
       sessions,
-      invalidRecordCount: rawTasks.length + rawProjects.length + rawSessions.length - tasks.length - projects.length - sessions.length
+      invalidRecordCount: rawTasks.length + rawProjects.length + rawSessions.length - tasks.length - projects.length - sessions.length,
+      repairedRecordCount: repairedTaskIds.size
     };
   } finally {
     database.close();
   }
+  if (repairedTasksToSave.length > 0) {
+    await saveProductivityRecords({ tasks: repairedTasksToSave }).catch(() => undefined);
+  }
+  if (result === null) throw new Error("タスクデータを読み込めませんでした。");
+  return result;
 }
 
 export function saveTaskRecord(task: TaskRecord) {
