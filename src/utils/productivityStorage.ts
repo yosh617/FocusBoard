@@ -82,13 +82,23 @@ function transactionDone(transaction: IDBTransaction): Promise<void> {
   });
 }
 
+async function finishTransaction<T>(done: Promise<void>, work: Promise<T>) {
+  try {
+    const result = await work;
+    await done;
+    return result;
+  } catch (error) {
+    await done.catch(() => undefined);
+    throw error;
+  }
+}
+
 async function saveRecord(storeName: string, value: TaskRecord | ProjectRecord | FocusSessionRecord) {
   const database = await openDatabase();
   try {
     const transaction = database.transaction(storeName, "readwrite");
     const done = transactionDone(transaction);
-    await requestResult(transaction.objectStore(storeName).put(value));
-    await done;
+    await finishTransaction(done, requestResult(transaction.objectStore(storeName).put(value)));
   } finally {
     database.close();
   }
@@ -108,8 +118,7 @@ export async function saveProductivityRecords(records: { tasks?: TaskRecord[]; p
     for (const task of records.tasks ?? []) requests.push(requestResult(transaction.objectStore(TASK_STORE).put(task)));
     for (const project of records.projects ?? []) requests.push(requestResult(transaction.objectStore(PROJECT_STORE).put(project)));
     for (const session of records.sessions ?? []) requests.push(requestResult(transaction.objectStore(SESSION_STORE).put(session)));
-    await Promise.all(requests);
-    await done;
+    await finishTransaction(done, Promise.all(requests));
   } finally {
     database.close();
   }
@@ -131,8 +140,7 @@ export async function replaceProductivityData(records: { tasks: TaskRecord[]; pr
     for (const task of records.tasks) requests.push(requestResult(taskStore.put(task)));
     for (const project of records.projects) requests.push(requestResult(projectStore.put(project)));
     for (const session of records.sessions) requests.push(requestResult(sessionStore.put(session)));
-    await Promise.all(requests);
-    await done;
+    await finishTransaction(done, Promise.all(requests));
   } finally {
     database.close();
   }
@@ -143,12 +151,11 @@ export async function loadProductivityData(): Promise<ProductivityData> {
   try {
     const transaction = database.transaction([TASK_STORE, PROJECT_STORE, SESSION_STORE], "readonly");
     const done = transactionDone(transaction);
-    const [rawTasks, rawProjects, rawSessions] = await Promise.all([
+    const [rawTasks, rawProjects, rawSessions] = await finishTransaction(done, Promise.all([
       requestResult<unknown[]>(transaction.objectStore(TASK_STORE).getAll()),
       requestResult<unknown[]>(transaction.objectStore(PROJECT_STORE).getAll()),
       requestResult<unknown[]>(transaction.objectStore(SESSION_STORE).getAll())
-    ]);
-    await done;
+    ]));
 
     const tasks = rawTasks.map(validateTaskRecord).filter((task): task is TaskRecord => task !== null);
     const projects = rawProjects.map(validateProjectRecord).filter((project): project is ProjectRecord => project !== null);
