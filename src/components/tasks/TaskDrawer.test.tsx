@@ -89,6 +89,9 @@ describe("TaskDrawer", () => {
   it("shows a daily focus summary before the task list", () => {
     renderDrawer({ sessions: [session] });
     expect(screen.getByRole("region", { name: "今日の集中サマリー" }).textContent).toContain("今日の集中ハブ");
+    expect(screen.getByRole("region", { name: "今日の進め方" }).textContent).toContain("整える");
+    expect(screen.getByRole("region", { name: "今日の進め方" }).textContent).toContain("集中する");
+    expect(screen.getByRole("region", { name: "今日の進め方" }).textContent).toContain("振り返る");
     expect(screen.getByRole("region", { name: "次のおすすめ操作" }).textContent).toContain("数学の復習を始める");
     expect(screen.getByRole("region", { name: "現在の一覧" }).textContent).toContain("今日動かすタスクを、この画面だけで追加して集中できます。");
     expect(screen.getByRole("heading", { name: "今日の流れ" })).toBeTruthy();
@@ -96,12 +99,31 @@ describe("TaskDrawer", () => {
     expect(screen.getByRole("button", { name: "開始" })).toBeTruthy();
   });
 
+  it("lets the user move through plan, focus, and review from the daily flow", async () => {
+    renderDrawer({ sessions: [session] });
+
+    fireEvent.click(screen.getByRole("button", { name: /整える/ }));
+    expect(document.activeElement).toBe(screen.getByLabelText("新しいタスク"));
+
+    fireEvent.click(screen.getByRole("button", { name: /集中する/ }));
+    await waitFor(() => expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: /振り返る/ }));
+    expect(screen.getByRole("heading", { name: "集中レポート" })).toBeTruthy();
+  });
+
+  it("shows a focus-ready label and a visible start action in the task row", () => {
+    renderDrawer();
+    expect(screen.getByRole("button", { name: /数学の復習/, expanded: false }).textContent).toContain("次に集中");
+    expect(screen.getByRole("button", { name: "数学の復習のタイマーを開始" }).textContent).toContain("開始");
+  });
+
   it("updates the current-list summary and quick-add context when switching to a project", () => {
     renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: /勉強 1/ }));
     expect(screen.getByRole("region", { name: "現在の一覧" }).textContent).toContain("勉強");
     expect(screen.getByRole("region", { name: "現在の一覧" }).textContent).toContain("集中する順で確認できます。");
-    expect(screen.getByText("勉強へすぐ追加")).toBeTruthy();
+    expect(screen.getAllByText("勉強へすぐ追加").length).toBeGreaterThan(0);
     expect(screen.getByLabelText("新しいタスク").getAttribute("placeholder")).toBe("勉強で次に進めることを追加");
   });
 
@@ -159,6 +181,42 @@ describe("TaskDrawer", () => {
     renderDrawer({ tasks: [] });
     fireEvent.click(screen.getByRole("button", { name: "入力へ移動 今日に1件追加" }));
     expect(document.activeElement).toBe(screen.getByLabelText("新しいタスク"));
+  });
+
+  it("collapses smart-list navigation on compact screens and closes it again after selection", () => {
+    const originalMatchMedia = window.matchMedia;
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: query === "(max-width: 820px)",
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn()
+      }))
+    });
+
+    try {
+      renderDrawer();
+      const summary = screen.getByRole("button", { name: /表示先/ });
+      expect(summary.getAttribute("aria-expanded")).toBe("false");
+      expect(screen.queryByRole("button", { name: "明日 0" })).toBeNull();
+
+      fireEvent.click(summary);
+      expect(summary.getAttribute("aria-expanded")).toBe("true");
+      fireEvent.click(screen.getByRole("button", { name: "明日 0" }));
+
+      expect(summary.getAttribute("aria-expanded")).toBe("false");
+      expect(screen.getByRole("region", { name: "現在の一覧" }).textContent).toContain("明日");
+    } finally {
+      Object.defineProperty(window, "matchMedia", {
+        configurable: true,
+        value: originalMatchMedia
+      });
+    }
   });
 
   it("offers a next-step smart jump while idle and exposes a skip link for keyboard users", async () => {
@@ -269,7 +327,7 @@ describe("TaskDrawer", () => {
       tasks: [task, overdueTask]
     });
 
-    expect(screen.getByText("先に片づける")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /英語の宿題/, expanded: false }).textContent).toContain("先に片づける");
     fireEvent.click(screen.getByRole("button", { name: "英語の宿題の順番と詳細を開く" }));
     expect(screen.getByRole("form", { name: "英語の宿題の詳細" })).toBeTruthy();
   });
@@ -403,6 +461,7 @@ describe("TaskDrawer", () => {
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/ , expanded: false }));
     fireEvent.change(screen.getByLabelText("タスク名"), { target: { value: "数学Iの復習" } });
     fireEvent.change(screen.getByLabelText("見積もり"), { target: { value: "3" } });
+    fireEvent.click(screen.getByText("通知と繰り返し"));
     fireEvent.change(screen.getByLabelText("繰り返し"), { target: { value: "daily" } });
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
     await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({ title: "数学Iの復習", estimatedPomodoros: 3, repeatRule: { type: "daily", interval: 1 } })));
@@ -544,9 +603,9 @@ describe("TaskDrawer", () => {
     expect(screen.queryByRole("navigation", { name: "タスク一覧" })).toBeNull();
   });
 
-  it("opens backup and restore with a count preview of current data", () => {
+  it("opens backup and restore from the header utility action with a count preview of current data", () => {
     renderDrawer();
-    fireEvent.click(screen.getByRole("button", { name: "データ" }));
+    fireEvent.click(screen.getByRole("button", { name: "データ管理" }));
     expect(screen.getByRole("heading", { name: "バックアップと復元" })).toBeTruthy();
     expect(screen.getByText("タスク 1件・プロジェクト 1件・履歴 0件")).toBeTruthy();
   });
@@ -554,6 +613,7 @@ describe("TaskDrawer", () => {
   it("adds a subtask from the task details", async () => {
     const props = renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
+    fireEvent.click(screen.getByText("サブタスク"));
     const details = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
     fireEvent.change(details.getByLabelText("サブタスク名"), { target: { value: "例題を3問解く" } });
     fireEvent.click(details.getByRole("button", { name: "追加" }));
@@ -563,6 +623,7 @@ describe("TaskDrawer", () => {
   it("saves a custom repeat interval", async () => {
     const props = renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
+    fireEvent.click(screen.getByText("通知と繰り返し"));
     fireEvent.change(screen.getByLabelText("繰り返し"), { target: { value: "custom" } });
     fireEvent.change(screen.getByLabelText("繰り返し間隔"), { target: { value: "2" } });
     fireEvent.change(screen.getByLabelText("繰り返し単位"), { target: { value: "weekly" } });
@@ -578,6 +639,16 @@ describe("TaskDrawer", () => {
     expect((details.getByLabelText("期限") as HTMLInputElement).value).toBe(addLocalDays(today, 1));
     fireEvent.click(details.getByRole("button", { name: "保存" }));
     await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({ dueDate: addLocalDays(today, 1) })));
+  });
+
+  it("updates the estimated focus count from the quick presets", async () => {
+    const props = renderDrawer();
+    fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
+    const details = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
+    fireEvent.click(details.getByRole("button", { name: "4セット" }));
+    expect((details.getByLabelText("見積もり") as HTMLInputElement).value).toBe("4");
+    fireEvent.click(details.getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({ estimatedPomodoros: 4 })));
   });
 
   it("exposes a storage failure without hiding the existing timer application", () => {

@@ -18,6 +18,7 @@ import { useTaskReminders } from "./hooks/useTaskReminders";
 import { defaultSettings, fontOptions, positionPresets, type OrientationPositions, type PositionPreset } from "./types/settings";
 import type { TimerSessionEvent } from "./types/timer";
 import { getAdaptivePalette, fallbackBackgroundRgb, getStrongAccent, type AdaptivePalette } from "./utils/adaptiveColor";
+import { formatFocusedTime } from "./utils/productivityReport";
 import { getTasksForView, sortTasksForFocus, toLocalDateKey } from "./utils/taskQueries";
 import { formatDuration, getTimerElapsedMs, getTimerOvertimeMs, modeLabels } from "./utils/time";
 
@@ -107,6 +108,21 @@ export default function App() {
   const activeTask = timer.activeTaskId ? tasks.find((task) => task.id === timer.activeTaskId) ?? null : null;
   const completedTask = completedSession?.taskId ? tasks.find((task) => task.id === completedSession.taskId) ?? null : null;
   const todayOpenTaskCount = useMemo(() => getTasksForView(tasks, "today", todayKey).length, [tasks, todayKey]);
+  const todayCompletedTaskCount = useMemo(
+    () => tasks.filter((task) => task.parentTaskId === null && task.status === "completed" && task.completedAt !== null && toLocalDateKey(new Date(task.completedAt)) === todayKey).length,
+    [tasks, todayKey]
+  );
+  const todayTaskTotalCount = todayOpenTaskCount + todayCompletedTaskCount;
+  const todayFocusedMs = useMemo(
+    () => sessions
+      .filter((session) => session.mode === "work" && toLocalDateKey(new Date(session.endedAt)) === todayKey)
+      .reduce((sum, session) => sum + session.focusedDurationMs, 0),
+    [sessions, todayKey]
+  );
+  const todayOverdueTaskCount = useMemo(
+    () => tasks.filter((task) => task.parentTaskId === null && task.status === "open" && task.dueDate !== null && task.dueDate < todayKey).length,
+    [tasks, todayKey]
+  );
   const suggestedNextTask = useMemo(
     () => sortTasksForFocus(tasks, todayKey).find((task) => task.id !== completedSession?.taskId) ?? null,
     [completedSession?.taskId, tasks, todayKey]
@@ -465,6 +481,12 @@ export default function App() {
       {liveMessage && <div className="toast" role="status" aria-live="polite">{liveMessage}</div>}
       <TaskLauncher
         todayCount={todayOpenTaskCount}
+        todaySummary={{
+          completedCount: todayCompletedTaskCount,
+          totalCount: todayTaskTotalCount,
+          focusedLabel: todayFocusedMs > 0 ? formatFocusedTime(todayFocusedMs) : "0分",
+          overdueCount: todayOverdueTaskCount
+        }}
         activeTaskTitle={timer.status !== "idle" && timer.mode === "work" ? activeTask?.title ?? null : null}
         suggestedTask={launcherSuggestedTask}
         timerSummary={taskLauncherSummary}
