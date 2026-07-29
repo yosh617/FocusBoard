@@ -81,3 +81,36 @@
 4. 複数選択、期限・プロジェクトの一括変更を追加する
 5. ユーザー操作テストで「追加」「今日へ整理」「詳細編集」「集中開始」の完了時間を比較する
 
+## 2026-07-29 最終QA（Chromium viewport QA）
+
+評価環境はローカル Vite（`http://127.0.0.1:5173/`）、Playwright Chromium、テストブラウザのローカルデータである。実機確認・ユーザーテストではない。ヘッドレス環境の日本語フォント制約により、画像内の日本語が四角形になる場合があるが、DOMラベル、寸法、ポインター操作の検証には影響しない。
+
+### CP2の改善前後
+
+375pxで空状態のヒーロー領域は約1263pxから723px、入力位置は約2082pxから1493pxへ短縮した。タスクあり状態のヒーロー領域は約1668pxから約1099pxへ短縮した。今回のChromium QAでは、保存後に対象タスクを明日へ移した状態でヒーローは861pxだった（内容・状態により高さは変動）。
+
+### 4幅の結果
+
+| viewport | document client/scroll | drawer client/scroll（表示寸法） | workspace client/scroll | toolbar | console error | 44px未満の可視操作 | 判定 |
+| --- | --- | --- | --- | --- | ---: | --- | --- |
+| 375×812 | 375 / 375 | 375 / 375（375×763） | 375 / 375 | static | 0 | 0件 | 合格 |
+| 768×1024 | 768 / 768 | 768 / 768（768×920） | 768 / 768 | static | 0 | 0件 | 合格 |
+| 1024×768 | 1024 / 1024 | 939 / 939（940×768） | 723 / 723 | static | 0 | 0件 | 合格 |
+| 1440×900 | 1440 / 1440 | 939 / 939（940×900） | 723 / 723 | static | 0 | 0件 | 合格 |
+
+4幅すべてでtoolbarは`static`だった。4幅すべてでdocument、drawer、workspaceの横方向scrollWidthはclientWidthと一致した。表示中buttonの44px未満は0件であり、console errorは最終時点で0件（warning 1件はあり）。
+
+### ポインター操作フロー
+
+375pxで通常のclick操作により、タスクランチャーから一覧・詳細を開いた。詳細上部の期限（明日）、通知（今日18:00）、集中目安（4セット）のクイック操作と`変更を保存`をクリックした。一覧の開始ボタンで「数学の復習」のタイマーを開始し、ドロワーが閉じて実行中のフローティングタイマーとランチャー要約を確認した。実行中ランチャーからタスク詳細を再表示し、`数学の復習の詳細からタイマーへ戻る`をクリックしてタイマー画面へ戻った。最終再QAでは詳細の通知「明日09:00」から`変更を保存`する通常clickも成功した。フローは成功した。
+
+44px要件を含む本チェックポイントの受入条件は満たしたため、2026-07-29時点のChromium viewport QAの最終受入は可とする。実機iPad/Safari等の未実施事項は残る。ソースコードの修正は本QAでは行っていない。
+
+### 最終QAスクリーンショット
+
+| viewport | 画像 |
+| --- | --- |
+| 375×812 | [final-mobile-tasks.png](screenshots/ui-audit/final-mobile-tasks.png) |
+| 768×1024 | [final-tablet-portrait-tasks.png](screenshots/ui-audit/final-tablet-portrait-tasks.png) |
+| 1024×768 | [final-tablet-landscape-tasks.png](screenshots/ui-audit/final-tablet-landscape-tasks.png) |
+| 1440×900 | [final-desktop-tasks.png](screenshots/ui-audit/final-desktop-tasks.png) |
