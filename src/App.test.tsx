@@ -121,6 +121,7 @@ describe("App", () => {
     revealSettings();
 
     expect(screen.getByRole("button", { name: "設定" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "設定" }).classList.contains("settings-button--with-task-launcher")).toBe(true);
   });
 
   it("fades the settings button after its display period and reveals it again on a background tap", () => {
@@ -141,6 +142,39 @@ describe("App", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("reveals and fades the task launcher with the settings button in background-tap mode", () => {
+    vi.useFakeTimers();
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...defaultSettings, taskLauncherVisibility: "background-tap" }));
+      render(<App />);
+      expect(screen.queryByRole("button", { name: /タスクを開く/ })).toBeNull();
+
+      revealSettings();
+      const launcher = screen.getByRole("button", { name: /タスクを開く/ });
+      expect(screen.getByRole("button", { name: "設定" })).toBeTruthy();
+
+      act(() => { vi.advanceTimersByTime(2_500); });
+      expect(launcher.classList.contains("task-launcher--fading")).toBe(true);
+      act(() => { vi.advanceTimersByTime(280); });
+      expect(screen.queryByRole("button", { name: /タスクを開く/ })).toBeNull();
+
+      revealSettings();
+      expect(screen.getByRole("button", { name: /タスクを開く/ })).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("saves the selected task launcher visibility from display settings", () => {
+    render(<App />);
+    revealSettings();
+    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    fireEvent.click(screen.getByRole("tab", { name: "表示" }));
+    fireEvent.click(screen.getByRole("radio", { name: "背景タップで表示" }));
+
+    expect(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}").taskLauncherVisibility).toBe("background-tap");
   });
 
   it("starts in setup mode, collapses to a floating timer, and opens settings", () => {
@@ -792,6 +826,21 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "タスクを閉じる" }));
     expect(screen.queryByRole("dialog", { name: "タスクと集中" })).toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(launcher));
+  });
+
+  it("restores the transient launcher and focus when the task drawer closes or browser back is used", async () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...defaultSettings, taskLauncherVisibility: "background-tap" }));
+    render(<App />);
+    revealSettings();
+    fireEvent.click(screen.getByRole("button", { name: /タスクを開く/ }));
+    fireEvent.click(screen.getByRole("button", { name: "タスクを閉じる" }));
+    const launcher = screen.getByRole("button", { name: /タスクを開く/ });
+    await waitFor(() => expect(document.activeElement).toBe(launcher));
+
+    fireEvent.click(launcher);
+    act(() => window.dispatchEvent(new PopStateEvent("popstate")));
+    const restoredLauncher = screen.getByRole("button", { name: /タスクを開く/ });
+    await waitFor(() => expect(document.activeElement).toBe(restoredLauncher));
   });
 
   it("opens the suggested next task directly from the launcher while idle", async () => {

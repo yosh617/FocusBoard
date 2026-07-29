@@ -34,6 +34,14 @@ describe("settings storage", () => {
     expect(migrateSettings(legacy).fullscreen).toBe(false);
   });
 
+  it("defaults an absent or invalid task launcher visibility to always and preserves background-tap", () => {
+    const legacy = { ...defaultSettings } as Record<string, unknown>;
+    Reflect.deleteProperty(legacy, "taskLauncherVisibility");
+    expect(migrateSettings(legacy).taskLauncherVisibility).toBe("always");
+    expect(migrateSettings({ ...defaultSettings, taskLauncherVisibility: "hidden" }).taskLauncherVisibility).toBe("always");
+    expect(migrateSettings({ ...defaultSettings, taskLauncherVisibility: "background-tap" }).taskLauncherVisibility).toBe("background-tap");
+  });
+
   it("clamps background framing settings", () => {
     const result = migrateSettings({ ...defaultSettings, backgroundScale: 999, backgroundPosition: { x: -1, y: 2 } });
     expect(result.backgroundScale).toBe(220);

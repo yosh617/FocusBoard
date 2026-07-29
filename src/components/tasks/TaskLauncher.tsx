@@ -21,6 +21,8 @@ type Props = {
     accessibleLabel?: string;
   } | null;
   onClick: () => void;
+  transient?: boolean;
+  fading?: boolean;
 };
 
 const defaultTodaySummary = {
@@ -30,7 +32,7 @@ const defaultTodaySummary = {
   overdueCount: 0
 } satisfies NonNullable<Props["todaySummary"]>;
 
-export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLauncher({ todayCount, todaySummary = defaultTodaySummary, activeTaskTitle, suggestedTask, timerSummary, onClick }, ref) {
+export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLauncher({ todayCount, todaySummary = defaultTodaySummary, activeTaskTitle, suggestedTask, timerSummary, onClick, transient = false, fading = false }, ref) {
   const title = timerSummary?.title ?? activeTaskTitle ?? suggestedTask?.title ?? "今日のタスク";
   const detail = timerSummary?.detail
     ?? (activeTaskTitle
@@ -106,7 +108,7 @@ export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLa
 
   return (
     <button
-      className={`task-launcher${isEmphasized ? " task-launcher--active" : ""}${isBreakFlow ? " task-launcher--break" : ""}${isDimmed ? " task-launcher--dimmed" : ""}`}
+      className={`task-launcher${isEmphasized ? " task-launcher--active" : ""}${isBreakFlow ? " task-launcher--break" : ""}${isDimmed ? " task-launcher--dimmed" : ""}${transient ? " task-launcher--transient" : ""}${fading ? " task-launcher--fading" : ""}`}
       type="button"
       onClick={onClick}
       onFocus={() => setIsDimmed(false)}

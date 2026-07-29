@@ -223,6 +223,8 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .task-launcher--break { background: linear-gradient(180deg, rgba(245,252,249,.96), rgba(238,248,244,.93)); }
 .task-launcher--dimmed { opacity: .74; }
 .task-launcher--dimmed:hover, .task-launcher--dimmed:focus-visible { opacity: 1; }
+.task-launcher--transient { transition: opacity .28s ease, background-color .2s, border-color .2s, box-shadow .2s, transform .2s; }
+.task-launcher--fading { opacity: 0; pointer-events: none; }
 .task-launcher__main { display: grid; gap: 8px; min-width: 0; text-align: left; }
 .task-launcher__topline { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .task-launcher__status { display: inline-flex; align-items: center; min-height: 28px; gap: 7px; padding: 0 10px; color: #45617f; border-radius: 999px; background: rgba(230,238,247,.88); font-size: 11px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
@@ -498,7 +500,7 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 @keyframes settings-button-in { from { opacity: 0; transform: translateY(8px); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .settings-button { animation: none; transition: none; }
+  .settings-button, .task-launcher--transient { animation: none; transition: none; }
 }
 
 @media (orientation: portrait) {
@@ -970,6 +972,7 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 
 @media (max-width: 600px) {
   .task-launcher { right: max(16px, env(safe-area-inset-right)); left: max(16px, env(safe-area-inset-left)); width: auto; min-height: 84px; padding: 13px 14px; gap: 12px; }
+  .settings-button--with-task-launcher { top: max(16px, env(safe-area-inset-top)); bottom: auto; }
   .task-launcher__headline { align-items: flex-start; }
   .task-launcher__headline strong { font-size: 16px; white-space: normal; }
   .task-launcher__detailRow { display: grid; gap: 4px; }

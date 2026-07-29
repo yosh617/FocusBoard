@@ -236,11 +236,6 @@ export default function App() {
   }, [activeBackgroundId, orientation, updateSettings]);
 
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
-  const closeTasks = useCallback(() => {
-    setTaskDrawerResumeContext(null);
-    setTasksOpen(false);
-    window.setTimeout(() => taskLauncherRef.current?.focus(), 0);
-  }, []);
   const closeCompletedSession = useCallback(() => setCompletedSession(null), []);
   const startTask = useCallback((taskId: string) => {
     setTaskMessage("");
@@ -257,10 +252,8 @@ export default function App() {
     setSettingsButtonFading(false);
     setSettingsButtonVisible(false);
   }, []);
-  const revealSettingsButton = useCallback((event: ReactPointerEvent<HTMLElement>) => {
-    if (settingsOpen || tasksOpen || backgroundEditing || !(event.target instanceof Element)) return;
-    const interactiveTarget = event.target.closest("button, input, select, textarea, a, [role='dialog'], .clock-widget, .floating-timer, .timer-card");
-    if (interactiveTarget) return;
+  const revealHomeControls = useCallback((force = false) => {
+    if (settingsOpen || backgroundEditing || (!force && tasksOpen)) return;
     if (settingsButtonTimeoutRef.current !== null) window.clearTimeout(settingsButtonTimeoutRef.current);
     if (settingsButtonFadeTimeoutRef.current !== null) window.clearTimeout(settingsButtonFadeTimeoutRef.current);
     setSettingsButtonFading(false);
@@ -275,6 +268,17 @@ export default function App() {
       setSettingsButtonVisible(false);
     }, settingsButtonDisplayMs + settingsButtonFadeMs);
   }, [backgroundEditing, settingsOpen, tasksOpen]);
+  const revealSettingsButton = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    if (!(event.target instanceof Element)) return;
+    const interactiveTarget = event.target.closest("button, input, select, textarea, a, [role='dialog'], .clock-widget, .floating-timer, .timer-card");
+    if (!interactiveTarget) revealHomeControls();
+  }, [revealHomeControls]);
+  const closeTasks = useCallback(() => {
+    setTaskDrawerResumeContext(null);
+    setTasksOpen(false);
+    if (settings.taskLauncherVisibility === "background-tap") revealHomeControls(true);
+    window.setTimeout(() => taskLauncherRef.current?.focus(), 0);
+  }, [revealHomeControls, settings.taskLauncherVisibility]);
   const startBackgroundEditing = useCallback(() => {
     hideSettingsButton();
     setSettingsOpen(false);
@@ -479,7 +483,7 @@ export default function App() {
       )}
 
       {liveMessage && <div className="toast" role="status" aria-live="polite">{liveMessage}</div>}
-      <TaskLauncher
+      {(settings.taskLauncherVisibility === "always" || settingsButtonVisible) && <TaskLauncher
         todayCount={todayOpenTaskCount}
         todaySummary={{
           completedCount: todayCompletedTaskCount,
@@ -530,8 +534,10 @@ export default function App() {
           setTasksOpen(true);
         }}
         ref={taskLauncherRef}
-      />
-      {settingsButtonVisible && <button className={`settings-button${settingsButtonFading ? " settings-button--fading" : ""}`} type="button" aria-label="設定" title="設定を開く" onClick={() => { hideSettingsButton(); setSettingsOpen(true); }}>
+        transient={settings.taskLauncherVisibility === "background-tap"}
+        fading={settings.taskLauncherVisibility === "background-tap" && settingsButtonFading}
+      />}
+      {settingsButtonVisible && <button className={`settings-button settings-button--with-task-launcher${settingsButtonFading ? " settings-button--fading" : ""}`} type="button" aria-label="設定" title="設定を開く" onClick={() => { hideSettingsButton(); setSettingsOpen(true); }}>
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M12 15.3a3.3 3.3 0 1 0 0-6.6 3.3 3.3 0 0 0 0 6.6Z" />
           <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" />

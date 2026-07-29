@@ -22,6 +22,7 @@ export type BackgroundFrames = Record<string, BackgroundFrame>;
 export type ClockBackgroundSetting = { positions: OrientationPositions; color: string; matchColors: boolean };
 export type ClockBackgroundSettings = Record<string, ClockBackgroundSetting>;
 export type DateFormat = string;
+export type TaskLauncherVisibility = "always" | "background-tap";
 
 export const dateFormatPresets = [
   { value: "yyyy/mm/dd weekday", label: "yyyy/mm/dd 曜日" },
@@ -99,6 +100,7 @@ export type AppSettings = {
   shortBreakMinutes: number;
   longBreakMinutes: number;
   soundEnabled: boolean;
+  taskLauncherVisibility: TaskLauncherVisibility;
 };
 
 export const settingRanges = {
@@ -155,7 +157,8 @@ export const defaultSettings: AppSettings = {
   workMinutes: 25,
   shortBreakMinutes: 5,
   longBreakMinutes: 15,
-  soundEnabled: true
+  soundEnabled: true,
+  taskLauncherVisibility: "always"
 };
 
 export const fontOptions = {
