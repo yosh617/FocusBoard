@@ -110,7 +110,7 @@ describe("App", () => {
     mockTasksState.tasks = tasks;
     mockTasksState.projects = [focusProject];
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: `タスクを開く。今日の未完了は${tasks.length}件` }));
+    fireEvent.click(screen.getByRole("button", { name: `タスクを開く。次のおすすめは数学の復習。今日の未完了は${tasks.length}件` }));
     fireEvent.click(screen.getByRole("button", { name: "数学の復習のタイマーを開始" }));
   };
 

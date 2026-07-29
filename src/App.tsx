@@ -128,6 +128,28 @@ export default function App() {
       : `${modeLabels[timer.mode]} · ${statusText} · ${formatDuration(displayMs)}`;
     return { statusText, title, detail };
   }, [activeTask?.title, timer]);
+  const launcherSuggestedTask = useMemo(() => {
+    if (timer.status !== "idle") return null;
+    const task = sortTasksForFocus(tasks, todayKey)[0] ?? null;
+    if (!task) return null;
+    const project = task.projectId ? projects.find((item) => item.id === task.projectId) ?? null : null;
+    const detailParts: string[] = [];
+    if (project) detailParts.push(project.name);
+    if (task.dueDate !== null) {
+      if (task.dueDate < todayKey) detailParts.push("期限切れ");
+      else if (task.dueDate === todayKey) detailParts.push("今日の予定");
+      else detailParts.push(task.dueDate.replace(/-/g, "/"));
+    } else if (task.bucket === "someday") {
+      detailParts.push("いつか");
+    } else {
+      detailParts.push("Inbox");
+    }
+    detailParts.push(todayOpenTaskCount === 0 ? "次の追加を決める" : `未完了 ${todayOpenTaskCount}件`);
+    return {
+      title: task.title,
+      detail: detailParts.join(" · ")
+    };
+  }, [projects, tasks, timer.status, todayKey, todayOpenTaskCount]);
 
   const activeClockSetting = settings.clockBackgroundSettings[activeBackgroundId] ?? {
     positions: { portrait: defaultSettings.clockDatePosition, landscape: defaultSettings.clockDatePosition } satisfies OrientationPositions,
@@ -352,6 +374,7 @@ export default function App() {
       <TaskLauncher
         todayCount={todayOpenTaskCount}
         activeTaskTitle={activeTask?.title ?? null}
+        suggestedTask={launcherSuggestedTask}
         timerSummary={taskLauncherSummary}
         onClick={() => {
           setSettingsOpen(false);

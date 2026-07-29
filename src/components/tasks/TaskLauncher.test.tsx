@@ -7,7 +7,7 @@ describe("TaskLauncher", () => {
 
   it("dims after inactivity and becomes clear again on interaction", () => {
     vi.useFakeTimers();
-    render(<TaskLauncher todayCount={3} activeTaskTitle={null} timerSummary={null} onClick={vi.fn()} />);
+    render(<TaskLauncher todayCount={3} activeTaskTitle={null} suggestedTask={null} timerSummary={null} onClick={vi.fn()} />);
     const button = screen.getByRole("button", { name: "タスクを開く。今日の未完了は3件" });
 
     expect(button.classList.contains("task-launcher--dimmed")).toBe(false);
@@ -20,7 +20,7 @@ describe("TaskLauncher", () => {
 
   it("stays clear while a task is actively focused", () => {
     vi.useFakeTimers();
-    render(<TaskLauncher todayCount={2} activeTaskTitle="英単語の復習" timerSummary={null} onClick={vi.fn()} />);
+    render(<TaskLauncher todayCount={2} activeTaskTitle="英単語の復習" suggestedTask={null} timerSummary={null} onClick={vi.fn()} />);
     const button = screen.getByRole("button", { name: "タスクを開く。集中中のタスクは英単語の復習。今日の未完了は2件" });
 
     act(() => { vi.advanceTimersByTime(8_000); });
@@ -28,11 +28,28 @@ describe("TaskLauncher", () => {
     expect(button.classList.contains("task-launcher--active")).toBe(true);
   });
 
+  it("shows the next suggested task while idle", () => {
+    render(
+      <TaskLauncher
+        todayCount={2}
+        activeTaskTitle={null}
+        suggestedTask={{ title: "英単語の復習", detail: "勉強 · 今日の予定 · 未完了 2件" }}
+        timerSummary={null}
+        onClick={vi.fn()}
+      />
+    );
+    const button = screen.getByRole("button", { name: "タスクを開く。次のおすすめは英単語の復習。今日の未完了は2件" });
+    expect(button.textContent).toContain("次のおすすめ");
+    expect(button.textContent).toContain("英単語の復習");
+    expect(button.textContent).toContain("勉強 · 今日の予定 · 未完了 2件");
+  });
+
   it("shows a timer-aware summary while a focus session is in progress", () => {
     render(
       <TaskLauncher
         todayCount={1}
         activeTaskTitle="英単語の復習"
+        suggestedTask={{ title: "数学", detail: "勉強 · 今日の予定 · 未完了 1件" }}
         timerSummary={{ statusText: "集中中", title: "英単語の復習", detail: "集中 · 集中中 · 12:30" }}
         onClick={vi.fn()}
       />
