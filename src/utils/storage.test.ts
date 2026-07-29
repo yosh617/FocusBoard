@@ -81,7 +81,7 @@ describe("timer storage", () => {
     expect(loadTimerState(25).status).toBe("paused");
   });
 
-  it("migrates version 2 timers to task-aware version 3 without losing elapsed state", () => {
+  it("migrates version 2 timers to the unified version 5 state without losing elapsed state", () => {
     localStorage.setItem(TIMER_KEY, JSON.stringify({
       version: 2,
       program: "countdown",
@@ -96,13 +96,17 @@ describe("timer storage", () => {
       floatingPosition: { x: .3, y: .4 }
     }));
     expect(loadTimerState(25)).toMatchObject({
-      version: 3,
+      version: 5,
       program: "countdown",
       remainingMs: 420_000,
       completedWorkSessions: 2,
       activeTaskId: null,
       activeSessionId: null,
-      sessionStartedAt: null
+      sessionStartedAt: null,
+      floatingPositions: {
+        portrait: { x: .3, y: .4 },
+        landscape: { x: .3, y: .4 }
+      }
     });
   });
 

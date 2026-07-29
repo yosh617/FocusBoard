@@ -42,7 +42,7 @@ describe("App", () => {
   it("starts in setup mode, collapses to a floating timer, and opens settings", () => {
     render(<App />);
     expect(screen.getByLabelText("タイマー設定")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /Start timer/i }));
+    fireEvent.click(screen.getByRole("button", { name: "開始" }));
     expect(screen.getByLabelText("集中タイマー")).toBeTruthy();
     expect(screen.queryByLabelText("タイマー設定")).toBeNull();
     revealSettings();
@@ -56,7 +56,7 @@ describe("App", () => {
     expect(screen.queryByLabelText("タイマー設定")).toBeNull();
     expect(screen.getByLabelText("集中タイマー")).toBeTruthy();
     expect(screen.getByRole("button", { name: "開始" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "リセットして設定へ戻る" }));
+    fireEvent.click(screen.getByRole("button", { name: "タイマーセット" }));
     expect(screen.getByLabelText("タイマー設定")).toBeTruthy();
   });
 
@@ -128,7 +128,7 @@ describe("App", () => {
     const display = screen.getByRole("button", { name: "時計とカレンダーの表示設定を開く" });
     fireEvent.pointerDown(display, { pointerId: 1, clientX: 400, clientY: 500 });
     fireEvent.pointerUp(display, { pointerId: 1, clientX: 400, clientY: 500 });
-    expect(screen.getByRole("region", { name: "時計とカレンダーの表示設定" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "時計とカレンダーの表示設定" })).toBeTruthy();
     fireEvent.click(screen.getByRole("radio", { name: "中央" }));
     expect(screen.getByRole("radio", { name: "中央" }).getAttribute("aria-checked")).toBe("true");
     fireEvent.change(screen.getByRole("slider", { name: "時計の大きさ" }), { target: { value: "128" } });
@@ -165,7 +165,7 @@ describe("App", () => {
       });
       fireEvent.pointerDown(display, { pointerId: 1, clientX: 800, clientY: 210 });
       fireEvent.pointerUp(display, { pointerId: 1, clientX: 800, clientY: 210 });
-      const editor = screen.getByRole("region", { name: "時計とカレンダーの表示設定" }) as HTMLElement;
+      const editor = screen.getByRole("dialog", { name: "時計とカレンダーの表示設定" }) as HTMLElement;
       expect(Number.parseInt(editor.style.left, 10)).toBeLessThanOrEqual(424);
       expect(Number.parseInt(editor.style.left, 10)).toBeGreaterThanOrEqual(16);
     } finally {
@@ -185,9 +185,9 @@ describe("App", () => {
     render(<App />);
     const launcher = screen.getByRole("button", { name: /タスクを開く/ });
     fireEvent.click(launcher);
-    expect(screen.getByRole("dialog", { name: "タスク" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "タスクと集中" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "タスクを閉じる" }));
-    expect(screen.queryByRole("dialog", { name: "タスク" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "タスクと集中" })).toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(launcher));
   });
 });

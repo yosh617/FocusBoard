@@ -17,6 +17,22 @@ export const isRecord = (value: unknown): value is Record<string, unknown> =>
 export const isEntityId = (value: unknown): value is string =>
   typeof value === "string" && idPattern.test(value);
 
+export function hasCyclicTaskParents(tasks: TaskRecord[]) {
+  const parents = new Map(tasks.map((task) => [task.id, task.parentTaskId]));
+  const states = new Map<string, "visiting" | "visited">();
+  const visit = (id: string): boolean => {
+    const state = states.get(id);
+    if (state === "visiting") return true;
+    if (state === "visited") return false;
+    states.set(id, "visiting");
+    const parentId = parents.get(id);
+    if (parentId !== null && parentId !== undefined && parents.has(parentId) && visit(parentId)) return true;
+    states.set(id, "visited");
+    return false;
+  };
+  return tasks.some((task) => visit(task.id));
+}
+
 export function isLocalDate(value: unknown): value is string {
   if (typeof value !== "string") return false;
   const match = datePattern.exec(value);

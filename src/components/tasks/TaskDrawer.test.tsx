@@ -104,7 +104,7 @@ describe("TaskDrawer", () => {
     expect(screen.queryByText("国語の予習")).toBeNull();
 
     fireEvent.change(screen.getByLabelText("タスクを検索"), { target: { value: "見つからない" } });
-    expect(screen.getByText("一致するタスクはありません。")).toBeTruthy();
+    expect(screen.getByText("一致するタスクはありません")).toBeTruthy();
   });
 
   it("opens the local productivity report", () => {
@@ -112,6 +112,7 @@ describe("TaskDrawer", () => {
     fireEvent.click(screen.getByRole("button", { name: "レポート" }));
     expect(screen.getByRole("heading", { name: "集中レポート" })).toBeTruthy();
     expect(screen.getByText("この期間の集中記録はまだありません。")).toBeTruthy();
+    expect(screen.queryByRole("navigation", { name: "タスク一覧" })).toBeNull();
   });
 
   it("opens backup and restore with a count preview of current data", () => {

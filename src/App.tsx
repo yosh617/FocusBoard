@@ -12,6 +12,7 @@ import { useLocalStorageSettings } from "./hooks/useLocalStorageSettings";
 import { usePomodoroTimer } from "./hooks/usePomodoroTimer";
 import { useCustomBackgrounds } from "./hooks/useCustomBackgrounds";
 import { useFullscreen } from "./hooks/useFullscreen";
+import { useOrientation } from "./hooks/useOrientation";
 import { useTasks } from "./hooks/useTasks";
 import { useTaskReminders } from "./hooks/useTaskReminders";
 import { colorPresets, fontOptions, positionPresets, type PositionPreset } from "./types/settings";
@@ -21,6 +22,7 @@ import { toLocalDateKey } from "./utils/taskQueries";
 
 export default function App() {
   const { settings, updateSettings, undoSettings, resetSettings, storageMessage, setStorageMessage, saveState } = useLocalStorageSettings();
+  const orientation = useOrientation();
   const {
     tasks,
     projects,
@@ -60,10 +62,11 @@ export default function App() {
     setCustomDurationMinutes,
     setFloatingPosition,
     clearTimer
-  } = usePomodoroTimer(settings, handleSessionEnd);
+  } = usePomodoroTimer(settings, orientation, handleSessionEnd);
   const { backgrounds, addBackgrounds, removeBackground, reorderBackgrounds, backgroundMessage, setBackgroundMessage } = useCustomBackgrounds();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [tasksOpen, setTasksOpen] = useState(false);
+  const [timerSetupVisible, setTimerSetupVisible] = useState(false);
   const [settingsLauncherVisible, setSettingsLauncherVisible] = useState(false);
   const [adaptivePalette, setAdaptivePalette] = useState<AdaptivePalette>(() => getAdaptivePalette(fallbackBackgroundRgb, settings.overlayOpacity));
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
@@ -118,23 +121,50 @@ export default function App() {
     if (settings.fullscreen !== isFullscreen) updateSettings({ fullscreen: isFullscreen });
   }, [isFullscreen, settings.fullscreen, updateSettings]);
 
+  const startTimer = useCallback(() => {
+    setTimerSetupVisible(false);
+    updateSettings({ timerSetupCollapsed: true });
+    start();
+  }, [start, updateSettings]);
+
+  const showTimerSetup = useCallback(() => {
+    setTimerSetupVisible(true);
+    updateSettings({ timerSetupCollapsed: false });
+  }, [updateSettings]);
+
+  const showFloatingTimer = useCallback(() => {
+    setTimerSetupVisible(false);
+    updateSettings({ timerSetupCollapsed: true });
+  }, [updateSettings]);
+
+  const resetTimer = useCallback(() => {
+    reset();
+    setTimerSetupVisible(false);
+    updateSettings({ timerSetupCollapsed: false });
+  }, [reset, updateSettings]);
+
+  const endTimer = resetTimer;
+
   const slotContent = useMemo(() => {
     const slots = Object.fromEntries(positionPresets.map((position) => [position, [] as ReactNode[]])) as Record<PositionPreset, ReactNode[]>;
-    if (settings.showTimer && timer.status === "idle" && !settings.timerSetupCollapsed) slots[settings.timerPosition].push(
+    const showSetup = settings.showTimer && (timer.status === "idle" ? !settings.timerSetupCollapsed : timerSetupVisible);
+    if (showSetup) slots[settings.timerPositions[orientation]].push(
       <PomodoroTimer
         timer={timer}
         fontSize={settings.timerFontSize}
-        onStart={start}
+        onStart={startTimer}
+        onReset={resetTimer}
         onSelectMode={selectMode}
         onSelectProgram={selectProgram}
         onSelectCategory={selectCategory}
         onSetDuration={setCustomDurationMinutes}
-        onCollapse={() => updateSettings({ timerSetupCollapsed: true })}
+        onCollapse={() => { setTimerSetupVisible(false); updateSettings({ timerSetupCollapsed: true }); }}
+        onShowFloating={showFloatingTimer}
         key="timer"
       />
     );
     return slots;
-  }, [now, settings, timer, start, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, updateSettings]);
+  }, [orientation, settings, timer, timerSetupVisible, startTimer, resetTimer, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, showFloatingTimer, updateSettings]);
 
   const liveMessage = reminderMessage || taskMessage || backgroundMessage || announcement || storageMessage;
   const selectedPalette = settings.colorPreset === "custom"
@@ -187,24 +217,23 @@ export default function App() {
         backgroundScale={settings.backgroundScale}
         onPaletteChange={setAdaptivePalette}
       />
-      <div className="dashboard" aria-label="FocusBoard ダッシュボード">
+      <div className={`dashboard${settings.showTimer && (timer.status === "idle" ? !settings.timerSetupCollapsed : timerSetupVisible) ? " dashboard--timer-setup" : ""}`} aria-label="FocusBoard ダッシュボード">
         {positionPresets.map((position) => (
           <div className={`slot slot--${position}`} key={position}>{slotContent[position]}</div>
         ))}
       </div>
-      {(settings.showClock || settings.showDate) && <ClockWidget now={now} settings={settings} onChange={updateSettings} onMessage={showMessage} />}
+      {(settings.showClock || settings.showDate) && <ClockWidget now={now} settings={settings} textColor={displayColor} onChange={updateSettings} onMessage={showMessage} orientation={orientation} />}
 
-      {settings.showTimer && (timer.status !== "idle" || settings.timerSetupCollapsed) && (
+      {settings.showTimer && (timer.status !== "idle" || settings.timerSetupCollapsed) && !timerSetupVisible && (
         <FloatingTimer
           timer={timer}
           taskTitle={activeTask?.title ?? null}
-          onStart={start}
+          onStart={startTimer}
           onPause={pause}
-          onReset={() => {
-            reset();
-            updateSettings({ timerSetupCollapsed: false });
-          }}
+          onEnd={endTimer}
+          onShowSetup={showTimerSetup}
           onPositionChange={setFloatingPosition}
+          orientation={orientation}
         />
       )}
 
@@ -286,7 +315,7 @@ export default function App() {
         taskTitle={completedTask?.title ?? "タスク"}
         onStartBreak={() => {
           setCompletedSession(null);
-          start();
+          startTimer();
         }}
         onContinueTask={() => {
           const taskId = completedSession?.taskId;

@@ -4,6 +4,7 @@ import type { TaskRecord } from "../types/task";
 import { createProductivityBackup } from "../utils/productivityBackup";
 import {
   loadProductivityData,
+  replaceProductivityData,
   saveFocusSessionRecord,
   saveProductivityRecords,
   saveProjectRecord,
@@ -13,6 +14,7 @@ import { useTasks } from "./useTasks";
 
 vi.mock("../utils/productivityStorage", () => ({
   loadProductivityData: vi.fn(),
+  replaceProductivityData: vi.fn(),
   saveFocusSessionRecord: vi.fn(),
   saveProductivityRecords: vi.fn(),
   saveProjectRecord: vi.fn(),
@@ -47,6 +49,7 @@ describe("useTasks", () => {
     vi.mocked(saveFocusSessionRecord).mockResolvedValue(undefined);
     vi.mocked(saveProjectRecord).mockResolvedValue(undefined);
     vi.mocked(saveProductivityRecords).mockResolvedValue(undefined);
+    vi.mocked(replaceProductivityData).mockResolvedValue(undefined);
   });
 
   it("loads local data and adds a validated task", async () => {
@@ -146,9 +149,34 @@ describe("useTasks", () => {
     vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask], projects: [], sessions: [], invalidRecordCount: 0 });
     const { result } = renderHook(() => useTasks());
     await waitFor(() => expect(result.current.tasks).toHaveLength(1));
-    const backup = createProductivityBackup([{ ...savedTask, title: "復元した数学" }], [], []);
-    await act(async () => { expect(await result.current.importProductivityBackup(backup)).toBe(true); });
+    const backup = createProductivityBackup([{ ...savedTask, title: "復元した数学", updatedAt: 2 }], [], []);
+    await act(async () => { expect(await result.current.importProductivityBackup(backup, "smart-merge")).toBe(true); });
     expect(saveProductivityRecords).toHaveBeenCalledWith({ tasks: backup.tasks, projects: [], sessions: [] });
     expect(result.current.tasks).toEqual([expect.objectContaining({ id: savedTask.id, title: "復元した数学" })]);
+    expect(result.current.canUndo).toBe(true);
+    await act(async () => { expect(await result.current.undo()).toBe(true); });
+    expect(replaceProductivityData).toHaveBeenCalledWith({ tasks: [savedTask], projects: [], sessions: [] });
+    expect(result.current.tasks).toEqual([savedTask]);
+    expect(result.current.taskMessage).toBe("直前の操作を元に戻しました。");
+  });
+
+  it("does not overwrite newer local data during smart merge", async () => {
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [{ ...savedTask, updatedAt: 10 }], projects: [], sessions: [], invalidRecordCount: 0 });
+    const { result } = renderHook(() => useTasks());
+    await waitFor(() => expect(result.current.tasks).toHaveLength(1));
+    const backup = createProductivityBackup([{ ...savedTask, title: "古い数学", updatedAt: 2 }], [], []);
+    await act(async () => { expect(await result.current.importProductivityBackup(backup, "smart-merge")).toBe(true); });
+    expect(result.current.tasks[0].title).toBe(savedTask.title);
+    expect(saveProductivityRecords).toHaveBeenCalledWith({ tasks: [], projects: [], sessions: [] });
+  });
+
+  it("clears records missing from a complete replacement", async () => {
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask], projects: [], sessions: [], invalidRecordCount: 0 });
+    const { result } = renderHook(() => useTasks());
+    await waitFor(() => expect(result.current.tasks).toHaveLength(1));
+    const backup = createProductivityBackup([], [], []);
+    await act(async () => { expect(await result.current.importProductivityBackup(backup, "replace")).toBe(true); });
+    expect(replaceProductivityData).toHaveBeenCalledWith({ tasks: [], projects: [], sessions: [] });
+    expect(result.current.tasks).toEqual([]);
   });
 });

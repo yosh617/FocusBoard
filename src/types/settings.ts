@@ -11,8 +11,35 @@ export const positionPresets = [
 ] as const;
 
 export type PositionPreset = (typeof positionPresets)[number];
+export const orientations = ["portrait", "landscape"] as const;
+export type Orientation = (typeof orientations)[number];
 export type ClockDateAlignment = "left" | "center" | "right";
 export type FreePosition = { x: number; y: number };
+export type OrientationPositions = Record<Orientation, FreePosition>;
+export type OrientationPositionPresets = Record<Orientation, PositionPreset>;
+export type BackgroundFrame = { scale: number; position: FreePosition };
+export type BackgroundFrames = Record<string, BackgroundFrame>;
+export type ClockBackgroundSetting = { positions: OrientationPositions; color: string; matchColors: boolean };
+export type ClockBackgroundSettings = Record<string, ClockBackgroundSetting>;
+export type DateFormat = string;
+
+export const dateFormatPresets = [
+  { value: "yyyy/mm/dd weekday", label: "yyyy/mm/dd 曜日" },
+  { value: "mm/dd weekday", label: "mm/dd 曜日" },
+  { value: "yyyy年m月d日 weekday", label: "yyyy年m月d日 曜日" },
+  { value: "mm月dd日 weekday", label: "mm月dd日 曜日" },
+  { value: "weekday", label: "曜日だけ" }
+] as const;
+
+export const defaultDateFormat = "yyyy年m月d日 weekday";
+
+export function isDateFormat(value: unknown): value is DateFormat {
+  return typeof value === "string"
+    && value.length > 0
+    && value.length <= 40
+    && /^[a-zA-Z0-9年月日/ .(),-]+$/.test(value)
+    && /yyyy|yy|mm|m|dd|d|weekdayShort|weekday/.test(value);
+}
 
 export const backgroundChoices = ["slideshow", "bg1", "bg2", "bg3"] as const;
 export type BuiltInBackgroundChoice = (typeof backgroundChoices)[number];
@@ -28,8 +55,8 @@ export const colorPresets = {
 export type ColorPreset = keyof typeof colorPresets | "custom";
 
 export type AppSettings = {
-  version: 1;
-  uiRevision: 3;
+  version: 2;
+  uiRevision: 5;
   showClock: boolean;
   showDate: boolean;
   showTimer: boolean;
@@ -37,23 +64,35 @@ export type AppSettings = {
   timerSetupCollapsed: boolean;
   showSeconds: boolean;
   use12Hour: boolean;
+  dateFormat: DateFormat;
   clockFontSize: number;
   dateFontSize: number;
   timerFontSize: number;
   timerBackgroundOpacity: number;
   fontFamily: string;
   colorPreset: ColorPreset;
+  clockColor: string;
+  timerColor: string;
+  matchClockBackgroundColors: boolean;
+  matchTimerBackgroundColors: boolean;
+  /** @deprecated Kept temporarily for compatibility while the main UI is being integrated. */
   textColor: string;
+  /** @deprecated Kept temporarily for compatibility while the main UI is being integrated. */
   accentColor: string;
+  /** @deprecated Used only when migrating settings created before separate auto-color switches. */
   matchBackgroundColors: boolean;
   overlayOpacity: number;
   backgroundScale: number;
   backgroundPosition: FreePosition;
+  backgroundFrames: BackgroundFrames;
+  clockBackgroundSettings: ClockBackgroundSettings;
+  hiddenBackgroundIds: string[];
   slideshowIntervalSec: number;
   backgroundChoice: BackgroundChoice;
   clockPosition: PositionPreset;
   datePosition: PositionPreset;
   timerPosition: PositionPreset;
+  timerPositions: OrientationPositionPresets;
   clockDatePosition: FreePosition;
   clockDateAlignment: ClockDateAlignment;
   workMinutes: number;
@@ -76,8 +115,8 @@ export const settingRanges = {
 } as const;
 
 export const defaultSettings: AppSettings = {
-  version: 1,
-  uiRevision: 3,
+  version: 2,
+  uiRevision: 5,
   showClock: true,
   showDate: true,
   showTimer: true,
@@ -85,23 +124,32 @@ export const defaultSettings: AppSettings = {
   timerSetupCollapsed: false,
   showSeconds: false,
   use12Hour: false,
+  dateFormat: defaultDateFormat,
   clockFontSize: 104,
   dateFontSize: 20,
   timerFontSize: 60,
   timerBackgroundOpacity: 0.8,
   fontFamily: "system",
   colorPreset: "sky",
+  clockColor: "#17345f",
+  timerColor: "#91bde8",
+  matchClockBackgroundColors: true,
+  matchTimerBackgroundColors: false,
   textColor: "#17345f",
   accentColor: "#91bde8",
   matchBackgroundColors: false,
   overlayOpacity: 0.16,
   backgroundScale: 100,
   backgroundPosition: { x: 0.5, y: 0.5 },
+  backgroundFrames: {},
+  clockBackgroundSettings: {},
+  hiddenBackgroundIds: [],
   slideshowIntervalSec: 60,
   backgroundChoice: "slideshow",
   clockPosition: "bottom-left",
   datePosition: "bottom-left",
   timerPosition: "center",
+  timerPositions: { portrait: "center", landscape: "center" },
   clockDatePosition: { x: 0.06, y: 0.74 },
   clockDateAlignment: "left",
   workMinutes: 25,

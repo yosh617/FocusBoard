@@ -1,7 +1,7 @@
 import type { FocusSessionRecord } from "../types/focusSession";
 import type { ProjectRecord } from "../types/project";
 import type { TaskRecord } from "../types/task";
-import { isRecord, validateFocusSessionRecord, validateProjectRecord, validateTaskRecord } from "./taskValidation";
+import { hasCyclicTaskParents, isRecord, validateFocusSessionRecord, validateProjectRecord, validateTaskRecord } from "./taskValidation";
 
 export const PRODUCTIVITY_BACKUP_FORMAT = "focusboard-productivity-backup";
 
@@ -49,6 +49,7 @@ export function parseProductivityBackup(value: unknown): ProductivityBackup | nu
   const taskIds = new Set(validTasks.map((task) => task.id));
   const projectIds = new Set(validProjects.map((project) => project.id));
   if (validTasks.some((task) => task.parentTaskId === task.id || task.parentTaskId !== null && !taskIds.has(task.parentTaskId))) return null;
+  if (hasCyclicTaskParents(validTasks)) return null;
   if (validTasks.some((task) => task.projectId !== null && !projectIds.has(task.projectId))) return null;
   return {
     format: PRODUCTIVITY_BACKUP_FORMAT,

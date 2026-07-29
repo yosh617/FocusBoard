@@ -5,7 +5,17 @@ import type { TaskDraft, TaskRecord } from "../types/task";
 import type { TimerSessionEvent } from "../types/timer";
 import type { ProductivityBackup } from "../utils/productivityBackup";
 import {
+  analyzeProductivityImport,
+  applyProductivityImportPlan,
+  getProductivityImportCounts,
+  isValidProductivityDataSet,
+  type ConflictPreference,
+  type ImportStrategy,
+  type StoreImportPlan
+} from "../utils/productivityImport";
+import {
   loadProductivityData,
+  replaceProductivityData,
   saveProductivityRecords,
   saveFocusSessionRecord,
   saveProjectRecord,
@@ -27,10 +37,12 @@ export function useTasks() {
   const [canUndo, setCanUndo] = useState(false);
   const tasksRef = useRef(tasks);
   const projectsRef = useRef(projects);
+  const sessionsRef = useRef(sessions);
   const undoRef = useRef<(() => Promise<void>) | null>(null);
   const pendingTaskIdsRef = useRef(new Set<string>());
   tasksRef.current = tasks;
   projectsRef.current = projects;
+  sessionsRef.current = sessions;
 
   useEffect(() => {
     let cancelled = false;
@@ -251,7 +263,7 @@ export function useTasks() {
       await action();
       undoRef.current = null;
       setCanUndo(false);
-      setMessage("直前のタスク操作を元に戻しました。");
+      setMessage("直前の操作を元に戻しました。");
       return true;
     } catch {
       fail();
@@ -284,26 +296,55 @@ export function useTasks() {
       .catch(fail);
   }, [fail]);
 
-  const importProductivityBackup = useCallback(async (backup: ProductivityBackup) => {
+  const importProductivityBackup = useCallback(async (
+    backup: ProductivityBackup,
+    strategy: ImportStrategy = "smart-merge",
+    conflictPreference: ConflictPreference = "current"
+  ) => {
     if (!storageAvailable) return false;
+    const currentData = { tasks: tasksRef.current, projects: projectsRef.current, sessions: sessionsRef.current };
+    const plan = analyzeProductivityImport(currentData, backup, strategy);
+    const merged = applyProductivityImportPlan(currentData, plan, conflictPreference);
+    if (!isValidProductivityDataSet(merged)) {
+      setMessage("マージ後の親子関係またはプロジェクト参照が不正なため、データを変更しませんでした。");
+      return false;
+    }
+    const changedRecords = <T,>(store: StoreImportPlan<T>) => [
+      ...store.inserts,
+      ...store.updates.map((update) => update.incoming),
+      ...(conflictPreference === "incoming" ? store.conflicts.map((conflict) => conflict.incoming) : [])
+    ];
     try {
-      await saveProductivityRecords({ tasks: backup.tasks, projects: backup.projects, sessions: backup.sessions });
-      const mergeById = <T extends { id: string }>(current: T[], imported: T[]) => {
-        const importedById = new Map(imported.map((record) => [record.id, record]));
-        const merged = current.map((record) => importedById.get(record.id) ?? record);
-        const currentIds = new Set(current.map((record) => record.id));
-        return [...merged, ...imported.filter((record) => !currentIds.has(record.id))];
-      };
-      setTasks((current) => mergeById(current, backup.tasks));
-      setProjects((current) => mergeById(current, backup.projects));
-      setSessions((current) => mergeById(current, backup.sessions));
-      setMessage(`バックアップからタスク${backup.tasks.length}件、プロジェクト${backup.projects.length}件、履歴${backup.sessions.length}件を復元しました。`);
+      if (strategy === "replace") {
+        await replaceProductivityData(merged);
+      } else {
+        await saveProductivityRecords({
+          tasks: changedRecords(plan.tasks),
+          projects: changedRecords(plan.projects),
+          sessions: changedRecords(plan.sessions)
+        });
+      }
+      setTasks(merged.tasks);
+      setProjects(merged.projects);
+      setSessions(merged.sessions);
+      const counts = getProductivityImportCounts(plan);
+      const changedCount = counts.inserts + counts.updates + counts.deletions
+        + (conflictPreference === "incoming" ? counts.conflicts : 0);
+      if (changedCount > 0) {
+        setUndo(async () => {
+          await replaceProductivityData(currentData);
+          setTasks(currentData.tasks);
+          setProjects(currentData.projects);
+          setSessions(currentData.sessions);
+        });
+      }
+      setMessage(`バックアップを反映しました。追加${counts.inserts}件、更新${counts.updates + (conflictPreference === "incoming" ? counts.conflicts : 0)}件、維持${counts.unchanged + counts.keptCurrent + (conflictPreference === "current" ? counts.conflicts : 0)}件。`);
       return true;
     } catch {
       fail();
       return false;
     }
-  }, [fail, storageAvailable]);
+  }, [fail, setUndo, storageAvailable]);
 
   return {
     tasks,

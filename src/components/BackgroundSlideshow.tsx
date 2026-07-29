@@ -1,7 +1,8 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
-import type { BackgroundChoice, FreePosition } from "../types/settings";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
+import type { BackgroundChoice, BackgroundFrame, BackgroundFrames, FreePosition } from "../types/settings";
 import type { CustomBackground } from "../utils/backgroundStorage";
-import { fallbackBackgroundRgb, getAdaptivePalette, sampleImageRgb, type AdaptivePalette, type ImageSampleRegion } from "../utils/adaptiveColor";
+import { getBackgroundImageLayout } from "../utils/backgroundFrame";
+import { fallbackBackgroundRgb, getAdaptivePaletteFromSamples, sampleImageColorProfile, type AdaptivePalette, type ImageSampleRegion, type Rgb } from "../utils/adaptiveColor";
 
 export const defaultBackgrounds = ["backgrounds/bg1.svg", "backgrounds/bg2.svg", "backgrounds/bg3.svg"];
 
@@ -10,52 +11,141 @@ type Props = {
   overlayOpacity: number;
   backgroundChoice: BackgroundChoice;
   customBackgrounds: CustomBackground[];
+  hiddenBackgroundIds?: string[];
   clockPosition?: FreePosition;
+  clockFontSize?: number;
+  dateFontSize?: number;
+  showClock?: boolean;
+  showDate?: boolean;
+  showSeconds?: boolean;
+  dateFormat?: string;
   backgroundPosition?: FreePosition;
   backgroundScale?: number;
+  backgroundFrames?: BackgroundFrames;
+  editing?: boolean;
+  onEditModeChange?: (editing: boolean) => void;
+  onFramePreview?: (backgroundId: string, position: FreePosition, scale: number) => void;
+  onFrameChange?: (backgroundId: string, position: FreePosition, scale: number) => void;
   onPaletteChange?: (palette: AdaptivePalette) => void;
+  onActiveBackgroundChange?: (backgroundId: string) => void;
 };
 
 const defaultClockPosition: FreePosition = { x: .06, y: .74 };
 const defaultBackgroundPosition: FreePosition = { x: .5, y: .5 };
+const minBackgroundScale = 100;
+const maxBackgroundScale = 220;
+const editorControlsHideDelayMs = 1_800;
+const editorCloseButtonSize = 44;
 
-function getFocusedSampleRegion(image: HTMLImageElement, width: number, height: number, clockPosition: FreePosition, backgroundPosition: FreePosition, backgroundScale: number): ImageSampleRegion {
-  const coverScale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
-  const renderedWidth = image.naturalWidth * coverScale;
-  const renderedHeight = image.naturalHeight * coverScale;
-  const offsetX = (width - renderedWidth) * backgroundPosition.x;
-  const offsetY = (height - renderedHeight) * backgroundPosition.y;
-  const zoom = Math.max(1, backgroundScale / 100);
-  const baseX = width / 2 + (clockPosition.x * width - width / 2) / zoom;
-  const baseY = height / 2 + (clockPosition.y * height - height / 2) / zoom;
-  const imageX = (baseX - offsetX) / coverScale;
-  const imageY = (baseY - offsetY) / coverScale;
-  const sampleWidth = Math.max(1, width * .16 / (coverScale * zoom));
-  const sampleHeight = Math.max(1, height * .16 / (coverScale * zoom));
+type GesturePoint = { x: number; y: number };
+type GestureState = {
+  pointers: Map<number, GesturePoint>;
+  startPointer: GesturePoint | null;
+  startDistance: number | null;
+  startMidpoint: GesturePoint | null;
+  startPosition: FreePosition;
+  startScale: number;
+};
+type DraftFrame = BackgroundFrame & { id: string };
+type EditorClosePosition = "top-right" | "bottom-right" | "top-left" | "bottom-left";
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const distance = (first: GesturePoint, second: GesturePoint) => Math.hypot(first.x - second.x, first.y - second.y);
+const midpoint = (first: GesturePoint, second: GesturePoint) => ({ x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 });
+
+function getFocusedSampleRegion(
+  image: HTMLImageElement,
+  width: number,
+  height: number,
+  clockPosition: FreePosition,
+  frame: BackgroundFrame,
+  clockFontSize: number,
+  dateFontSize: number,
+  showClock: boolean,
+  showDate: boolean
+): ImageSampleRegion {
+  const layout = getBackgroundImageLayout(image.naturalWidth, image.naturalHeight, width, height, frame);
+  if (!layout) return { x: 0, y: 0, width: image.naturalWidth, height: image.naturalHeight };
+  const imageScale = layout.width / image.naturalWidth;
+  const imageX = (clockPosition.x * width - layout.left) / imageScale;
+  const imageY = (clockPosition.y * height - layout.top) / imageScale;
+  const displayWidth = Math.max(width * .16, showClock ? clockFontSize * 4.2 : 0, showDate ? dateFontSize * 12 : 0);
+  const displayHeight = Math.max(height * .16, (showClock ? clockFontSize : 0) + (showDate ? dateFontSize : 0) * 1.8);
+  const sampleWidth = Math.max(1, displayWidth / imageScale);
+  const sampleHeight = Math.max(1, displayHeight / imageScale);
   return { x: imageX - sampleWidth / 2, y: imageY - sampleHeight / 2, width: sampleWidth, height: sampleHeight };
 }
 
-function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundChoice, customBackgrounds, clockPosition = defaultClockPosition, backgroundPosition = defaultBackgroundPosition, backgroundScale = 100, onPaletteChange }: Props) {
+function BackgroundSlideshowComponent({
+  intervalSec,
+  overlayOpacity,
+  backgroundChoice,
+  customBackgrounds,
+  hiddenBackgroundIds = [],
+  clockPosition = defaultClockPosition,
+  clockFontSize = 104,
+  dateFontSize = 20,
+  showClock = true,
+  showDate = true,
+  showSeconds = false,
+  dateFormat = "",
+  backgroundPosition = defaultBackgroundPosition,
+  backgroundScale = minBackgroundScale,
+  backgroundFrames = {},
+  editing = false,
+  onEditModeChange,
+  onFramePreview,
+  onFrameChange,
+  onPaletteChange,
+  onActiveBackgroundChange
+}: Props) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [failed, setFailed] = useState<Set<string>>(() => new Set());
   const [imageRevision, setImageRevision] = useState(0);
   const [viewportRevision, setViewportRevision] = useState(0);
+  const [gestureActive, setGestureActive] = useState(false);
+  const [editorControlsVisible, setEditorControlsVisible] = useState(false);
+  const [editorClosePosition, setEditorClosePosition] = useState<EditorClosePosition>("top-right");
+  const [draftFrame, setDraftFrame] = useState<DraftFrame | null>(null);
+  const [selectedSamples, setSelectedSamples] = useState<Rgb[]>([fallbackBackgroundRgb]);
   const backgroundRef = useRef<HTMLDivElement>(null);
+  const gestureAreaRef = useRef<HTMLDivElement>(null);
   const imageRefs = useRef<Record<string, HTMLImageElement>>({});
-  const builtInLayers = defaultBackgrounds.map((path, index) => ({ id: `bg${index + 1}`, path: `${import.meta.env.BASE_URL}${path}` }));
+  const draftFrameRef = useRef<DraftFrame | null>(null);
+  const editingBaseFrameRef = useRef<BackgroundFrame | null>(null);
+  const frameAnimationRef = useRef<number | null>(null);
+  const wheelCommitTimeoutRef = useRef<number | null>(null);
+  const editorControlsTimeoutRef = useRef<number | null>(null);
+  const gestureVisibilityTimeoutRef = useRef<number | null>(null);
+  const gestureRef = useRef<GestureState>({
+    pointers: new Map(),
+    startPointer: null,
+    startDistance: null,
+    startMidpoint: null,
+    startPosition: backgroundPosition,
+    startScale: backgroundScale
+  });
+  const hiddenIds = new Set(hiddenBackgroundIds);
+  const builtInLayers = defaultBackgrounds.map((path, index) => ({ id: `bg${index + 1}`, path: `${import.meta.env.BASE_URL}${path}` })).filter((background) => !hiddenIds.has(background.id));
   const customLayers = customBackgrounds.map((background) => ({ id: `custom:${background.id}`, path: background.url }));
-  const slideshowLayers = customLayers.length > 0 ? customLayers : builtInLayers;
-  const allLayers = [...builtInLayers, ...customLayers];
+  const slideshowLayers = [...builtInLayers, ...customLayers];
+  const allLayers = slideshowLayers;
+  const fallbackLayer = allLayers[0] ?? { id: "bg1", path: `${import.meta.env.BASE_URL}${defaultBackgrounds[0]}` };
+  const hasPerImageFrames = Object.keys(backgroundFrames).length > 0;
+  const legacyFrame: BackgroundFrame = { position: backgroundPosition, scale: backgroundScale };
+
+  const getPersistedFrame = (id: string): BackgroundFrame => backgroundFrames[id]
+    ?? (hasPerImageFrames ? { position: defaultBackgroundPosition, scale: minBackgroundScale } : legacyFrame);
 
   useEffect(() => {
-    if (backgroundChoice !== "slideshow") return;
+    if (backgroundChoice !== "slideshow" || slideshowLayers.length === 0) return;
     const interval = window.setInterval(() => {
       setActiveIndex((current) => (current + 1) % slideshowLayers.length);
     }, intervalSec * 1000);
     return () => window.clearInterval(interval);
   }, [intervalSec, backgroundChoice, slideshowLayers.length]);
 
-  useEffect(() => setActiveIndex(0), [backgroundChoice, customBackgrounds.length]);
+  useEffect(() => setActiveIndex(0), [backgroundChoice, customBackgrounds.length, hiddenBackgroundIds]);
 
   useEffect(() => {
     const updateViewport = () => setViewportRevision((current) => current + 1);
@@ -63,46 +153,407 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
     return () => window.removeEventListener("resize", updateViewport);
   }, []);
 
-  const requestedId = backgroundChoice === "slideshow" ? slideshowLayers[activeIndex % slideshowLayers.length]?.id : backgroundChoice;
-  const selectedId = allLayers.some(({ id }) => id === requestedId) ? requestedId : builtInLayers[0].id;
-  const selectedColor = useMemo(() => {
-    const image = imageRefs.current[selectedId];
-    const bounds = backgroundRef.current?.getBoundingClientRect();
-    if (!image || !bounds?.width || !bounds.height) return fallbackBackgroundRgb;
-    const region = getFocusedSampleRegion(image, bounds.width, bounds.height, clockPosition, backgroundPosition, backgroundScale);
-    return sampleImageRgb(image, region) ?? fallbackBackgroundRgb;
-  }, [selectedId, imageRevision, viewportRevision, clockPosition.x, clockPosition.y, backgroundPosition.x, backgroundPosition.y, backgroundScale]);
+  useEffect(() => () => {
+    if (frameAnimationRef.current !== null) window.cancelAnimationFrame(frameAnimationRef.current);
+    if (wheelCommitTimeoutRef.current !== null) window.clearTimeout(wheelCommitTimeoutRef.current);
+    if (editorControlsTimeoutRef.current !== null) window.clearTimeout(editorControlsTimeoutRef.current);
+    if (gestureVisibilityTimeoutRef.current !== null) window.clearTimeout(gestureVisibilityTimeoutRef.current);
+  }, []);
+
+  const requestedId = backgroundChoice === "slideshow" && slideshowLayers.length > 0 ? slideshowLayers[activeIndex % slideshowLayers.length]?.id : backgroundChoice;
+  const selectedId = requestedId && allLayers.some(({ id }) => id === requestedId) ? requestedId : fallbackLayer.id;
+  const persistedSelectedFrame = getPersistedFrame(selectedId);
+  const selectedFrame = draftFrame?.id === selectedId ? draftFrame : persistedSelectedFrame;
+
+  useEffect(() => {
+    if (!editing) {
+      gestureRef.current.pointers = new Map();
+      draftFrameRef.current = null;
+      editingBaseFrameRef.current = null;
+      setDraftFrame(null);
+      setGestureActive(false);
+      setEditorControlsVisible(false);
+      if (editorControlsTimeoutRef.current !== null) {
+        window.clearTimeout(editorControlsTimeoutRef.current);
+        editorControlsTimeoutRef.current = null;
+      }
+      return;
+    }
+
+    const baseFrame = getPersistedFrame(selectedId);
+    editingBaseFrameRef.current = { ...baseFrame, position: { ...baseFrame.position } };
+    gestureAreaRef.current?.focus({ preventScroll: true });
+    document.documentElement.classList.add("focusboard-background-editing");
+    document.body.classList.add("focusboard-background-editing");
+    const preventNativeGesture = (event: Event) => {
+      const target = event.target;
+      const gestureArea = gestureAreaRef.current;
+      if (event.type.startsWith("gesture") || (gestureArea && target instanceof Node && gestureArea.contains(target))) event.preventDefault();
+    };
+    const nativeGestureEvents = ["touchstart", "touchmove", "gesturestart", "gesturechange", "gestureend", "wheel"];
+    nativeGestureEvents.forEach((eventName) => document.addEventListener(eventName, preventNativeGesture, { passive: false }));
+    return () => {
+      document.documentElement.classList.remove("focusboard-background-editing");
+      document.body.classList.remove("focusboard-background-editing");
+      nativeGestureEvents.forEach((eventName) => document.removeEventListener(eventName, preventNativeGesture));
+    };
+  }, [editing, selectedId]);
+
+  useLayoutEffect(() => {
+    if (!editing) {
+      setEditorClosePosition("top-right");
+      return;
+    }
+
+    const updateEditorClosePosition = () => {
+      const clock = document.querySelector<HTMLElement>(".clock-widget__display, .clock-widget");
+      const clockRect = clock?.getBoundingClientRect();
+      const edgeGap = 16;
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const corners: { position: EditorClosePosition; left: number; top: number }[] = [
+        { position: "top-right", left: viewportWidth - edgeGap - editorCloseButtonSize, top: edgeGap },
+        { position: "bottom-right", left: viewportWidth - edgeGap - editorCloseButtonSize, top: viewportHeight - edgeGap - editorCloseButtonSize },
+        { position: "top-left", left: edgeGap, top: edgeGap },
+        { position: "bottom-left", left: edgeGap, top: viewportHeight - edgeGap - editorCloseButtonSize }
+      ];
+      const overlapsClock = (corner: typeof corners[number]) => Boolean(clockRect && (
+        corner.left < clockRect.right && corner.left + editorCloseButtonSize > clockRect.left
+        && corner.top < clockRect.bottom && corner.top + editorCloseButtonSize > clockRect.top
+      ));
+      setEditorClosePosition(corners.find((corner) => !overlapsClock(corner))?.position ?? "top-right");
+    };
+
+    updateEditorClosePosition();
+    window.addEventListener("resize", updateEditorClosePosition);
+    return () => window.removeEventListener("resize", updateEditorClosePosition);
+  }, [editing, clockPosition.x, clockPosition.y, clockFontSize, dateFontSize, showClock, showDate, showSeconds, dateFormat, viewportRevision]);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("focusboard-background-gesturing", gestureActive);
+    document.body.classList.toggle("focusboard-background-gesturing", gestureActive);
+    return () => {
+      document.documentElement.classList.remove("focusboard-background-gesturing");
+      document.body.classList.remove("focusboard-background-gesturing");
+    };
+  }, [gestureActive]);
+
+  useEffect(() => onActiveBackgroundChange?.(selectedId), [onActiveBackgroundChange, selectedId]);
+
+  useEffect(() => {
+    if (frameAnimationRef.current !== null) window.cancelAnimationFrame(frameAnimationRef.current);
+    frameAnimationRef.current = null;
+    draftFrameRef.current = null;
+    setDraftFrame(null);
+  }, [selectedId]);
+
+  useEffect(() => {
+    if (editing) return;
+    const animation = window.requestAnimationFrame(() => {
+      const image = imageRefs.current[selectedId];
+      const bounds = backgroundRef.current?.getBoundingClientRect();
+      if (!image || !bounds?.width || !bounds.height) {
+        setSelectedSamples([fallbackBackgroundRgb]);
+        return;
+      }
+      const region = getFocusedSampleRegion(image, bounds.width, bounds.height, clockPosition, persistedSelectedFrame, clockFontSize, dateFontSize, showClock, showDate);
+      const profile = sampleImageColorProfile(image, region);
+      setSelectedSamples(profile?.samples.length ? profile.samples : [fallbackBackgroundRgb]);
+    });
+    return () => window.cancelAnimationFrame(animation);
+  }, [editing, selectedId, imageRevision, viewportRevision, clockPosition.x, clockPosition.y, persistedSelectedFrame.position.x, persistedSelectedFrame.position.y, persistedSelectedFrame.scale, clockFontSize, dateFontSize, showClock, showDate, showSeconds, dateFormat]);
+
   const palette = useMemo(
-    () => getAdaptivePalette(selectedColor, overlayOpacity),
-    [selectedColor, overlayOpacity]
+    () => getAdaptivePaletteFromSamples(selectedSamples, overlayOpacity),
+    [selectedSamples, overlayOpacity]
   );
 
   useEffect(() => onPaletteChange?.(palette), [onPaletteChange, palette]);
 
+  const getViewport = () => {
+    const bounds = backgroundRef.current?.getBoundingClientRect();
+    return { width: bounds?.width || window.innerWidth || 1, height: bounds?.height || window.innerHeight || 1 };
+  };
+  const getCurrentFrame = () => draftFrameRef.current?.id === selectedId ? draftFrameRef.current : getPersistedFrame(selectedId);
+  const scheduleDraftFrame = (position: FreePosition, scale: number) => {
+    const next: DraftFrame = {
+      id: selectedId,
+      position: { x: clamp(position.x, 0, 1), y: clamp(position.y, 0, 1) },
+      scale: clamp(scale, minBackgroundScale, maxBackgroundScale)
+    };
+    draftFrameRef.current = next;
+    if (frameAnimationRef.current !== null) return next;
+    frameAnimationRef.current = window.requestAnimationFrame(() => {
+      frameAnimationRef.current = null;
+      setDraftFrame(draftFrameRef.current);
+    });
+    return next;
+  };
+  const commitDraftFrame = (frame = draftFrameRef.current) => {
+    if (!frame || frame.id !== selectedId) return;
+    onFrameChange?.(frame.id, frame.position, frame.scale);
+  };
+  const previewDraftFrame = (frame = draftFrameRef.current) => {
+    if (!frame || frame.id !== selectedId) return;
+    (onFramePreview ?? onFrameChange)?.(frame.id, frame.position, frame.scale);
+  };
+  const startGesture = (pointers: Map<number, GesturePoint>) => {
+    const gesture = gestureRef.current;
+    const frame = getCurrentFrame();
+    gesture.pointers = pointers;
+    setGestureActive(true);
+    if (pointers.size === 1) {
+      gesture.startPointer = pointers.values().next().value ?? null;
+      gesture.startDistance = null;
+      gesture.startMidpoint = null;
+    } else if (pointers.size >= 2) {
+      const points = [...pointers.values()];
+      gesture.startPointer = null;
+      gesture.startDistance = distance(points[0], points[1]);
+      gesture.startMidpoint = midpoint(points[0], points[1]);
+    }
+    gesture.startPosition = frame.position;
+    gesture.startScale = frame.scale;
+  };
+  const moveGesture = (pointers: Map<number, GesturePoint>) => {
+    const gesture = gestureRef.current;
+    if (!pointers.size) return;
+    gesture.pointers = pointers;
+    const viewport = getViewport();
+    const image = imageRefs.current[selectedId];
+    const startFrame = { position: gesture.startPosition, scale: gesture.startScale };
+    const startLayout = image
+      ? getBackgroundImageLayout(image.naturalWidth, image.naturalHeight, viewport.width, viewport.height, startFrame)
+      : null;
+    if (pointers.size === 1 && gesture.startPointer) {
+      const point = pointers.values().next().value ?? gesture.startPointer;
+      const overflowX = startLayout ? startLayout.width - viewport.width : viewport.width;
+      const overflowY = startLayout ? startLayout.height - viewport.height : viewport.height;
+      scheduleDraftFrame({
+        x: overflowX > .5 ? gesture.startPosition.x - (point.x - gesture.startPointer.x) / overflowX : gesture.startPosition.x,
+        y: overflowY > .5 ? gesture.startPosition.y - (point.y - gesture.startPointer.y) / overflowY : gesture.startPosition.y
+      }, gesture.startScale);
+      return;
+    }
+    if (pointers.size < 2 || !gesture.startDistance || !gesture.startMidpoint) return;
+    const points = [...pointers.values()].slice(0, 2);
+    const currentMidpoint = midpoint(points[0], points[1]);
+    const nextScale = clamp(gesture.startScale * distance(points[0], points[1]) / gesture.startDistance, minBackgroundScale, maxBackgroundScale);
+    if (!image || !startLayout) {
+      scheduleDraftFrame(gesture.startPosition, nextScale);
+      return;
+    }
+    const nextLayout = getBackgroundImageLayout(
+      image.naturalWidth,
+      image.naturalHeight,
+      viewport.width,
+      viewport.height,
+      { position: gesture.startPosition, scale: nextScale }
+    );
+    if (!nextLayout) return;
+    const imagePointX = (gesture.startMidpoint.x - startLayout.left) / startLayout.width;
+    const imagePointY = (gesture.startMidpoint.y - startLayout.top) / startLayout.height;
+    const nextLeft = currentMidpoint.x - imagePointX * nextLayout.width;
+    const nextTop = currentMidpoint.y - imagePointY * nextLayout.height;
+    const overflowX = nextLayout.width - viewport.width;
+    const overflowY = nextLayout.height - viewport.height;
+    scheduleDraftFrame({
+      x: overflowX > .5 ? -nextLeft / overflowX : .5,
+      y: overflowY > .5 ? -nextTop / overflowY : .5
+    }, nextScale);
+  };
+  const endGesture = (pointers: Map<number, GesturePoint>) => {
+    const gesture = gestureRef.current;
+    gesture.pointers = pointers;
+    if (pointers.size === 1) {
+      const point = pointers.values().next().value;
+      const frame = getCurrentFrame();
+      if (!point) return;
+      gesture.startPointer = point;
+      gesture.startDistance = null;
+      gesture.startMidpoint = null;
+      gesture.startPosition = frame.position;
+      gesture.startScale = frame.scale;
+    } else if (pointers.size === 0) {
+      gesture.startPointer = null;
+      gesture.startDistance = null;
+      gesture.startMidpoint = null;
+      setGestureActive(false);
+      if (gestureVisibilityTimeoutRef.current !== null) {
+        window.clearTimeout(gestureVisibilityTimeoutRef.current);
+        gestureVisibilityTimeoutRef.current = null;
+      }
+      previewDraftFrame();
+    }
+  };
+  const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (!editing) return;
+    revealEditorControls();
+    event.preventDefault();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    startGesture(new Map(gestureRef.current.pointers).set(event.pointerId, { x: event.clientX, y: event.clientY }));
+  };
+  const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (!editing || !gestureRef.current.pointers.has(event.pointerId)) return;
+    event.preventDefault();
+    moveGesture(new Map(gestureRef.current.pointers).set(event.pointerId, { x: event.clientX, y: event.clientY }));
+  };
+  const onPointerEnd = (event: PointerEvent<HTMLDivElement>) => {
+    if (!editing) return;
+    revealEditorControls();
+    event.preventDefault();
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture?.(event.pointerId);
+    const pointers = new Map(gestureRef.current.pointers);
+    pointers.delete(event.pointerId);
+    endGesture(pointers);
+  };
+  const onWheel = (event: WheelEvent<HTMLDivElement>) => {
+    if (!editing) return;
+    setTransientGestureActive();
+    revealEditorControls();
+    event.preventDefault();
+    const frame = getCurrentFrame();
+    scheduleDraftFrame(frame.position, frame.scale + (event.deltaY < 0 ? 5 : -5));
+    if (wheelCommitTimeoutRef.current !== null) window.clearTimeout(wheelCommitTimeoutRef.current);
+    wheelCommitTimeoutRef.current = window.setTimeout(() => {
+      wheelCommitTimeoutRef.current = null;
+      previewDraftFrame();
+    }, 180);
+  };
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!editing) return;
+    setTransientGestureActive();
+    revealEditorControls();
+    const frame = getCurrentFrame();
+    const positionStep = event.shiftKey ? .1 : .03;
+    let next: DraftFrame | null = null;
+    if (event.key === "ArrowLeft" || event.key === "ArrowRight" || event.key === "ArrowUp" || event.key === "ArrowDown") {
+      event.preventDefault();
+      next = scheduleDraftFrame({
+        x: frame.position.x + (event.key === "ArrowLeft" ? positionStep : event.key === "ArrowRight" ? -positionStep : 0),
+        y: frame.position.y + (event.key === "ArrowUp" ? positionStep : event.key === "ArrowDown" ? -positionStep : 0)
+      }, frame.scale);
+    } else if (event.key === "+" || event.key === "=" || event.key === "-" || event.key === "_") {
+      event.preventDefault();
+      next = scheduleDraftFrame(frame.position, frame.scale + (event.key === "+" || event.key === "=" ? positionStep * 100 : -positionStep * 100));
+    }
+    if (next) previewDraftFrame(next);
+  };
+  const finishEditing = () => {
+    commitDraftFrame();
+    onEditModeChange?.(false);
+  };
+  const cancelEditing = () => {
+    const baseFrame = editingBaseFrameRef.current;
+    if (baseFrame && !onFramePreview) onFrameChange?.(selectedId, baseFrame.position, baseFrame.scale);
+    draftFrameRef.current = null;
+    setDraftFrame(null);
+    onEditModeChange?.(false);
+  };
+  const resetFrame = () => {
+    setTransientGestureActive();
+    const next = scheduleDraftFrame(defaultBackgroundPosition, minBackgroundScale);
+    if (next) previewDraftFrame(next);
+  };
+  const setEditorScale = (scale: number) => {
+    setTransientGestureActive();
+    const frame = getCurrentFrame();
+    const next = scheduleDraftFrame(frame.position, scale);
+    if (next) previewDraftFrame(next);
+  };
+  const setTransientGestureActive = () => {
+    setGestureActive(true);
+    if (gestureVisibilityTimeoutRef.current !== null) window.clearTimeout(gestureVisibilityTimeoutRef.current);
+    gestureVisibilityTimeoutRef.current = window.setTimeout(() => {
+      gestureVisibilityTimeoutRef.current = null;
+      setGestureActive(false);
+    }, 220);
+  };
+  const revealEditorControls = () => {
+    if (!editing) return;
+    setEditorControlsVisible(true);
+    if (editorControlsTimeoutRef.current !== null) window.clearTimeout(editorControlsTimeoutRef.current);
+    editorControlsTimeoutRef.current = window.setTimeout(() => {
+      editorControlsTimeoutRef.current = null;
+      setEditorControlsVisible(false);
+    }, editorControlsHideDelayMs);
+  };
+
+  const viewport = getViewport();
+  const getLayerFrame = (id: string) => draftFrame?.id === id ? draftFrame : getPersistedFrame(id);
+
   return (
-    <div className="background" aria-hidden="true" ref={backgroundRef}>
-      {allLayers.map(({ id, path }) => (
-        <div
-          className={`background__image${selectedId === id ? " background__image--active" : ""}`}
-          style={failed.has(id) ? undefined : {
-            backgroundImage: `url(${path})`,
-            backgroundPosition: `${backgroundPosition.x * 100}% ${backgroundPosition.y * 100}%`,
-            transform: `scale(${backgroundScale / 100})`
-          }}
-          key={id}
-        >
-          <img
-            src={path}
-            alt=""
-            onError={() => setFailed((current) => new Set(current).add(id))}
-            onLoad={(event) => {
-              imageRefs.current[id] = event.currentTarget;
-              setImageRevision((current) => current + 1);
-            }}
-          />
-        </div>
-      ))}
+    <div className={`background${editing ? " background--editing" : ""}${gestureActive ? " background--gesturing" : ""}`} ref={backgroundRef}>
+      {allLayers.map(({ id, path }) => {
+        const frame = getLayerFrame(id);
+        const image = imageRefs.current[id];
+        const layout = image ? getBackgroundImageLayout(image.naturalWidth, image.naturalHeight, viewport.width, viewport.height, frame) : null;
+        return (
+          <div className={`background__image${selectedId === id ? " background__image--active" : ""}`} key={id}>
+            {!failed.has(id) && <img
+              className="background__asset"
+              src={path}
+              alt=""
+              style={layout ? {
+                width: `${layout.width}px`,
+                height: `${layout.height}px`,
+                left: `${layout.left}px`,
+                top: `${layout.top}px`
+              } : undefined}
+              onError={() => {
+                delete imageRefs.current[id];
+                setFailed((current) => new Set(current).add(id));
+                setImageRevision((current) => current + 1);
+              }}
+              onLoad={(event) => {
+                imageRefs.current[id] = event.currentTarget;
+                setImageRevision((current) => current + 1);
+              }}
+            />}
+          </div>
+        );
+      })}
       <div className="background__overlay" style={{ opacity: overlayOpacity }} />
+      {editing && <button
+        type="button"
+        className={`background-editor__close background-editor__close--${editorClosePosition}`}
+        aria-label="背景の調整を終了"
+        title="背景の調整を終了"
+        onClick={finishEditing}
+      >×</button>}
+      {editing && editorControlsVisible && <>
+        <div className="background-editor__toolbar" role="toolbar" aria-label="背景の調整">
+          <div>
+            <span className="background-editor__eyebrow">壁紙の編集</span>
+            <strong>背景を調整中</strong>
+          </div>
+          <div className="background-editor__actions">
+            <button type="button" className="background-editor__secondary" onClick={resetFrame}>中央に戻す</button>
+            <button type="button" className="background-editor__secondary" onClick={cancelEditing}>変更を取り消す</button>
+          </div>
+        </div>
+        <div className="background-editor__zoom">
+          <label htmlFor="background-editor-scale">拡大</label>
+          <input id="background-editor-scale" type="range" min={minBackgroundScale} max={maxBackgroundScale} step="1" value={selectedFrame.scale} onChange={(event) => setEditorScale(Number(event.target.value))} />
+          <output htmlFor="background-editor-scale">{Math.round(selectedFrame.scale)}%</output>
+        </div>
+        <div className="background-editor__hint" role="status">1本指で移動・2本指ピンチで拡大縮小</div>
+      </>}
+      <div
+        className="background__gesture"
+        ref={gestureAreaRef}
+        role={editing ? "group" : undefined}
+        tabIndex={editing ? 0 : -1}
+        aria-hidden={!editing}
+        aria-label="背景をドラッグして移動。2本指またはホイールで拡大縮小。フォーカス後は矢印キーで移動できます"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerEnd}
+        onPointerCancel={onPointerEnd}
+        onWheel={onWheel}
+        onDoubleClick={(event) => editing && event.preventDefault()}
+        onKeyDown={onKeyDown}
+      />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import type { FocusSessionRecord } from "../../types/focusSession";
 import type { RepeatRule, TaskDraft, TaskRecord, TaskView } from "../../types/task";
 import type { TimerStatus } from "../../types/timer";
 import type { ProductivityBackup } from "../../utils/productivityBackup";
+import type { ConflictPreference, ImportStrategy } from "../../utils/productivityImport";
 import { getActiveProjects, getTasksForProject, getTasksForView, toLocalDateKey, addLocalDays } from "../../utils/taskQueries";
 import { ProductivityReport } from "./ProductivityReport";
 import { ProductivityBackupPanel } from "./ProductivityBackupPanel";
@@ -31,7 +32,7 @@ type Props = {
   onUndo: () => Promise<boolean>;
   onStartTask: (id: string) => void;
   onRequestNotification: () => Promise<boolean>;
-  onImportBackup: (backup: ProductivityBackup) => Promise<boolean>;
+  onImportBackup: (backup: ProductivityBackup, strategy: ImportStrategy, conflictPreference: ConflictPreference) => Promise<boolean>;
 };
 
 const views: { value: TaskView; label: string }[] = [
@@ -73,7 +74,7 @@ function dueLabel(task: TaskRecord, today: string) {
   return task.dueDate;
 }
 
-function TaskEditor({ task, projects, subtasks, onSave, onArchive, onAddSubtask, onToggleSubtask, canMoveUp, canMoveDown, onMove }: {
+function TaskEditor({ task, projects, subtasks, onSave, onArchive, onAddSubtask, onToggleSubtask, canMoveUp, canMoveDown, onMove, onClose }: {
   task: TaskRecord;
   projects: ProjectRecord[];
   subtasks: TaskRecord[];
@@ -84,6 +85,7 @@ function TaskEditor({ task, projects, subtasks, onSave, onArchive, onAddSubtask,
   canMoveUp: boolean;
   canMoveDown: boolean;
   onMove: (direction: -1 | 1) => Promise<boolean>;
+  onClose?: () => void;
 }) {
   const [title, setTitle] = useState(task.title);
   const [projectId, setProjectId] = useState(task.projectId ?? "");
@@ -121,6 +123,10 @@ function TaskEditor({ task, projects, subtasks, onSave, onArchive, onAddSubtask,
 
   return (
     <form className="task-editor" onSubmit={submit} aria-label={`${task.title}の詳細`}>
+      <div className="task-editor__heading">
+        <div><p className="eyebrow">TASK DETAILS</p><h3>詳細設定</h3></div>
+        {onClose && <button className="task-editor__close" type="button" onClick={onClose} aria-label="詳細を閉じる"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg></button>}
+      </div>
       <label>タスク名<input value={title} maxLength={200} required onChange={(event) => setTitle(event.target.value)} /></label>
       <div className="task-editor__row">
         <label>プロジェクト<select value={projectId} onChange={(event) => setProjectId(event.target.value)}><option value="">なし</option>{projects.map((project) => <option value={project.id} key={project.id}>{project.name}</option>)}</select></label>
@@ -137,7 +143,7 @@ function TaskEditor({ task, projects, subtasks, onSave, onArchive, onAddSubtask,
       {repeatType === "custom" && <div className="task-editor__row"><label>繰り返し間隔<input type="number" min="1" max={customRepeatUnit === "daily" ? 365 : customRepeatUnit === "weekly" ? 52 : 24} value={customRepeatInterval} onChange={(event) => setCustomRepeatInterval(Number(event.target.value))} /></label><label>繰り返し単位<select value={customRepeatUnit} onChange={(event) => setCustomRepeatUnit(event.target.value as typeof customRepeatUnit)}><option value="daily">日ごと</option><option value="weekly">週ごと</option><option value="monthly">月ごと</option></select></label></div>}
       <label>メモ<textarea value={note} maxLength={10_000} rows={4} onChange={(event) => setNote(event.target.value)} /></label>
       <section className="subtask-editor" aria-labelledby={`subtasks-${task.id}`}>
-        <h3 id={`subtasks-${task.id}`}>サブタスク</h3>
+        <h4 id={`subtasks-${task.id}`}>サブタスク</h4>
         {subtasks.length > 0 && <div className="subtask-list">{subtasks.map((subtask) => <button type="button" aria-pressed={subtask.status === "completed"} onClick={() => void onToggleSubtask(subtask.id)} key={subtask.id}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 12 4 4 8-9" /></svg><span>{subtask.title}</span></button>)}</div>}
         <div className="subtask-add"><label className="visually-hidden" htmlFor={`subtask-title-${task.id}`}>サブタスク名</label><input id={`subtask-title-${task.id}`} value={subtaskTitle} maxLength={200} placeholder="小さな手順を追加" onChange={(event) => setSubtaskTitle(event.target.value)} /><button type="button" disabled={!subtaskTitle.trim()} onClick={async () => { if (await onAddSubtask(subtaskTitle)) setSubtaskTitle(""); }}>追加</button></div>
       </section>
@@ -148,6 +154,12 @@ function TaskEditor({ task, projects, subtasks, onSave, onArchive, onAddSubtask,
       </div>
     </form>
   );
+}
+
+function WorkspaceIcon({ type }: { type: "tasks" | "report" | "backup" }) {
+  if (type === "report") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19V9m7 10V5m7 14v-7" /></svg>;
+  if (type === "backup") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 20h14" /></svg>;
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h10M9 12h10M9 18h10M4 6h.01M4 12h.01M4 18h.01" /></svg>;
 }
 
 export function TaskDrawer({
@@ -184,6 +196,7 @@ export function TaskDrawer({
   const [workspaceMode, setWorkspaceMode] = useState<"tasks" | "report" | "backup">("tasks");
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectColor, setNewProjectColor] = useState(projectColors[0]);
+  const [showProjectForm, setShowProjectForm] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
   const today = toLocalDateKey(new Date());
@@ -256,25 +269,37 @@ export function TaskDrawer({
 
   const addProject = async (event: FormEvent) => {
     event.preventDefault();
-    if (await onAddProject(newProjectName, newProjectColor)) setNewProjectName("");
+    if (await onAddProject(newProjectName, newProjectColor)) {
+      setNewProjectName("");
+      setShowProjectForm(false);
+    }
   };
+
+  const currentListLabel = projectId
+    ? activeProjects.find((project) => project.id === projectId)?.name ?? "プロジェクト"
+    : views.find((item) => item.value === view)?.label ?? "タスク";
 
   return (
     <div className="task-backdrop" onPointerDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <aside className="task-drawer" role="dialog" aria-modal="true" aria-labelledby="task-drawer-title" ref={drawerRef}>
         <header className="task-drawer__header">
-          <div><p className="eyebrow">FOCUS TASKS</p><h2 id="task-drawer-title">タスク</h2></div>
+          <div><p className="eyebrow">FOCUSBOARD</p><h2 id="task-drawer-title">タスクと集中</h2></div>
           <div className="task-drawer__header-actions">
-            <button className="text-button" type="button" aria-pressed={workspaceMode === "report"} onClick={() => setWorkspaceMode((current) => current === "report" ? "tasks" : "report")}>{workspaceMode === "report" ? "タスク一覧" : "レポート"}</button>
-            <button className="text-button" type="button" aria-pressed={workspaceMode === "backup"} onClick={() => setWorkspaceMode((current) => current === "backup" ? "tasks" : "backup")}>{workspaceMode === "backup" ? "タスク一覧" : "データ"}</button>
-            {notificationPermission === "default" && <button className="text-button" type="button" onClick={() => void onRequestNotification()}>通知を許可</button>}
-            {canUndo && <button className="text-button" type="button" onClick={() => void onUndo()}>元に戻す</button>}
-            <button className="icon-button" type="button" onClick={onClose} ref={closeRef} aria-label="タスクを閉じる">×</button>
+            {notificationPermission === "default" && <button className="task-header-action" type="button" onClick={() => void onRequestNotification()}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 7h18s-3 0-3-7M10 20h4" /></svg><span>通知を許可</span></button>}
+            {canUndo && <button className="task-header-action" type="button" onClick={() => void onUndo()}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7-5 5 5 5M5 12h8a6 6 0 0 1 6 6" /></svg><span>元に戻す</span></button>}
+            <button className="icon-button" type="button" onClick={onClose} ref={closeRef} aria-label="タスクを閉じる"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg></button>
           </div>
         </header>
 
-        <div className="task-drawer__body">
-          <nav className="task-navigation" aria-label="タスク一覧">
+        <nav className="task-mode-tabs" aria-label="タスク機能">
+          <button type="button" className={workspaceMode === "tasks" ? "is-active" : ""} aria-current={workspaceMode === "tasks" ? "page" : undefined} onClick={() => setWorkspaceMode("tasks")}><WorkspaceIcon type="tasks" /><span>タスク</span></button>
+          <button type="button" className={workspaceMode === "report" ? "is-active" : ""} aria-current={workspaceMode === "report" ? "page" : undefined} onClick={() => setWorkspaceMode("report")}><WorkspaceIcon type="report" /><span>レポート</span></button>
+          <button type="button" className={workspaceMode === "backup" ? "is-active" : ""} aria-current={workspaceMode === "backup" ? "page" : undefined} onClick={() => setWorkspaceMode("backup")}><WorkspaceIcon type="backup" /><span>データ</span></button>
+        </nav>
+
+        <div className={`task-drawer__body task-drawer__body--${workspaceMode}`}>
+          {workspaceMode === "tasks" && <nav className="task-navigation" aria-label="タスク一覧">
+            <p className="task-navigation__label">スマートリスト</p>
             <div className="task-navigation__views">
               {views.map((item) => {
                 const count = getTasksForView(tasks, item.value, today).length;
@@ -282,45 +307,48 @@ export function TaskDrawer({
               })}
             </div>
             <div className="task-navigation__projects">
-              <h3>プロジェクト</h3>
+              <div className="task-navigation__projects-heading"><h3>プロジェクト</h3><button type="button" aria-expanded={showProjectForm} onClick={() => setShowProjectForm((current) => !current)}>{showProjectForm ? "閉じる" : "新規"}</button></div>
               {activeProjects.map((project) => (
                 <div className={projectId === project.id ? "project-link is-active" : "project-link"} key={project.id}>
                   <button type="button" onClick={() => { setProjectId(project.id); setSelectedTaskId(null); setWorkspaceMode("tasks"); }}><i style={{ background: project.color }} /><span>{project.name}</span><strong>{getTasksForProject(tasks, project.id).length}</strong></button>
                   <button type="button" aria-label={`${project.name}をアーカイブ`} onClick={() => { if (window.confirm(`${project.name}をアーカイブし、タスクをInboxへ移しますか？`)) void onArchiveProject(project.id); }}>×</button>
                 </div>
               ))}
-              <form className="project-add" onSubmit={addProject}>
+              {showProjectForm && <form className="project-add" onSubmit={addProject}>
                 <input aria-label="新しいプロジェクト名" placeholder="プロジェクトを追加" maxLength={80} value={newProjectName} onChange={(event) => setNewProjectName(event.target.value)} disabled={!storageAvailable} />
                 <input className="project-add__color" aria-label="プロジェクトの色" type="color" value={newProjectColor} onChange={(event) => setNewProjectColor(event.target.value)} />
-                <button type="submit" aria-label="プロジェクトを追加" disabled={!storageAvailable || !newProjectName.trim()}>＋</button>
-              </form>
+                <button type="submit" aria-label="プロジェクトを追加" disabled={!storageAvailable || !newProjectName.trim()}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg></button>
+              </form>}
             </div>
-          </nav>
+          </nav>}
 
-          <section className="task-workspace" aria-label={workspaceMode === "report" ? "集中レポート" : workspaceMode === "backup" ? "バックアップと復元" : projectId ? activeProjects.find((project) => project.id === projectId)?.name : views.find((item) => item.value === view)?.label}>
+          <section className={`task-workspace${workspaceMode !== "tasks" ? " task-workspace--standalone" : ""}`} aria-label={workspaceMode === "report" ? "集中レポート" : workspaceMode === "backup" ? "バックアップと復元" : currentListLabel}>
             {workspaceMode === "report" ? <ProductivityReport tasks={tasks} sessions={sessions} workMinutes={workMinutes} /> : workspaceMode === "backup" ? <ProductivityBackupPanel tasks={tasks} projects={projects} sessions={sessions} storageAvailable={storageAvailable} onImport={onImportBackup} /> : <>
+            <div className="task-workspace__heading">
+              <div><p className="eyebrow">MY TASKS</p><h3>{currentListLabel}</h3><span>{visibleTasks.length}件のタスク</span></div>
+              <div className="task-search">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6" /><path d="m16 16 4 4" /></svg>
+                <label className="visually-hidden" htmlFor="task-search-query">タスクを検索</label>
+                <input id="task-search-query" type="search" placeholder="タイトル・メモを検索" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} />
+              </div>
+            </div>
             {!storageAvailable && <div className="task-callout" role="status"><strong>タスク保存を利用できません</strong><span>時計とタイマーはそのまま使えます。ブラウザのサイトデータ設定を確認してください。</span></div>}
             <form className="task-quick-add" onSubmit={addTask}>
+              <svg className="task-quick-add__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
               <label className="visually-hidden" htmlFor="task-title">新しいタスク</label>
-              <input id="task-title" placeholder="タスクを追加" maxLength={200} value={title} onChange={(event) => setTitle(event.target.value)} disabled={!storageAvailable || view === "completed"} />
+              <input id="task-title" placeholder="次に取り組むタスクを追加" maxLength={200} value={title} onChange={(event) => setTitle(event.target.value)} disabled={!storageAvailable || view === "completed"} />
               <label className="visually-hidden" htmlFor="task-due-date">期限</label>
               <input id="task-due-date" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} disabled={!storageAvailable || view === "completed"} />
               <button type="submit" disabled={!storageAvailable || view === "completed" || !title.trim()}>追加</button>
             </form>
 
-            <div className="task-search">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6" /><path d="m16 16 4 4" /></svg>
-              <label className="visually-hidden" htmlFor="task-search-query">タスクを検索</label>
-              <input id="task-search-query" type="search" placeholder="タイトル・メモを検索" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} />
-            </div>
-
-            {loading ? <p className="task-empty">読み込み中...</p> : visibleTasks.length === 0 ? <p className="task-empty">{searchQuery.trim() ? "一致するタスクはありません。" : "ここにタスクはありません。"}</p> : (
+            {loading ? <p className="task-empty">読み込み中...</p> : visibleTasks.length === 0 ? <div className="task-empty"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v4H7zM5 5v16h14V5M8 12h8M8 16h5" /></svg><strong>{searchQuery.trim() ? "一致するタスクはありません" : "このリストは空です"}</strong><span>{searchQuery.trim() ? "検索条件を変えてもう一度お試しください。" : "上の入力欄から、次に取り組むことを追加できます。"}</span></div> : (
               <div className="task-list" aria-label="タスク一覧">
                 {visibleTasks.map((task) => {
                   const project = activeProjects.find((item) => item.id === task.projectId);
                   const label = dueLabel(task, today);
                   const completedPomodoros = completedPomodorosByTask.get(task.id) ?? 0;
-                  return (
+                  return (<div className="task-list__item" key={task.id}>
                     <article className={`task-row${selectedTaskId === task.id ? " is-selected" : ""}`} key={task.id}>
                       <button className="task-row__check" type="button" aria-label={task.status === "completed" ? `${task.title}を未完了に戻す` : `${task.title}を完了`} aria-pressed={task.status === "completed"} onClick={() => void onToggleTask(task.id)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 12 4 4 8-9" /></svg></button>
                       <button className="task-row__content" type="button" aria-expanded={selectedTaskId === task.id} onClick={() => setSelectedTaskId((current) => current === task.id ? null : task.id)}>
@@ -329,12 +357,11 @@ export function TaskDrawer({
                       </button>
                       <button className={`task-row__start${activeTaskId === task.id ? " is-active" : ""}`} type="button" aria-label={`${task.title}のタイマーを開始`} disabled={timerStatus !== "idle" || task.status !== "open"} onClick={() => onStartTask(task.id)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6V6Z" /></svg></button>
                     </article>
-                  );
+                    {selectedTaskId === task.id && selectedTask && selectedTask.status !== "archived" && <TaskEditor key={`${selectedTask.id}-${selectedTask.updatedAt}`} task={selectedTask} projects={activeProjects} subtasks={tasks.filter((item) => item.parentTaskId === selectedTask.id && item.status !== "archived").sort((a, b) => a.order - b.order)} onSave={(patch) => onUpdateTask(selectedTask.id, patch)} onArchive={async () => { const archived = await onArchiveTask(selectedTask.id); if (archived) setSelectedTaskId(null); return archived; }} onAddSubtask={(subtaskTitle) => onAddTask({ title: subtaskTitle, parentTaskId: selectedTask.id, projectId: selectedTask.projectId, bucket: selectedTask.bucket })} onToggleSubtask={onToggleTask} canMoveUp={scopedTasks.findIndex((item) => item.id === selectedTask.id) > 0} canMoveDown={scopedTasks.findIndex((item) => item.id === selectedTask.id) >= 0 && scopedTasks.findIndex((item) => item.id === selectedTask.id) < scopedTasks.length - 1} onMove={(direction) => onMoveTask(selectedTask.id, scopedTasks.map((item) => item.id), direction)} onClose={() => setSelectedTaskId(null)} />}
+                  </div>);
                 })}
               </div>
             )}
-
-            {selectedTask && selectedTask.status !== "archived" && <TaskEditor key={`${selectedTask.id}-${selectedTask.updatedAt}`} task={selectedTask} projects={activeProjects} subtasks={tasks.filter((task) => task.parentTaskId === selectedTask.id && task.status !== "archived").sort((a, b) => a.order - b.order)} onSave={(patch) => onUpdateTask(selectedTask.id, patch)} onArchive={async () => { const archived = await onArchiveTask(selectedTask.id); if (archived) setSelectedTaskId(null); return archived; }} onAddSubtask={(title) => onAddTask({ title, parentTaskId: selectedTask.id, projectId: selectedTask.projectId, bucket: selectedTask.bucket })} onToggleSubtask={onToggleTask} canMoveUp={scopedTasks.findIndex((task) => task.id === selectedTask.id) > 0} canMoveDown={scopedTasks.findIndex((task) => task.id === selectedTask.id) >= 0 && scopedTasks.findIndex((task) => task.id === selectedTask.id) < scopedTasks.length - 1} onMove={(direction) => onMoveTask(selectedTask.id, scopedTasks.map((task) => task.id), direction)} />}
             </>}
           </section>
         </div>

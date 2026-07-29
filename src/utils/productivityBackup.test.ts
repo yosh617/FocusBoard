@@ -18,6 +18,7 @@ describe("productivityBackup", () => {
     const backup = createProductivityBackup([task], [project], [session]);
     expect(parseProductivityBackup({ ...backup, tasks: [task, task] })).toBeNull();
     expect(parseProductivityBackup({ ...backup, tasks: [{ ...task, projectId: "missing" }] })).toBeNull();
+    expect(parseProductivityBackup({ ...backup, tasks: [{ ...task, parentTaskId: "task-2" }, { ...task, id: "task-2", parentTaskId: task.id }] })).toBeNull();
     expect(parseProductivityBackup({ ...backup, sessions: [{ ...session, focusedDurationMs: -1 }] })).toBeNull();
   });
 });

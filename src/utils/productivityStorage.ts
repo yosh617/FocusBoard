@@ -115,6 +115,29 @@ export async function saveProductivityRecords(records: { tasks?: TaskRecord[]; p
   }
 }
 
+export async function replaceProductivityData(records: { tasks: TaskRecord[]; projects: ProjectRecord[]; sessions: FocusSessionRecord[] }) {
+  const database = await openDatabase();
+  try {
+    const transaction = database.transaction([TASK_STORE, PROJECT_STORE, SESSION_STORE], "readwrite");
+    const done = transactionDone(transaction);
+    const taskStore = transaction.objectStore(TASK_STORE);
+    const projectStore = transaction.objectStore(PROJECT_STORE);
+    const sessionStore = transaction.objectStore(SESSION_STORE);
+    const requests: Promise<unknown>[] = [
+      requestResult(taskStore.clear()),
+      requestResult(projectStore.clear()),
+      requestResult(sessionStore.clear())
+    ];
+    for (const task of records.tasks) requests.push(requestResult(taskStore.put(task)));
+    for (const project of records.projects) requests.push(requestResult(projectStore.put(project)));
+    for (const session of records.sessions) requests.push(requestResult(sessionStore.put(session)));
+    await Promise.all(requests);
+    await done;
+  } finally {
+    database.close();
+  }
+}
+
 export async function loadProductivityData(): Promise<ProductivityData> {
   const database = await openDatabase();
   try {

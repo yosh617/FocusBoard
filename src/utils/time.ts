@@ -1,5 +1,5 @@
-import type { AppSettings } from "../types/settings";
-import type { TimerMode } from "../types/timer";
+import { defaultDateFormat, type AppSettings } from "../types/settings";
+import type { TimerMode, TimerState } from "../types/timer";
 
 export function formatClock(date: Date, settings: Pick<AppSettings, "showSeconds" | "use12Hour">) {
   const formatter = new Intl.DateTimeFormat("ja-JP", {
@@ -17,19 +17,61 @@ export function formatClock(date: Date, settings: Pick<AppSettings, "showSeconds
     .trim();
 }
 
-export function formatDate(date: Date) {
-  return new Intl.DateTimeFormat("ja-JP", {
+export function formatDate(date: Date, pattern = defaultDateFormat) {
+  const parts = new Intl.DateTimeFormat("ja-JP", {
     year: "numeric",
-    month: "long",
+    month: "numeric",
     day: "numeric",
     weekday: "long"
-  }).format(date);
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  const shortWeekday = new Intl.DateTimeFormat("ja-JP", { weekday: "short" }).format(date);
+  const tokens: [string, string][] = [
+    ["weekdayShort", shortWeekday],
+    ["weekday", values.weekday ?? ""],
+    ["yyyy", values.year ?? ""],
+    ["yy", (values.year ?? "").slice(-2)],
+    ["mm", (values.month ?? "").padStart(2, "0")],
+    ["m", values.month ?? ""],
+    ["dd", (values.day ?? "").padStart(2, "0")],
+    ["d", values.day ?? ""]
+  ];
+
+  return tokens.reduce((result, [token, value]) => result.replaceAll(token, value), pattern);
 }
 
 export function formatDuration(milliseconds: number) {
   const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
   const minutes = Math.floor(totalSeconds / 60);
   return `${String(minutes).padStart(2, "0")}:${String(totalSeconds % 60).padStart(2, "0")}`;
+}
+
+export function getTimerElapsedMs(timer: Pick<TimerState, "program" | "status" | "durationMs" | "remainingMs" | "endAt">, now = Date.now()) {
+  if (timer.program === "countup") {
+    return timer.status === "running" && timer.endAt !== null
+      ? Math.max(0, now - timer.endAt)
+      : Math.max(0, timer.remainingMs);
+  }
+  if (timer.status === "overtime") return timer.durationMs + getTimerOvertimeMs(timer, now);
+  return Math.max(0, timer.durationMs - timer.remainingMs);
+}
+
+export function getTimerOvertimeMs(timer: Pick<TimerState, "status" | "remainingMs" | "endAt">, now = Date.now()) {
+  if (timer.status !== "overtime") return 0;
+  return Math.max(0, timer.remainingMs, timer.endAt === null ? 0 : now - timer.endAt);
+}
+
+export function getCountupLap(elapsedMs: number, durationMs: number) {
+  return durationMs > 0 ? Math.floor(Math.max(0, elapsedMs) / durationMs) + 1 : 1;
+}
+
+export function getTimerProgress(timer: Pick<TimerState, "program" | "status" | "durationMs" | "remainingMs" | "endAt">, now = Date.now()) {
+  if (timer.durationMs <= 0) return 0;
+  const elapsedMs = getTimerElapsedMs(timer, now);
+  if (timer.status === "overtime") return 1;
+  return timer.program === "countup"
+    ? (elapsedMs % timer.durationMs) / timer.durationMs
+    : Math.min(1, elapsedMs / timer.durationMs);
 }
 
 export function getDurationMs(mode: TimerMode, settings: AppSettings) {

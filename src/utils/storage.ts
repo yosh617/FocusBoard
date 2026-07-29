@@ -1,4 +1,22 @@
-import { backgroundChoices, colorPresets, defaultSettings, fontOptions, positionPresets, type AppSettings, type BackgroundChoice, type ClockDateAlignment, type ColorPreset, type PositionPreset } from "../types/settings";
+import {
+  backgroundChoices,
+  colorPresets,
+  defaultSettings,
+  fontOptions,
+  isDateFormat,
+  orientations,
+  positionPresets,
+  type AppSettings,
+  type BackgroundChoice,
+  type BackgroundFrames,
+  type ClockBackgroundSettings,
+  type ClockDateAlignment,
+  type ColorPreset,
+  type Orientation,
+  type OrientationPositions,
+  type OrientationPositionPresets,
+  type PositionPreset
+} from "../types/settings";
 import type { SessionCategory, TimerMode, TimerProgram, TimerState, TimerStatus } from "../types/timer";
 import { BACKGROUND_DB_NAME } from "./backgroundStorage";
 import { PRODUCTIVITY_DB_NAME } from "./productivityStorage";
@@ -14,6 +32,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const booleanValue = (value: unknown, fallback: boolean) => typeof value === "boolean" ? value : fallback;
 const numberValue = (value: unknown, fallback: number, min: number, max: number) =>
   typeof value === "number" && Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
+const colorValue = (value: unknown, fallback: string) => /^#[0-9a-f]{6}$/i.test(String(value)) ? String(value) : fallback;
 const isPosition = (value: unknown): value is PositionPreset =>
   typeof value === "string" && (positionPresets as readonly string[]).includes(value);
 const isBackgroundChoice = (value: unknown): value is BackgroundChoice =>
@@ -25,16 +44,113 @@ const isColorPreset = (value: unknown): value is ColorPreset =>
 const isAlignment = (value: unknown): value is ClockDateAlignment =>
   value === "left" || value === "center" || value === "right";
 
+const readHiddenBackgroundIds = (value: unknown) => {
+  if (!Array.isArray(value)) return [...defaultSettings.hiddenBackgroundIds];
+  return [...new Set(value.filter((id): id is string => typeof id === "string" && /^[a-zA-Z0-9_-]+$/.test(id)))];
+};
+
+const readBackgroundFrames = (value: unknown): BackgroundFrames => {
+  if (!isRecord(value)) return {};
+  return Object.fromEntries(Object.entries(value).flatMap(([id, frame]) => {
+    if (id === "slideshow" || !isBackgroundChoice(id) || !isRecord(frame) || !isRecord(frame.position)) return [];
+    return [[id, {
+      scale: numberValue(frame.scale, defaultSettings.backgroundScale, 100, 220),
+      position: {
+        x: numberValue(frame.position.x, defaultSettings.backgroundPosition.x, 0, 1),
+        y: numberValue(frame.position.y, defaultSettings.backgroundPosition.y, 0, 1)
+      }
+    }]];
+  }));
+};
+
+const readOrientationPositions = (
+  value: unknown,
+  fallback: OrientationPositions,
+  minX: number,
+  maxX: number,
+  minY: number,
+  maxY: number
+): OrientationPositions => {
+  const record = isRecord(value) ? value : {};
+  return Object.fromEntries(orientations.map((orientation) => {
+    const saved = isRecord(record[orientation]) ? record[orientation] : record;
+    return [orientation, {
+      x: numberValue(saved.x, fallback[orientation].x, minX, maxX),
+      y: numberValue(saved.y, fallback[orientation].y, minY, maxY)
+    }];
+  })) as OrientationPositions;
+};
+
+const readClockBackgroundSettings = (
+  value: unknown,
+  fallback: { positions: OrientationPositions; color: string; matchColors: boolean }
+): ClockBackgroundSettings => {
+  if (!isRecord(value)) return {};
+  return Object.fromEntries(Object.entries(value).flatMap(([id, setting]) => {
+    if (id === "slideshow" || !isBackgroundChoice(id) || !isRecord(setting)) return [];
+    const legacyPosition = isRecord(setting.position) ? setting.position : undefined;
+    return [[id, {
+      positions: readOrientationPositions(setting.positions ?? legacyPosition, fallback.positions, .06, .94, .08, .92),
+      color: colorValue(setting.color, fallback.color),
+      matchColors: booleanValue(setting.matchColors, fallback.matchColors)
+    }]];
+  })) as ClockBackgroundSettings;
+};
+
 export function migrateSettings(value: unknown): AppSettings {
-  if (!isRecord(value) || value.version !== 1) return { ...defaultSettings };
+  if (!isRecord(value) || (value.version !== 1 && value.version !== 2)) return { ...defaultSettings };
   const isLegacyTheme = !("backgroundChoice" in value);
-  const isLegacyLayout = value.uiRevision !== 3;
+  const isLegacyLayout = value.version === 1 || (value.uiRevision !== 4 && value.uiRevision !== 5);
   const savedClockDatePosition = isRecord(value.clockDatePosition) ? value.clockDatePosition : {};
   const savedBackgroundPosition = isRecord(value.backgroundPosition) ? value.backgroundPosition : {};
+  const sharedColor = colorValue(value.color, colorValue(value.textColor, defaultSettings.clockColor));
+  const savedClockColor = colorValue(value.clockColor, sharedColor);
+  const savedTimerColor = colorValue(value.timerColor, colorValue(value.accentColor, ""));
+  const resolvedTimerColor = savedTimerColor === "" ? ("color" in value || "textColor" in value ? sharedColor : defaultSettings.timerColor) : savedTimerColor;
+  const legacyAutoColors = booleanValue(value.matchBackgroundColors, defaultSettings.matchBackgroundColors);
+  const savedClockAutoColors = booleanValue(value.matchClockBackgroundColors, legacyAutoColors);
+  const legacyClockPosition = {
+    x: numberValue(savedClockDatePosition.x, defaultSettings.clockDatePosition.x, .06, .94),
+    y: numberValue(savedClockDatePosition.y, defaultSettings.clockDatePosition.y, .08, .92)
+  };
+  const legacyClockPositions: OrientationPositions = { portrait: legacyClockPosition, landscape: legacyClockPosition };
+  const legacyClockBackgroundSettings: ClockBackgroundSettings = {};
+  if (isLegacyLayout || !("clockBackgroundSettings" in value)) {
+    const ids = new Set<string>(["bg1", "bg2", "bg3"]);
+    if (isBackgroundChoice(value.backgroundChoice) && value.backgroundChoice !== "slideshow") ids.add(value.backgroundChoice);
+    if (isRecord(value.backgroundFrames)) {
+      Object.keys(value.backgroundFrames).forEach((id) => {
+        if (isBackgroundChoice(id) && id !== "slideshow") ids.add(id);
+      });
+    }
+    ids.forEach((id) => {
+      legacyClockBackgroundSettings[id] = {
+        positions: legacyClockPositions,
+        color: savedClockColor,
+        matchColors: savedClockAutoColors
+      };
+    });
+  }
+
+  const clockBackgroundSettings = readClockBackgroundSettings(value.clockBackgroundSettings, {
+    positions: legacyClockPositions,
+    color: savedClockColor,
+    matchColors: savedClockAutoColors
+  });
+  const savedTimerPosition = isPosition(value.timerPosition) ? value.timerPosition : defaultSettings.timerPosition;
+  const savedTimerPositionsValue = isRecord(value.timerPositions) ? value.timerPositions : null;
+  const parsedTimerPositions = savedTimerPositionsValue
+    ? Object.fromEntries(orientations.map((orientation) => [orientation, isPosition(savedTimerPositionsValue[orientation]) ? savedTimerPositionsValue[orientation] : savedTimerPosition])) as OrientationPositionPresets
+    : { portrait: savedTimerPosition, landscape: savedTimerPosition };
+  const savedTimerPositions = savedTimerPosition !== defaultSettings.timerPosition
+    && parsedTimerPositions.portrait === defaultSettings.timerPositions.portrait
+    && parsedTimerPositions.landscape === defaultSettings.timerPositions.landscape
+    ? { portrait: savedTimerPosition, landscape: savedTimerPosition }
+    : parsedTimerPositions;
 
   return {
-    version: 1,
-    uiRevision: 3,
+    version: 2,
+    uiRevision: 5,
     showClock: booleanValue(value.showClock, defaultSettings.showClock),
     showDate: booleanValue(value.showDate, defaultSettings.showDate),
     showTimer: booleanValue(value.showTimer, defaultSettings.showTimer),
@@ -42,6 +158,7 @@ export function migrateSettings(value: unknown): AppSettings {
     timerSetupCollapsed: booleanValue(value.timerSetupCollapsed, defaultSettings.timerSetupCollapsed),
     showSeconds: booleanValue(value.showSeconds, defaultSettings.showSeconds),
     use12Hour: booleanValue(value.use12Hour, defaultSettings.use12Hour),
+    dateFormat: isDateFormat(value.dateFormat) ? value.dateFormat : defaultSettings.dateFormat,
     clockFontSize: isLegacyLayout ? defaultSettings.clockFontSize : numberValue(value.clockFontSize, defaultSettings.clockFontSize, 56, 220),
     dateFontSize: isLegacyLayout ? defaultSettings.dateFontSize : numberValue(value.dateFontSize, defaultSettings.dateFontSize, 16, 64),
     timerFontSize: isLegacyLayout ? defaultSettings.timerFontSize : numberValue(value.timerFontSize, defaultSettings.timerFontSize, 36, 120),
@@ -50,11 +167,13 @@ export function migrateSettings(value: unknown): AppSettings {
       ? value.fontFamily
       : defaultSettings.fontFamily,
     colorPreset: isColorPreset(value.colorPreset) ? value.colorPreset : defaultSettings.colorPreset,
-    textColor: isLegacyTheme && String(value.textColor).toLowerCase() === "#f8fafc"
-      ? defaultSettings.textColor
-      : /^#[0-9a-f]{6}$/i.test(String(value.textColor)) ? String(value.textColor) : defaultSettings.textColor,
-    accentColor: /^#[0-9a-f]{6}$/i.test(String(value.accentColor)) ? String(value.accentColor) : defaultSettings.accentColor,
-    matchBackgroundColors: booleanValue(value.matchBackgroundColors, defaultSettings.matchBackgroundColors),
+    clockColor: isLegacyTheme && savedClockColor.toLowerCase() === "#f8fafc" ? defaultSettings.clockColor : savedClockColor,
+    timerColor: resolvedTimerColor,
+    matchClockBackgroundColors: savedClockAutoColors,
+    matchTimerBackgroundColors: booleanValue(value.matchTimerBackgroundColors, legacyAutoColors),
+    textColor: savedClockColor,
+    accentColor: resolvedTimerColor,
+    matchBackgroundColors: legacyAutoColors,
     overlayOpacity: isLegacyTheme && value.overlayOpacity === 0.42
       ? defaultSettings.overlayOpacity
       : numberValue(value.overlayOpacity, defaultSettings.overlayOpacity, 0, 0.85),
@@ -63,15 +182,16 @@ export function migrateSettings(value: unknown): AppSettings {
       x: numberValue(savedBackgroundPosition.x, defaultSettings.backgroundPosition.x, 0, 1),
       y: numberValue(savedBackgroundPosition.y, defaultSettings.backgroundPosition.y, 0, 1)
     },
+    backgroundFrames: readBackgroundFrames(value.backgroundFrames),
+    clockBackgroundSettings: Object.keys(clockBackgroundSettings).length > 0 ? clockBackgroundSettings : legacyClockBackgroundSettings,
+    hiddenBackgroundIds: readHiddenBackgroundIds(value.hiddenBackgroundIds),
     slideshowIntervalSec: numberValue(value.slideshowIntervalSec, defaultSettings.slideshowIntervalSec, 10, 600),
     backgroundChoice: isBackgroundChoice(value.backgroundChoice) ? value.backgroundChoice : defaultSettings.backgroundChoice,
     clockPosition: isLegacyLayout ? defaultSettings.clockPosition : isPosition(value.clockPosition) ? value.clockPosition : defaultSettings.clockPosition,
     datePosition: isLegacyLayout ? defaultSettings.datePosition : isPosition(value.datePosition) ? value.datePosition : defaultSettings.datePosition,
-    timerPosition: isPosition(value.timerPosition) ? value.timerPosition : defaultSettings.timerPosition,
-    clockDatePosition: isLegacyLayout ? defaultSettings.clockDatePosition : {
-      x: numberValue(savedClockDatePosition.x, defaultSettings.clockDatePosition.x, .06, .94),
-      y: numberValue(savedClockDatePosition.y, defaultSettings.clockDatePosition.y, .08, .92)
-    },
+    timerPosition: savedTimerPosition,
+    timerPositions: savedTimerPositions,
+    clockDatePosition: legacyClockPosition,
     clockDateAlignment: isLegacyLayout ? defaultSettings.clockDateAlignment : isAlignment(value.clockDateAlignment) ? value.clockDateAlignment : defaultSettings.clockDateAlignment,
     workMinutes: numberValue(value.workMinutes, defaultSettings.workMinutes, 1, 180),
     shortBreakMinutes: numberValue(value.shortBreakMinutes, defaultSettings.shortBreakMinutes, 1, 60),
@@ -99,14 +219,15 @@ export function saveSettings(settings: AppSettings): boolean {
 }
 
 const timerModes: TimerMode[] = ["work", "shortBreak", "longBreak"];
-const timerStatuses: TimerStatus[] = ["idle", "running", "paused", "completed"];
+const timerStatuses: TimerStatus[] = ["idle", "running", "paused", "completed", "overtime"];
 const timerPrograms: TimerProgram[] = ["pomodoro", "countdown", "countup"];
 const sessionCategories: SessionCategory[] = ["focus", "break"];
 
-export function createInitialTimerState(workMinutes: number): TimerState {
+export function createInitialTimerState(workMinutes: number, orientation: Orientation = "portrait"): TimerState {
   const durationMs = workMinutes * 60_000;
+  const floatingPositions: OrientationPositions = { portrait: { x: 0.18, y: 0.38 }, landscape: { x: 0.18, y: 0.38 } };
   return {
-    version: 3,
+    version: 5,
     program: "pomodoro",
     mode: "work",
     category: "focus",
@@ -116,70 +237,78 @@ export function createInitialTimerState(workMinutes: number): TimerState {
     remainingMs: durationMs,
     endAt: null,
     completedWorkSessions: 0,
-    floatingPosition: { x: 0.18, y: 0.38 },
+    floatingPosition: floatingPositions[orientation],
+    floatingPositions,
     activeTaskId: null,
     activeSessionId: null,
     sessionStartedAt: null
   };
 }
 
-export function loadTimerState(workMinutes: number): TimerState {
+const readFloatingPositions = (value: unknown): OrientationPositions => {
+  const fallback: OrientationPositions = { portrait: { x: 0.18, y: 0.38 }, landscape: { x: 0.18, y: 0.38 } };
+  const record = isRecord(value) ? value : {};
+  return Object.fromEntries(orientations.map((orientation) => {
+    const position = isRecord(record[orientation]) ? record[orientation] : {};
+    return [orientation, {
+      x: numberValue(position.x, fallback[orientation].x, 0.06, 0.94),
+      y: numberValue(position.y, fallback[orientation].y, 0.08, 0.92)
+    }];
+  })) as OrientationPositions;
+};
+
+export function loadTimerState(workMinutes: number, orientation: Orientation = "portrait"): TimerState {
   try {
     const parsed: unknown = JSON.parse(localStorage.getItem(TIMER_KEY) ?? "null");
-    if (!isRecord(parsed) || (parsed.version !== 1 && parsed.version !== 2 && parsed.version !== 3)) return createInitialTimerState(workMinutes);
+    if (!isRecord(parsed) || !("version" in parsed)) return createInitialTimerState(workMinutes, orientation);
+    if (![1, 2, 3, 4, 5].includes(Number(parsed.version))) return createInitialTimerState(workMinutes, orientation);
     if (!timerModes.includes(parsed.mode as TimerMode) || !timerStatuses.includes(parsed.status as TimerStatus)) {
-      return createInitialTimerState(workMinutes);
-    }
-    const remainingMs = numberValue(parsed.remainingMs, workMinutes * 60_000, 0, 24 * 60 * 60_000);
-    const endAt = typeof parsed.endAt === "number" && Number.isFinite(parsed.endAt) ? parsed.endAt : null;
-    const status = parsed.status as TimerStatus;
-    if (parsed.version === 1) {
-      const mode = parsed.mode as TimerMode;
-      return {
-        ...createInitialTimerState(workMinutes),
-        program: "pomodoro",
-        mode,
-        category: mode === "work" ? "focus" : "break",
-        status: status === "running" && endAt === null ? "paused" : status,
-        durationMs: Math.max(remainingMs, workMinutes * 60_000),
-        remainingMs,
-        endAt,
-        completedWorkSessions: Math.floor(numberValue(parsed.completedWorkSessions, 0, 0, 9999))
-      };
+      return createInitialTimerState(workMinutes, orientation);
     }
 
+    const remainingMs = numberValue(parsed.remainingMs, workMinutes * 60_000, 0, 7 * 24 * 60 * 60_000);
+    const endAt = typeof parsed.endAt === "number" && Number.isFinite(parsed.endAt) ? parsed.endAt : null;
+    const status = parsed.status as TimerStatus;
     const program = timerPrograms.includes(parsed.program as TimerProgram) ? parsed.program as TimerProgram : "pomodoro";
     const category = sessionCategories.includes(parsed.category as SessionCategory) ? parsed.category as SessionCategory : "focus";
     const position = isRecord(parsed.floatingPosition) ? parsed.floatingPosition : {};
     const usesOldDefaultPosition = position.x === 0.84 && position.y === 0.22;
-    const activeTaskId = parsed.version === 3 && isEntityId(parsed.activeTaskId) ? parsed.activeTaskId : null;
-    const savedSessionId = parsed.version === 3 && isEntityId(parsed.activeSessionId) ? parsed.activeSessionId : null;
-    const savedSessionStartedAt = parsed.version === 3 && typeof parsed.sessionStartedAt === "number" && Number.isFinite(parsed.sessionStartedAt) && parsed.sessionStartedAt >= 0
+    const legacyPosition = {
+      x: usesOldDefaultPosition ? 0.18 : numberValue(position.x, 0.18, 0.06, 0.94),
+      y: usesOldDefaultPosition ? 0.38 : numberValue(position.y, 0.38, 0.08, 0.92)
+    };
+    const floatingPositions = Number(parsed.version) >= 4
+      ? readFloatingPositions(parsed.floatingPositions)
+      : { portrait: legacyPosition, landscape: legacyPosition };
+    const durationMs = numberValue(parsed.durationMs, workMinutes * 60_000, 60_000, 24 * 60 * 60_000);
+    const customDurationMs = numberValue(parsed.customDurationMs, 30 * 60_000, 60_000, 24 * 60 * 60_000);
+    const activeTaskId = isEntityId(parsed.activeTaskId) ? parsed.activeTaskId : null;
+    const savedSessionId = isEntityId(parsed.activeSessionId) ? parsed.activeSessionId : null;
+    const savedSessionStartedAt = typeof parsed.sessionStartedAt === "number" && Number.isFinite(parsed.sessionStartedAt) && parsed.sessionStartedAt >= 0
       ? parsed.sessionStartedAt
       : null;
     const activeSessionId = savedSessionId && savedSessionStartedAt !== null ? savedSessionId : null;
     const sessionStartedAt = activeSessionId ? savedSessionStartedAt : null;
+
     return {
-      version: 3,
+      version: 5,
       program,
       mode: parsed.mode as TimerMode,
       category,
       status: status === "running" && endAt === null ? "paused" : status,
-      durationMs: numberValue(parsed.durationMs, workMinutes * 60_000, 60_000, 24 * 60 * 60_000),
-      customDurationMs: numberValue(parsed.customDurationMs, 30 * 60_000, 60_000, 24 * 60 * 60_000),
+      durationMs,
+      customDurationMs,
       remainingMs,
       endAt,
       completedWorkSessions: Math.floor(numberValue(parsed.completedWorkSessions, 0, 0, 9999)),
-      floatingPosition: {
-        x: usesOldDefaultPosition ? 0.18 : numberValue(position.x, 0.18, 0.06, 0.94),
-        y: usesOldDefaultPosition ? 0.38 : numberValue(position.y, 0.38, 0.08, 0.92)
-      },
+      floatingPosition: floatingPositions[orientation],
+      floatingPositions,
       activeTaskId,
       activeSessionId,
       sessionStartedAt
     };
   } catch {
-    return createInitialTimerState(workMinutes);
+    return createInitialTimerState(workMinutes, orientation);
   }
 }
 
@@ -210,7 +339,7 @@ export async function clearAppIndexedDb() {
     for (const { name } of databases) if (name?.startsWith("focusboard")) names.add(name);
   }
   await Promise.all([...names].map((name) => new Promise<void>((resolve) => {
-      const request = indexedDB.deleteDatabase(name);
-      request.onsuccess = request.onerror = request.onblocked = () => resolve();
-    })));
+    const request = indexedDB.deleteDatabase(name);
+    request.onsuccess = request.onerror = request.onblocked = () => resolve();
+  })));
 }
