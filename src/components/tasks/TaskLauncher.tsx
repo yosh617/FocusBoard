@@ -3,6 +3,10 @@ import { forwardRef, useEffect, useRef, useState } from "react";
 type Props = {
   todayCount: number;
   activeTaskTitle: string | null;
+  suggestedTask: {
+    title: string;
+    detail: string;
+  } | null;
   timerSummary: {
     statusText: string;
     title: string;
@@ -11,14 +15,20 @@ type Props = {
   onClick: () => void;
 };
 
-export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLauncher({ todayCount, activeTaskTitle, timerSummary, onClick }, ref) {
-  const title = timerSummary?.title ?? activeTaskTitle ?? "今日のタスク";
-  const detail = timerSummary?.detail ?? (activeTaskTitle ? `今日の未完了 ${todayCount}件` : todayCount === 0 ? "今日の予定はありません" : `${todayCount}件を整理`);
-  const status = timerSummary?.statusText ?? (activeTaskTitle ? "集中中" : "今日のタスク");
+export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLauncher({ todayCount, activeTaskTitle, suggestedTask, timerSummary, onClick }, ref) {
+  const title = timerSummary?.title ?? activeTaskTitle ?? suggestedTask?.title ?? "今日のタスク";
+  const detail = timerSummary?.detail
+    ?? (activeTaskTitle
+      ? `今日の未完了 ${todayCount}件`
+      : suggestedTask?.detail
+        ?? (todayCount === 0 ? "今日の予定はありません" : `${todayCount}件を整理`));
+  const status = timerSummary?.statusText ?? (activeTaskTitle ? "集中中" : suggestedTask ? "次のおすすめ" : "今日のタスク");
   const isEmphasized = activeTaskTitle !== null || timerSummary !== null;
   const accessibleLabel = activeTaskTitle
     ? `タスクを開く。集中中のタスクは${activeTaskTitle}。今日の未完了は${todayCount}件`
-    : `タスクを開く。今日の未完了は${todayCount}件`;
+    : suggestedTask
+      ? `タスクを開く。次のおすすめは${suggestedTask.title}。今日の未完了は${todayCount}件`
+      : `タスクを開く。今日の未完了は${todayCount}件`;
   const [isDimmed, setIsDimmed] = useState(false);
   const dimTimeoutRef = useRef<number | null>(null);
 
