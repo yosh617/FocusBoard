@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { getAdaptivePalette, getStrongAccent, sampleImageRgb } from "./adaptiveColor";
+import { getAdaptivePalette, getAdaptivePaletteFromSamples, getReadableTextColor, getReadableTextColorFromSamples, getStrongAccent, sampleImageRgb } from "./adaptiveColor";
 
 describe("adaptive background palette", () => {
   it("chooses dark text for a light background", () => {
@@ -8,6 +8,21 @@ describe("adaptive background palette", () => {
 
   it("chooses light text for a dark background", () => {
     expect(getAdaptivePalette({ r: 12, g: 20, b: 35 }, 0).text).toBe("#f7fbff");
+  });
+
+  it("prioritizes the weakest contrast in a mixed-brightness display region", () => {
+    const samples = [
+      ...Array.from({ length: 7 }, () => ({ r: 12, g: 20, b: 35 })),
+      ...Array.from({ length: 3 }, () => ({ r: 242, g: 245, b: 250 }))
+    ];
+    expect(["#000000", "#ffffff"]).not.toContain(getReadableTextColorFromSamples(samples));
+    expect(["#000000", "#ffffff"]).not.toContain(getAdaptivePaletteFromSamples(samples, 0).text);
+  });
+
+  it("falls back to a stronger neutral when neither theme text color is readable enough", () => {
+    const color = getReadableTextColor({ r: 117, g: 117, b: 117 });
+    expect(color).toBe("#f7fbff");
+    expect(["#000000", "#ffffff"]).not.toContain(color);
   });
 
   it("derives the accent hue from the background", () => {

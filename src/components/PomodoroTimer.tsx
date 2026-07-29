@@ -9,9 +9,9 @@ type Props = {
   onSelectProgram: (program: TimerProgram) => void;
   onSelectCategory: (category: SessionCategory) => void;
   onSetDuration: (minutes: number) => void;
-  onReset?: () => void;
+  onReset: () => void;
   onCollapse: () => void;
-  onShowFloating?: () => void;
+  onShowFloating: () => void;
 };
 
 const modes: TimerMode[] = ["work", "shortBreak", "longBreak"];

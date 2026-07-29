@@ -33,6 +33,22 @@ export function useCustomBackgrounds() {
     };
   }, []);
 
+  const removeBackground = useCallback(async (id: string) => {
+    try {
+      await deleteStoredBackground(id);
+      setBackgrounds((current) => {
+        const target = current.find((background) => background.id === id);
+        if (target) URL.revokeObjectURL(target.url);
+        return current.filter((background) => background.id !== id);
+      });
+      setMessage("背景画像を削除しました。");
+      return true;
+    } catch {
+      setMessage("背景画像を削除できませんでした。");
+      return false;
+    }
+  }, []);
+
   const addBackgrounds = useCallback(async (files: File[]) => {
     try {
       validateBackgroundFiles(files, backgroundsRef.current.length);
@@ -54,22 +70,6 @@ export function useCustomBackgrounds() {
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "背景画像を追加できませんでした。");
       return [];
-    }
-  }, []);
-
-  const removeBackground = useCallback(async (id: string) => {
-    try {
-      await deleteStoredBackground(id);
-      setBackgrounds((current) => {
-        const target = current.find((background) => background.id === id);
-        if (target) URL.revokeObjectURL(target.url);
-        return current.filter((background) => background.id !== id);
-      });
-      setMessage("背景画像を削除しました。");
-      return true;
-    } catch {
-      setMessage("背景画像を削除できませんでした。");
-      return false;
     }
   }, []);
 

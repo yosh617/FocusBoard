@@ -11,13 +11,19 @@ describe("settings storage", () => {
   });
 
   it("validates and clamps persisted fields", () => {
-    const result = migrateSettings({ ...defaultSettings, clockFontSize: 999, overlayOpacity: -1, timerBackgroundOpacity: .1, textColor: "red", accentColor: "blue", colorPreset: "neon" });
+    const result = migrateSettings({ ...defaultSettings, clockFontSize: 999, overlayOpacity: -1, timerBackgroundOpacity: .1, clockColor: "red", timerColor: "blue", colorPreset: "neon" });
     expect(result.clockFontSize).toBe(220);
     expect(result.overlayOpacity).toBe(0);
-    expect(result.textColor).toBe(defaultSettings.textColor);
-    expect(result.accentColor).toBe(defaultSettings.accentColor);
+    expect(result.clockColor).toBe(defaultSettings.clockColor);
+    expect(result.timerColor).toBe(defaultSettings.timerColor);
     expect(result.colorPreset).toBe(defaultSettings.colorPreset);
     expect(result.timerBackgroundOpacity).toBe(.6);
+  });
+
+  it("validates hidden background ids while keeping legacy settings compatible", () => {
+    const result = migrateSettings({ ...defaultSettings, hiddenBackgroundIds: ["custom-1", "custom-1", 42, "bad id"] });
+    expect(result.hiddenBackgroundIds).toEqual(["custom-1"]);
+    expect(migrateSettings({ ...defaultSettings, hiddenBackgroundIds: undefined }).hiddenBackgroundIds).toEqual([]);
   });
 
   it("keeps the fullscreen setting backward compatible", () => {
@@ -32,13 +38,107 @@ describe("settings storage", () => {
     expect(result.backgroundPosition).toEqual({ x: 0, y: 1 });
   });
 
+  it("validates per-image framing settings", () => {
+    const result = migrateSettings({
+      ...defaultSettings,
+      backgroundFrames: {
+        bg2: { scale: 999, position: { x: -1, y: 2 } },
+        slideshow: { scale: 150, position: { x: .5, y: .5 } },
+        unknown: { scale: 150, position: { x: .5, y: .5 } }
+      }
+    });
+    expect(result.backgroundFrames.bg2).toEqual({ scale: 220, position: { x: 0, y: 1 } });
+    expect(result.backgroundFrames.slideshow).toBeUndefined();
+    expect(result.backgroundFrames.unknown).toBeUndefined();
+  });
+
+  it("falls back to the default date format when a saved format is invalid", () => {
+    const result = migrateSettings({ ...defaultSettings, dateFormat: "<script>" });
+    expect(result.dateFormat).toBe(defaultSettings.dateFormat);
+  });
+
   it("migrates the previous dark default to the pastel theme", () => {
     const legacy = { ...defaultSettings, textColor: "#f8fafc", overlayOpacity: 0.42 } as Record<string, unknown>;
     delete legacy.backgroundChoice;
     const result = migrateSettings(legacy);
-    expect(result.textColor).toBe(defaultSettings.textColor);
+    expect(result.clockColor).toBe(defaultSettings.clockColor);
     expect(result.overlayOpacity).toBe(defaultSettings.overlayOpacity);
     expect(result.backgroundChoice).toBe("slideshow");
+  });
+
+  it("migrates legacy text and accent colors into separate colors", () => {
+    const legacy = { ...defaultSettings, textColor: "#112233", accentColor: "#aabbcc" } as Record<string, unknown>;
+    Reflect.deleteProperty(legacy, "clockColor");
+    Reflect.deleteProperty(legacy, "timerColor");
+    const result = migrateSettings(legacy);
+    expect(result.clockColor).toBe("#112233");
+    expect(result.timerColor).toBe("#aabbcc");
+  });
+
+  it("migrates the old shared color and clock position into each known background", () => {
+    const legacy = {
+      version: 1,
+      uiRevision: 3,
+      textColor: "#112233",
+      clockDatePosition: { x: .2, y: .8 },
+      timerPosition: "top-right"
+    };
+    const result = migrateSettings(legacy);
+    expect(result.version).toBe(2);
+    expect(result.clockColor).toBe("#112233");
+    expect(result.timerColor).toBe("#112233");
+    expect(result.matchBackgroundColors).toBe(false);
+    expect(result.clockBackgroundSettings.bg1).toEqual({ positions: { portrait: { x: .2, y: .8 }, landscape: { x: .2, y: .8 } }, color: "#112233", matchColors: false });
+    expect(result.clockBackgroundSettings.bg3).toEqual({ positions: { portrait: { x: .2, y: .8 }, landscape: { x: .2, y: .8 } }, color: "#112233", matchColors: false });
+    expect(result.timerPosition).toBe("top-right");
+  });
+
+  it("preserves the shared auto-color switch while migrating", () => {
+    const result = migrateSettings({ version: 1, uiRevision: 3, matchBackgroundColors: true, textColor: "#445566" });
+    expect(result.matchBackgroundColors).toBe(true);
+    expect(result.matchClockBackgroundColors).toBe(true);
+    expect(result.matchTimerBackgroundColors).toBe(true);
+    expect(result.clockBackgroundSettings.bg2.color).toBe("#445566");
+    expect(result.timerColor).toBe("#445566");
+  });
+
+  it("preserves independent auto-color switches in the new format", () => {
+    const result = migrateSettings({ ...defaultSettings, matchClockBackgroundColors: true, matchTimerBackgroundColors: false, matchBackgroundColors: true });
+    expect(result.matchClockBackgroundColors).toBe(true);
+    expect(result.matchTimerBackgroundColors).toBe(false);
+  });
+
+  it("migrates the per-background auto-color switch from the shared setting", () => {
+    const result = migrateSettings({
+      ...defaultSettings,
+      matchClockBackgroundColors: false,
+      clockBackgroundSettings: {
+        bg1: { position: defaultSettings.clockDatePosition, color: "#112233" }
+      }
+    });
+    expect(result.clockBackgroundSettings.bg1.matchColors).toBe(false);
+  });
+
+  it("keeps separate clock positions for each orientation", () => {
+    const result = migrateSettings({
+      ...defaultSettings,
+      clockBackgroundSettings: {
+        bg1: {
+          positions: {
+            portrait: { x: .12, y: .22 },
+            landscape: { x: .78, y: .68 }
+          },
+          color: "#112233",
+          matchColors: false
+        }
+      },
+      timerPositions: { portrait: "bottom-left", landscape: "top-right" }
+    });
+    expect(result.clockBackgroundSettings.bg1.positions).toEqual({
+      portrait: { x: .12, y: .22 },
+      landscape: { x: .78, y: .68 }
+    });
+    expect(result.timerPositions).toEqual({ portrait: "bottom-left", landscape: "top-right" });
   });
 
   it("migrates legacy layouts and validates free clock positions", () => {
@@ -81,55 +181,26 @@ describe("timer storage", () => {
     expect(loadTimerState(25).status).toBe("paused");
   });
 
-  it("migrates version 2 timers to the unified version 5 state without losing elapsed state", () => {
+  it("migrates the old count-up representation to a continuing timer", () => {
     localStorage.setItem(TIMER_KEY, JSON.stringify({
-      version: 2,
-      program: "countdown",
-      mode: "work",
-      category: "focus",
-      status: "paused",
-      durationMs: 600_000,
-      customDurationMs: 600_000,
-      remainingMs: 420_000,
-      endAt: null,
-      completedWorkSessions: 2,
-      floatingPosition: { x: .3, y: .4 }
-    }));
-    expect(loadTimerState(25)).toMatchObject({
-      version: 5,
-      program: "countdown",
-      remainingMs: 420_000,
-      completedWorkSessions: 2,
-      activeTaskId: null,
-      activeSessionId: null,
-      sessionStartedAt: null,
-      floatingPositions: {
-        portrait: { x: .3, y: .4 },
-        landscape: { x: .3, y: .4 }
-      }
-    });
-  });
-
-  it("keeps a valid active task session and drops incomplete session metadata", () => {
-    const base = {
       version: 3,
-      program: "pomodoro",
+      program: "countup",
       mode: "work",
       category: "focus",
       status: "paused",
-      durationMs: 1_500_000,
-      customDurationMs: 1_800_000,
-      remainingMs: 1_200_000,
+      durationMs: 60_000,
+      customDurationMs: 60_000,
+      remainingMs: 15_000,
       endAt: null,
       completedWorkSessions: 0,
-      floatingPosition: { x: .3, y: .4 },
-      activeTaskId: "task-1",
-      activeSessionId: "session-1",
-      sessionStartedAt: 100
-    };
-    localStorage.setItem(TIMER_KEY, JSON.stringify(base));
-    expect(loadTimerState(25)).toMatchObject({ activeTaskId: "task-1", activeSessionId: "session-1", sessionStartedAt: 100 });
-    localStorage.setItem(TIMER_KEY, JSON.stringify({ ...base, sessionStartedAt: null }));
-    expect(loadTimerState(25)).toMatchObject({ activeTaskId: "task-1", activeSessionId: null, sessionStartedAt: null });
+      floatingPosition: { x: .18, y: .38 },
+      floatingPositions: { portrait: { x: .18, y: .38 }, landscape: { x: .18, y: .38 } }
+    }));
+
+    const timer = loadTimerState(25);
+    expect(timer.version).toBe(4);
+    expect(timer.program).toBe("countup");
+    expect(timer.remainingMs).toBe(45_000);
+    expect(timer.status).toBe("paused");
   });
 });

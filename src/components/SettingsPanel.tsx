@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { colorPresets, dateFormatPresets, defaultSettings, describeFontSize, fontOptions, orientations, settingRanges, type AppSettings, type BackgroundChoice, type BackgroundFrame, type ColorPreset, type FontOption, type Orientation, type PositionPreset } from "../types/settings";
+import { colorPresets, dateFormatPresets, defaultSettings, describeFontSize, fontOptions, orientations, positionPresets, settingRanges, type AppSettings, type BackgroundChoice, type BackgroundFrame, type ColorPreset, type FontOption, type Orientation, type PositionPreset } from "../types/settings";
 import type { CustomBackground } from "../utils/backgroundStorage";
 import { MAX_BACKGROUND_FILE_SIZE, MAX_CUSTOM_BACKGROUNDS } from "../utils/backgroundStorage";
 import { defaultBackgrounds } from "./BackgroundSlideshow";
@@ -12,31 +12,18 @@ type Category = "background" | "display" | "timer" | "data";
 type ResettableCategory = Exclude<Category, "data">;
 type BackgroundFrameTarget = Exclude<BackgroundChoice, "slideshow">;
 type Props = {
-  open: boolean;
-  settings: AppSettings;
-  saveState: "saved" | "saving" | "failed";
+  open: boolean; settings: AppSettings; saveState: "saved" | "saving" | "failed";
   orientation: Orientation;
-  onChange: (patch: Partial<AppSettings>) => void;
-  onUndo: () => boolean;
-  onClose: () => void;
-  fullscreenSupported: boolean;
-  onFullscreenToggle: (enabled: boolean) => Promise<void>;
-  onResetSettings: () => void;
-  onClearTimer: () => void;
-  onMessage: (message: string) => void;
-  onStartBackgroundEditing: () => void;
-  adaptivePalette: AdaptivePalette;
-  customBackgrounds: CustomBackground[];
-  onAddBackgrounds: (files: File[]) => Promise<CustomBackground[]>;
+  onChange: (patch: Partial<AppSettings>) => void; onUndo: () => boolean; onClose: () => void;
+  fullscreenSupported: boolean; onFullscreenToggle: (enabled: boolean) => Promise<void>;
+  onResetSettings: () => void; onClearTimer: () => void; onMessage: (message: string) => void; onStartBackgroundEditing: () => void; adaptivePalette: AdaptivePalette;
+  customBackgrounds: CustomBackground[]; onAddBackgrounds: (files: File[]) => Promise<CustomBackground[]>;
   onRemoveBackground: (id: string) => Promise<void>;
   onReorderBackgrounds: (ids: string[]) => Promise<void>;
 };
 
 const categories: { id: Category; label: string }[] = [
-  { id: "background", label: "背景" },
-  { id: "display", label: "表示" },
-  { id: "timer", label: "タイマー" },
-  { id: "data", label: "保存・リセット" }
+  { id: "background", label: "背景" }, { id: "display", label: "表示" }, { id: "timer", label: "タイマー" }, { id: "data", label: "保存・リセット" }
 ];
 const positionLabels: Record<PositionPreset, string> = {
   "top-left": "左上",
@@ -50,12 +37,7 @@ const positionLabels: Record<PositionPreset, string> = {
   "bottom-right": "右下"
 };
 const positionGrid: PositionPreset[] = ["top-left", "top", "top-right", "left", "center", "right", "bottom-left", "bottom", "bottom-right"];
-const fonts: { value: FontOption; label: string }[] = [
-  { value: "system", label: "システム" },
-  { value: "rounded", label: "丸ゴシック" },
-  { value: "serif", label: "明朝" },
-  { value: "mono", label: "等幅" }
-];
+const fonts: { value: FontOption; label: string }[] = [{ value: "system", label: "システム" }, { value: "rounded", label: "丸ゴシック" }, { value: "serif", label: "明朝" }, { value: "mono", label: "等幅" }];
 const customDateFormatExample = "yyyy/mm/dd (weekdayShort)";
 const builtInBackgroundLabels = ["モーニング", "ラベンダー", "スカイ"];
 const orientationLabels: Record<Orientation, string> = { portrait: "縦向き", landscape: "横向き" };
@@ -70,11 +52,9 @@ function SettingsCategoryIcon({ category }: { category: Category }) {
 function Toggle({ id, label, checked, disabled = false, onChange }: { id: string; label: string; checked: boolean; disabled?: boolean; onChange: (value: boolean) => void }) {
   return <div className="setting-row"><label htmlFor={id}>{label}</label><input id={id} className="toggle" type="checkbox" checked={checked} disabled={disabled} onChange={(event) => onChange(event.target.checked)} /></div>;
 }
-
 function Disclosure({ label, children }: { label: string; children: ReactNode }) {
   return <details className="settings-disclosure"><summary>{label}</summary><div className="settings-disclosure__body">{children}</div></details>;
 }
-
 function Range({ id, label, value, min, max, step, unit, initial, formatValue, rangeText, onChange }: { id: string; label: string; value: number; min: number; max: number; step: number; unit: string; initial: number; formatValue?: (value: number) => string; rangeText?: string; onChange: (value: number) => void }) {
   const input = (next: string) => {
     const parsed = Number(next);
@@ -82,7 +62,6 @@ function Range({ id, label, value, min, max, step, unit, initial, formatValue, r
   };
   return <div className="setting-control range-control"><label htmlFor={id}>{label}<output>{formatValue ? formatValue(value) : `${value}${unit}`}</output></label><div className="range-control__inputs"><input id={id} type="range" min={min} max={max} step={step} value={value} aria-valuemin={min} aria-valuemax={max} aria-valuenow={value} onChange={(event) => input(event.target.value)} /><input className="number-input" aria-label={`${label}の数値`} type="number" min={min} max={max} step={step} value={value} onChange={(event) => input(event.target.value)} />{unit && <span>{unit}</span>}<button type="button" className="reset-value" aria-label={`${label}を初期値に戻す`} onClick={() => onChange(initial)}>戻す</button></div><small>{rangeText ?? `範囲: ${min}〜${max}${unit}`}</small></div>;
 }
-
 function ColorSetting({ id, label, value, disabled, onChange }: { id: string; label: string; value: string; disabled: boolean; onChange: (value: string) => void }) {
   return <div className={`color-setting${disabled ? " color-setting--disabled" : ""}`}><div className="color-setting__heading"><label htmlFor={id}>{label}</label><output>{value.toUpperCase()}</output></div><input id={id} type="color" value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)} /></div>;
 }
@@ -108,7 +87,6 @@ function ClockColorChoices({ value, themeColor, backgroundImage, overlayOpacity,
     <Disclosure label="カラーコード（詳細）"><ColorSetting id="clock-color" label="時計・日付の色" value={value} disabled={false} onChange={onChange} /></Disclosure>
   </div>;
 }
-
 function PositionGrid({ label, value, onChange }: { label: string; value: PositionPreset; onChange: (value: PositionPreset) => void }) {
   const [focus, setFocus] = useState(value);
   return <div className="setting-control"><span className="setting-label">{label}</span><div className="position-grid" role="radiogroup" aria-label={label} onKeyDown={(event) => { const index = positionGrid.indexOf(focus); const movement = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : event.key === "ArrowDown" ? 3 : event.key === "ArrowUp" ? -3 : 0; if (!movement) return; event.preventDefault(); const next = positionGrid[(index + movement + 9) % 9]; setFocus(next); onChange(next); document.getElementById(`position-${next}`)?.focus(); }}>
@@ -143,11 +121,9 @@ function BackgroundSettings({ settings, frame, customBackgrounds, customSize, fr
   const hiddenBuiltInOptions = builtInOptions.filter((option) => hiddenBackgroundIds.has(option.value));
   const selectedOption = sourceOptions.find((option) => option.value === settings.backgroundChoice) ?? sourceOptions[0];
   const [frameSettingsOpen, setFrameSettingsOpen] = useState(settings.backgroundChoice !== "slideshow");
-
   useEffect(() => {
     if (settings.backgroundChoice !== "slideshow") setFrameSettingsOpen(true);
   }, [settings.backgroundChoice]);
-
   const selectBackground = (option: { value: BackgroundChoice }) => {
     if (option.value === "slideshow") {
       setFrameSettingsOpen(false);
@@ -190,7 +166,7 @@ function BackgroundSettings({ settings, frame, customBackgrounds, customSize, fr
       <input id="background-upload" className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={(event) => { void uploads(event.target.files); event.target.value = ""; }} />
       <p className="settings-help">JPEG、PNG、WebP、GIF。1枚 {(MAX_BACKGROUND_FILE_SIZE / 1024 / 1024).toFixed(0)}MB以下、最大{MAX_CUSTOM_BACKGROUNDS}枚。</p>
       {hiddenBuiltInOptions.length > 0 && <details className="background-library"><summary>非表示の初期画像を管理する</summary><p className="settings-help">非表示にした初期画像を再表示できます。</p><div className="background-manager" aria-label="非表示の初期画像">{hiddenBuiltInOptions.map((option) => <article className="background-manager__item--hidden" key={option.value}><span>{option.label}<small>非表示中</small></span><div><button type="button" aria-label={`${option.label}を表示`} onClick={() => setBackgroundVisibility(option.value, true)}>表示</button></div></article>)}</div></details>}
-      {customBackgrounds.length > 0 && <details className="background-library"><summary>追加画像を管理する</summary><p className="settings-help">{(customSize / 1024 / 1024).toFixed(1)}MB使用中。矢印で表示順を変更できます。</p><div className="background-manager" aria-label="追加した背景画像">{customBackgrounds.map((item, index) => <article key={item.id}><img src={item.url} alt="" /><span>{item.name}</span><div><button type="button" aria-label={`${item.name}を削除`} onClick={() => removeBackground(item.id, item.name)}>削除</button><button type="button" aria-label={`${item.name}を前へ`} disabled={index === 0} onClick={() => move(index, -1)}>↑</button><button type="button" aria-label={`${item.name}を後へ`} disabled={index === customBackgrounds.length - 1} onClick={() => move(index, 1)}>↓</button></div></article>)}</div></details>}
+      {customBackgrounds.length > 0 && <details className="background-library"><summary>追加画像を管理する</summary><p className="settings-help">{(customSize / 1024 / 1024).toFixed(1)}MB使用中。矢印で表示順を変更できます。</p><div className="background-manager" aria-label="追加した背景画像">{customBackgrounds.map((item, index) => { return <article key={item.id}><img src={item.url} alt="" /><span>{item.name}</span><div><button type="button" aria-label={`${item.name}を削除`} onClick={() => removeBackground(item.id, item.name)}>削除</button><button type="button" aria-label={`${item.name}を前へ`} disabled={index === 0} onClick={() => move(index, -1)}>↑</button><button type="button" aria-label={`${item.name}を後へ`} disabled={index === customBackgrounds.length - 1} onClick={() => move(index, 1)}>↓</button></div></article>; })}</div></details>}
       {frameSettingsOpen && settings.backgroundChoice !== "slideshow" && <section id="background-frame-settings" className="background-frame-settings" aria-labelledby="background-frame-heading">
         <div className="background-frame-settings__heading"><div><h4 id="background-frame-heading">この背景を設定</h4><p>プレビューを見ながら、背景の位置と拡大を調整できます。</p></div></div>
         <div className="background-frame-current" aria-live="polite"><span className="background-frame-current__preview" style={{ backgroundImage: `url(${frameOptions.find((option) => option.value === frameTarget)?.imageUrl ?? frameOptions[0]?.imageUrl})` }} /><div><small>調整対象</small><strong>{frameOptions.find((option) => option.value === frameTarget)?.label ?? "モーニング"}</strong></div></div>
@@ -204,44 +180,10 @@ function BackgroundSettings({ settings, frame, customBackgrounds, customSize, fr
 }
 
 export function SettingsPanel({ open, settings, orientation, saveState, onChange: applySettings, onUndo, onClose, onStartBackgroundEditing, fullscreenSupported, onFullscreenToggle, onResetSettings, onClearTimer, onMessage, adaptivePalette, customBackgrounds, onAddBackgrounds, onRemoveBackground, onReorderBackgrounds }: Props) {
-  const drawerRef = useRef<HTMLElement>(null);
-  const closeRef = useRef<HTMLButtonElement>(null);
-  const [category, setCategory] = useState<Category>("background");
-  const [frameTarget, setFrameTarget] = useState<BackgroundFrameTarget>("bg1");
-  const [clockTarget, setClockTarget] = useState<BackgroundFrameTarget | "">("");
-  const [positionOrientation, setPositionOrientation] = useState<Orientation>(orientation);
-
-  useEffect(() => {
-    if (!open) return;
-    const previous = document.activeElement as HTMLElement | null;
-    closeRef.current?.focus();
-    const keys = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-      if (event.key !== "Tab" || !drawerRef.current) return;
-      const nodes = [...drawerRef.current.querySelectorAll<HTMLElement>("button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, a[href], [tabindex]:not([tabindex='-1'])")].filter((node) => !node.closest("details:not([open])"));
-      const first = nodes[0];
-      const last = nodes.at(-1);
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last?.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first?.focus();
-      }
-    };
-    document.addEventListener("keydown", keys);
-    return () => {
-      document.removeEventListener("keydown", keys);
-      previous?.focus();
-    };
-  }, [open, onClose]);
-
-  useEffect(() => {
-    if (settings.backgroundChoice !== "slideshow") setFrameTarget(settings.backgroundChoice);
-  }, [settings.backgroundChoice]);
-  useEffect(() => {
-    setClockTarget(settings.backgroundChoice === "slideshow" ? "" : settings.backgroundChoice);
-  }, [settings.backgroundChoice]);
+  const drawerRef = useRef<HTMLElement>(null); const closeRef = useRef<HTMLButtonElement>(null); const [category, setCategory] = useState<Category>("background"); const [frameTarget, setFrameTarget] = useState<BackgroundFrameTarget>("bg1"); const [clockTarget, setClockTarget] = useState<BackgroundFrameTarget | "">(""); const [positionOrientation, setPositionOrientation] = useState<Orientation>(orientation);
+  useEffect(() => { if (!open) return; const previous = document.activeElement as HTMLElement | null; closeRef.current?.focus(); const keys = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); if (event.key !== "Tab" || !drawerRef.current) return; const nodes = [...drawerRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, a[href], [tabindex]:not([tabindex="-1"])')].filter((node) => !node.closest("details:not([open])")); const first = nodes[0], last = nodes.at(-1); if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); } }; document.addEventListener("keydown", keys); return () => { document.removeEventListener("keydown", keys); previous?.focus(); }; }, [open, onClose]);
+  useEffect(() => { if (settings.backgroundChoice !== "slideshow") setFrameTarget(settings.backgroundChoice); }, [settings.backgroundChoice]);
+  useEffect(() => { setClockTarget(settings.backgroundChoice === "slideshow" ? "" : settings.backgroundChoice); }, [settings.backgroundChoice]);
   useEffect(() => {
     if (frameTarget.startsWith("custom:") && !customBackgrounds.some((item) => `custom:${item.id}` === frameTarget)) setFrameTarget("bg1");
   }, [customBackgrounds, frameTarget]);
@@ -249,25 +191,10 @@ export function SettingsPanel({ open, settings, orientation, saveState, onChange
     if (clockTarget.startsWith("custom:") && !customBackgrounds.some((item) => `custom:${item.id}` === clockTarget)) setClockTarget("");
   }, [customBackgrounds, clockTarget]);
   useEffect(() => setPositionOrientation(orientation), [orientation]);
-
   if (!open) return null;
-
-  const uploads = async (files: FileList | null) => {
-    if (!files?.length) return;
-    const created = await onAddBackgrounds([...files]);
-    if (created[0]) {
-      const target = `custom:${created[0].id}` as BackgroundFrameTarget;
-      setFrameTarget(target);
-      onChange({ backgroundChoice: target });
-    }
-  };
-  const resetSection = (patch: Partial<AppSettings>) => {
-    onChange(patch);
-    onMessage("この項目を初期値に戻しました。");
-  };
-  const exportSettings = () => {
-    onMessage(downloadSettingsExport(settings) ? "設定をJSONファイルに保存しました。" : "設定をエクスポートできませんでした。");
-  };
+  const uploads = async (files: FileList | null) => { if (!files?.length) return; const created = await onAddBackgrounds([...files]); if (created[0]) { const target = `custom:${created[0].id}` as BackgroundFrameTarget; setFrameTarget(target); onChange({ backgroundChoice: target }); } };
+  const resetSection = (patch: Partial<AppSettings>) => { onChange(patch); onMessage("この項目を初期値に戻しました。"); };
+  const exportSettings = () => { onMessage(downloadSettingsExport(settings) ? "設定をJSONファイルに保存しました。" : "設定をエクスポートできませんでした。"); };
   const customSize = customBackgrounds.reduce((total, item) => total + item.blob.size, 0);
   const frameOptions: BackgroundFrameOption[] = [
     ...builtInBackgroundLabels.map((label, index) => ({ value: `bg${index + 1}` as BackgroundFrameTarget, label, imageUrl: `${import.meta.env.BASE_URL}${defaultBackgrounds[index]}` })),
@@ -348,13 +275,7 @@ export function SettingsPanel({ open, settings, orientation, saveState, onChange
     }
     applySettings(patch);
   };
-  const move = (index: number, amount: number) => {
-    const next = [...customBackgrounds];
-    const target = index + amount;
-    if (target < 0 || target >= next.length) return;
-    [next[index], next[target]] = [next[target], next[index]];
-    void onReorderBackgrounds(next.map((item) => item.id));
-  };
+  const move = (index: number, amount: number) => { const next = [...customBackgrounds]; const target = index + amount; if (target < 0 || target >= next.length) return; [next[index], next[target]] = [next[target], next[index]]; void onReorderBackgrounds(next.map((item) => item.id)); };
   const sectionTitle = categories.find((item) => item.id === category)?.label;
 
   return <div className="drawer-backdrop" onPointerDown={(event) => event.target === event.currentTarget && onClose()}><aside className="settings-drawer" role="dialog" aria-modal="true" aria-labelledby="settings-title" ref={drawerRef}>

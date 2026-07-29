@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { BackgroundSlideshow } from "./components/BackgroundSlideshow";
 import { ClockWidget } from "./components/ClockWidget";
 import { PomodoroTimer } from "./components/PomodoroTimer";
@@ -13,42 +13,16 @@ import { usePomodoroTimer } from "./hooks/usePomodoroTimer";
 import { useCustomBackgrounds } from "./hooks/useCustomBackgrounds";
 import { useFullscreen } from "./hooks/useFullscreen";
 import { useOrientation } from "./hooks/useOrientation";
-import { useTasks } from "./hooks/useTasks";
-import { useTaskReminders } from "./hooks/useTaskReminders";
-import { colorPresets, fontOptions, positionPresets, type PositionPreset } from "./types/settings";
-import type { TimerSessionEvent } from "./types/timer";
+import { defaultSettings, fontOptions, positionPresets, type OrientationPositions, type PositionPreset } from "./types/settings";
 import { getAdaptivePalette, fallbackBackgroundRgb, getStrongAccent, type AdaptivePalette } from "./utils/adaptiveColor";
 import { toLocalDateKey } from "./utils/taskQueries";
+
+const settingsButtonDisplayMs = 2_500;
+const settingsButtonFadeMs = 280;
 
 export default function App() {
   const { settings, updateSettings, undoSettings, resetSettings, storageMessage, setStorageMessage, saveState } = useLocalStorageSettings();
   const orientation = useOrientation();
-  const {
-    tasks,
-    projects,
-    sessions,
-    loading: tasksLoading,
-    storageAvailable: taskStorageAvailable,
-    taskMessage,
-    setTaskMessage,
-    canUndo: canUndoTask,
-    addTask,
-    updateTask,
-    toggleTask,
-    archiveTask,
-    moveTask,
-    addProject,
-    archiveProject,
-    undo: undoTask,
-    recordTimerSession,
-    importProductivityBackup
-  } = useTasks();
-  const { reminderMessage, setReminderMessage, notificationPermission, requestNotificationPermission } = useTaskReminders(tasks);
-  const [completedSession, setCompletedSession] = useState<TimerSessionEvent | null>(null);
-  const handleSessionEnd = useCallback((event: TimerSessionEvent) => {
-    recordTimerSession(event);
-    if (event.result === "completed" && event.mode === "work" && event.taskId) setCompletedSession(event);
-  }, [recordTimerSession]);
   const {
     timer,
     announcement,
@@ -62,44 +36,84 @@ export default function App() {
     setCustomDurationMinutes,
     setFloatingPosition,
     clearTimer
-  } = usePomodoroTimer(settings, orientation, handleSessionEnd);
+  } = usePomodoroTimer(settings, orientation);
   const { backgrounds, addBackgrounds, removeBackground, reorderBackgrounds, backgroundMessage, setBackgroundMessage } = useCustomBackgrounds();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [tasksOpen, setTasksOpen] = useState(false);
   const [timerSetupVisible, setTimerSetupVisible] = useState(false);
-  const [settingsLauncherVisible, setSettingsLauncherVisible] = useState(false);
+  const [settingsButtonVisible, setSettingsButtonVisible] = useState(false);
+  const [settingsButtonFading, setSettingsButtonFading] = useState(false);
+  const [backgroundEditing, setBackgroundEditing] = useState(false);
+  const [activeBackgroundId, setActiveBackgroundId] = useState<string>(() => settings.backgroundChoice === "slideshow" ? "bg1" : settings.backgroundChoice);
   const [adaptivePalette, setAdaptivePalette] = useState<AdaptivePalette>(() => getAdaptivePalette(fallbackBackgroundRgb, settings.overlayOpacity));
-  const settingsButtonRef = useRef<HTMLButtonElement>(null);
-  const taskLauncherRef = useRef<HTMLButtonElement>(null);
-  const settingsLauncherTimeoutRef = useRef<number | null>(null);
+  const settingsButtonTimeoutRef = useRef<number | null>(null);
+  const settingsButtonFadeTimeoutRef = useRef<number | null>(null);
   const now = useClock(settings.showSeconds);
   const todayKey = toLocalDateKey(now);
   const activeTask = timer.activeTaskId ? tasks.find((task) => task.id === timer.activeTaskId) ?? null : null;
   const completedTask = completedSession?.taskId ? tasks.find((task) => task.id === completedSession.taskId) ?? null : null;
 
+  const activeClockSetting = settings.clockBackgroundSettings[activeBackgroundId] ?? {
+    positions: { portrait: defaultSettings.clockDatePosition, landscape: defaultSettings.clockDatePosition } satisfies OrientationPositions,
+    color: settings.clockColor,
+    matchColors: settings.matchClockBackgroundColors
+  };
+  const clockDisplaySettings = useMemo(() => ({ ...settings, clockDatePosition: activeClockSetting.positions[orientation], clockColor: activeClockSetting.color, matchClockBackgroundColors: activeClockSetting.matchColors }), [activeClockSetting.color, activeClockSetting.matchColors, activeClockSetting.positions, orientation, settings]);
+  const updateClockSettings = useCallback((patch: Partial<typeof settings>) => {
+    const updatesClockSetting = "clockDatePosition" in patch || "clockColor" in patch || "matchClockBackgroundColors" in patch;
+    if (!updatesClockSetting) {
+      updateSettings(patch);
+      return;
+    }
+    updateSettings((current) => {
+      const currentClock = current.clockBackgroundSettings[activeBackgroundId] ?? { positions: { portrait: defaultSettings.clockDatePosition, landscape: defaultSettings.clockDatePosition }, color: current.clockColor, matchColors: current.matchClockBackgroundColors };
+      const nextPosition = patch.clockDatePosition ?? currentClock.positions[orientation];
+      const nextColor = patch.clockColor ?? currentClock.color;
+      const nextMatchColors = patch.matchClockBackgroundColors ?? currentClock.matchColors;
+      return {
+        ...patch,
+        ...(patch.clockDatePosition ? { clockDatePosition: nextPosition } : {}),
+        ...(patch.clockColor ? { clockColor: nextColor } : {}),
+        ...(patch.matchClockBackgroundColors !== undefined ? { matchClockBackgroundColors: nextMatchColors } : {}),
+        clockBackgroundSettings: {
+          ...current.clockBackgroundSettings,
+          [activeBackgroundId]: { ...currentClock, positions: { ...currentClock.positions, [orientation]: nextPosition }, color: nextColor, matchColors: nextMatchColors }
+        }
+      };
+    });
+  }, [activeBackgroundId, orientation, updateSettings]);
+
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
-  const closeTasks = useCallback(() => {
-    setTasksOpen(false);
-    window.setTimeout(() => taskLauncherRef.current?.focus(), 0);
+  const hideSettingsButton = useCallback(() => {
+    if (settingsButtonTimeoutRef.current !== null) window.clearTimeout(settingsButtonTimeoutRef.current);
+    if (settingsButtonFadeTimeoutRef.current !== null) window.clearTimeout(settingsButtonFadeTimeoutRef.current);
+    settingsButtonTimeoutRef.current = null;
+    settingsButtonFadeTimeoutRef.current = null;
+    setSettingsButtonFading(false);
+    setSettingsButtonVisible(false);
   }, []);
-  const startTask = useCallback((taskId: string) => {
-    setTaskMessage("");
-    start(taskId);
-    setTasksOpen(false);
-  }, [setTaskMessage, start]);
-  const hideSettingsLauncher = useCallback(() => {
-    if (settingsLauncherTimeoutRef.current !== null) window.clearTimeout(settingsLauncherTimeoutRef.current);
-    settingsLauncherTimeoutRef.current = null;
-    setSettingsLauncherVisible(false);
-  }, []);
-  const showSettingsLauncher = useCallback(() => {
-    if (settingsLauncherTimeoutRef.current !== null) window.clearTimeout(settingsLauncherTimeoutRef.current);
-    setSettingsLauncherVisible(true);
-    settingsLauncherTimeoutRef.current = window.setTimeout(() => {
-      settingsLauncherTimeoutRef.current = null;
-      setSettingsLauncherVisible(false);
-    }, 4_500);
-  }, []);
+  const revealSettingsButton = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    if (settingsOpen || backgroundEditing || !(event.target instanceof Element)) return;
+    const interactiveTarget = event.target.closest("button, input, select, textarea, a, [role='dialog'], .clock-widget, .floating-timer, .timer-card");
+    if (interactiveTarget) return;
+    if (settingsButtonTimeoutRef.current !== null) window.clearTimeout(settingsButtonTimeoutRef.current);
+    if (settingsButtonFadeTimeoutRef.current !== null) window.clearTimeout(settingsButtonFadeTimeoutRef.current);
+    setSettingsButtonFading(false);
+    setSettingsButtonVisible(true);
+    settingsButtonFadeTimeoutRef.current = window.setTimeout(() => {
+      settingsButtonFadeTimeoutRef.current = null;
+      setSettingsButtonFading(true);
+    }, settingsButtonDisplayMs);
+    settingsButtonTimeoutRef.current = window.setTimeout(() => {
+      settingsButtonTimeoutRef.current = null;
+      setSettingsButtonFading(false);
+      setSettingsButtonVisible(false);
+    }, settingsButtonDisplayMs + settingsButtonFadeMs);
+  }, [backgroundEditing, settingsOpen]);
+  const startBackgroundEditing = useCallback(() => {
+    hideSettingsButton();
+    setSettingsOpen(false);
+    setBackgroundEditing(true);
+  }, [hideSettingsButton]);
   const showMessage = useCallback((message: string) => {
     setStorageMessage(message);
     setAnnouncement("");
@@ -126,23 +140,19 @@ export default function App() {
     updateSettings({ timerSetupCollapsed: true });
     start();
   }, [start, updateSettings]);
-
   const showTimerSetup = useCallback(() => {
     setTimerSetupVisible(true);
     updateSettings({ timerSetupCollapsed: false });
   }, [updateSettings]);
-
   const showFloatingTimer = useCallback(() => {
     setTimerSetupVisible(false);
     updateSettings({ timerSetupCollapsed: true });
   }, [updateSettings]);
-
   const resetTimer = useCallback(() => {
     reset();
     setTimerSetupVisible(false);
     updateSettings({ timerSetupCollapsed: false });
   }, [reset, updateSettings]);
-
   const endTimer = resetTimer;
 
   const slotContent = useMemo(() => {
@@ -164,18 +174,16 @@ export default function App() {
       />
     );
     return slots;
-  }, [orientation, settings, timer, timerSetupVisible, startTimer, resetTimer, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, showFloatingTimer, updateSettings]);
+  }, [orientation, settings, timer, timerSetupVisible, startTimer, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, showFloatingTimer, updateSettings]);
 
-  const liveMessage = reminderMessage || taskMessage || backgroundMessage || announcement || storageMessage;
-  const selectedPalette = settings.colorPreset === "custom"
-    ? { text: settings.textColor, accent: settings.accentColor, accentStrong: getStrongAccent(settings.accentColor) }
-    : colorPresets[settings.colorPreset];
-  const displayColor = settings.matchBackgroundColors ? adaptivePalette.text : selectedPalette.text;
+  const liveMessage = backgroundMessage || announcement || storageMessage;
+  const clockColor = activeClockSetting.matchColors ? adaptivePalette.text : activeClockSetting.color;
+  const timerColor = settings.matchTimerBackgroundColors ? adaptivePalette.accent : settings.timerColor;
   const appStyle = {
-    color: displayColor,
+    color: clockColor,
     fontFamily: fontOptions[settings.fontFamily as keyof typeof fontOptions] ?? fontOptions.system,
-    "--adaptive-accent": settings.matchBackgroundColors ? adaptivePalette.accent : selectedPalette.accent,
-    "--adaptive-accent-strong": settings.matchBackgroundColors ? adaptivePalette.accentStrong : selectedPalette.accentStrong,
+    "--timer-accent": timerColor,
+    "--timer-accent-strong": getStrongAccent(timerColor),
     "--timer-background-opacity": settings.timerBackgroundOpacity
   } as CSSProperties;
 
@@ -192,42 +200,56 @@ export default function App() {
   }, [liveMessage, setAnnouncement, setStorageMessage, setBackgroundMessage, setTaskMessage, setReminderMessage]);
 
   useEffect(() => () => {
-    if (settingsLauncherTimeoutRef.current !== null) window.clearTimeout(settingsLauncherTimeoutRef.current);
+    if (settingsButtonTimeoutRef.current !== null) window.clearTimeout(settingsButtonTimeoutRef.current);
+    if (settingsButtonFadeTimeoutRef.current !== null) window.clearTimeout(settingsButtonFadeTimeoutRef.current);
   }, []);
-
-  const handleShellPointerUp = (event: PointerEvent<HTMLElement>) => {
-    if (settingsOpen || tasksOpen || !(event.target instanceof Element)) return;
-    const interactiveTarget = event.target.closest("button, input, select, textarea, a, [role='dialog'], .clock-widget, .floating-timer, .timer-card");
-    if (!interactiveTarget) showSettingsLauncher();
-  };
 
   return (
     <main
-      className="app-shell"
+      className={`app-shell${backgroundEditing ? " app-shell--background-editing" : ""}`}
       style={appStyle}
-      onPointerUp={handleShellPointerUp}
+      onPointerUp={revealSettingsButton}
     >
       <BackgroundSlideshow
         intervalSec={settings.slideshowIntervalSec}
         overlayOpacity={settings.overlayOpacity}
         backgroundChoice={settings.backgroundChoice}
         customBackgrounds={backgrounds}
-        clockPosition={settings.clockDatePosition}
+        hiddenBackgroundIds={settings.hiddenBackgroundIds}
+        clockPosition={activeClockSetting.positions[orientation]}
+        clockFontSize={settings.clockFontSize}
+        dateFontSize={settings.dateFontSize}
+        showClock={settings.showClock}
+        showDate={settings.showDate}
+        showSeconds={settings.showSeconds}
+        dateFormat={settings.dateFormat}
         backgroundPosition={settings.backgroundPosition}
         backgroundScale={settings.backgroundScale}
+        backgroundFrames={settings.backgroundFrames}
+        editing={backgroundEditing}
+        onEditModeChange={setBackgroundEditing}
+        onFramePreview={() => undefined}
+        onFrameChange={(backgroundId, backgroundPosition, backgroundScale) => updateSettings((current) => ({
+          backgroundPosition,
+          backgroundScale,
+          backgroundFrames: {
+            ...current.backgroundFrames,
+            [backgroundId]: { position: backgroundPosition, scale: backgroundScale }
+          }
+        }))}
         onPaletteChange={setAdaptivePalette}
+        onActiveBackgroundChange={setActiveBackgroundId}
       />
       <div className={`dashboard${settings.showTimer && (timer.status === "idle" ? !settings.timerSetupCollapsed : timerSetupVisible) ? " dashboard--timer-setup" : ""}`} aria-label="FocusBoard ダッシュボード">
         {positionPresets.map((position) => (
           <div className={`slot slot--${position}`} key={position}>{slotContent[position]}</div>
         ))}
       </div>
-      {(settings.showClock || settings.showDate) && <ClockWidget now={now} settings={settings} textColor={displayColor} onChange={updateSettings} onMessage={showMessage} orientation={orientation} />}
+      {(settings.showClock || settings.showDate) && <ClockWidget now={now} settings={clockDisplaySettings} textColor={clockColor} onChange={updateClockSettings} onMessage={showMessage} orientation={orientation} />}
 
       {settings.showTimer && (timer.status !== "idle" || settings.timerSetupCollapsed) && !timerSetupVisible && (
         <FloatingTimer
           timer={timer}
-          taskTitle={activeTask?.title ?? null}
           onStart={startTimer}
           onPause={pause}
           onEnd={endTimer}
@@ -238,40 +260,24 @@ export default function App() {
       )}
 
       {liveMessage && <div className="toast" role="status" aria-live="polite">{liveMessage}</div>}
-      <TaskLauncher
-        todayCount={tasks.filter((task) => task.status === "open" && task.parentTaskId === null && task.dueDate !== null && task.dueDate <= todayKey).length}
-        onClick={() => {
-          setSettingsOpen(false);
-          setTasksOpen(true);
-        }}
-        ref={taskLauncherRef}
-      />
-      <button className="visually-hidden settings-reveal-shortcut" type="button" onClick={() => setSettingsOpen(true)}>設定を開く</button>
-      {settingsLauncherVisible && (
-        <button
-          className="settings-button"
-          type="button"
-          onClick={() => {
-            hideSettingsLauncher();
-            setSettingsOpen(true);
-          }}
-          ref={settingsButtonRef}
-        >
+      {settingsButtonVisible && <button className={`settings-button${settingsButtonFading ? " settings-button--fading" : ""}`} type="button" aria-label="設定" title="設定を開く" onClick={() => { hideSettingsButton(); setSettingsOpen(true); }}>
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 15.3a3.3 3.3 0 1 0 0-6.6 3.3 3.3 0 0 0 0 6.6Z" />
             <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" />
           </svg>
           <span>設定</span>
-        </button>
-      )}
+      </button>}
 
       <SettingsPanel
         open={settingsOpen}
         settings={settings}
+        orientation={orientation}
         saveState={saveState}
         onChange={updateSettings}
         onUndo={undoSettings}
         onClose={closeSettings}
+        onStartBackgroundEditing={startBackgroundEditing}
+        adaptivePalette={adaptivePalette}
         fullscreenSupported={fullscreenSupported}
         onFullscreenToggle={handleFullscreenToggle}
         onResetSettings={() => { resetSettings(); showMessage("設定を初期値に戻しました。"); }}
@@ -281,7 +287,10 @@ export default function App() {
         onAddBackgrounds={addBackgrounds}
         onRemoveBackground={async (id) => {
           const removed = await removeBackground(id);
-          if (removed && settings.backgroundChoice === `custom:${id}`) updateSettings({ backgroundChoice: "slideshow" });
+          if (removed) updateSettings((current) => ({
+            ...(current.backgroundChoice === `custom:${id}` ? { backgroundChoice: "slideshow" } : {}),
+            hiddenBackgroundIds: current.hiddenBackgroundIds.filter((hiddenId) => hiddenId !== id)
+          }));
         }}
         onReorderBackgrounds={reorderBackgrounds}
       />

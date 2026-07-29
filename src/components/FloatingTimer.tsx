@@ -17,7 +17,7 @@ type Props = {
 
 const programLabels = { pomodoro: "ポモドーロ", countdown: "カウントダウン", countup: "カウントアップ" } as const;
 
-export function FloatingTimer({ timer, taskTitle = null, onStart, onPause, onEnd, onShowSetup, onPositionChange, orientation }: Props) {
+export function FloatingTimer({ timer, onStart, onPause, onEnd, onShowSetup, onPositionChange, orientation }: Props) {
   const [isCompact, setIsCompact] = useState(false);
   const [position, setPosition] = useState(timer.floatingPosition);
   const positionRef = useRef(timer.floatingPosition);
@@ -99,7 +99,9 @@ export function FloatingTimer({ timer, taskTitle = null, onStart, onPause, onEnd
     dragRef.current = null;
     suppressClickRef.current = drag.moved || event.type === "pointercancel";
     if (event.type === "pointercancel") return;
-    if (drag.moved) onPositionChange(positionRef.current);
+    if (drag.moved) {
+      onPositionChange(positionRef.current);
+    }
   };
 
   const handleClick = (event: ReactMouseEvent<HTMLDivElement>) => {
@@ -126,6 +128,7 @@ export function FloatingTimer({ timer, taskTitle = null, onStart, onPause, onEnd
       setIsCompact(false);
       return;
     }
+
     const compactPosition = compactPositionRef.current;
     if (compactPosition && !movedWhileExpandedRef.current) {
       positionRef.current = compactPosition;
@@ -172,38 +175,37 @@ export function FloatingTimer({ timer, taskTitle = null, onStart, onPause, onEnd
             <strong>{formatDuration(displayMs)}</strong>
           </div>
         ) : (
-          <div className="floating-timer__content">
-            <span className="floating-timer__program">
-              {timer.program === "pomodoro"
-                ? `SESSION ${(timer.completedWorkSessions % 4) + 1} / 4`
-                : timer.program === "countup" ? `${countupLap}周目 · 目安 ${formatDuration(timer.durationMs)}` : programLabels[timer.program]}
-            </span>
-            {taskTitle && <span className="floating-timer__task" title={taskTitle}>{taskTitle}</span>}
-            <span className="floating-timer__session">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 8v4l3 2" /></svg>
-              {sessionLabel}
-            </span>
-            {statusText && <span className="floating-timer__status">{statusText}</span>}
-            <strong>{formatDuration(displayMs)}</strong>
-            <div className="floating-timer__controls" onPointerDown={(event) => event.stopPropagation()}>
-              {timer.status === "overtime" ? (
-                <button className="floating-timer__primary floating-timer__end" type="button" onClick={onEnd} aria-label="タイマーを終了" title="タイマーを終了">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1" /></svg>
+            <div className="floating-timer__content">
+              <span className="floating-timer__program">
+                {timer.program === "pomodoro"
+                  ? `SESSION ${(timer.completedWorkSessions % 4) + 1} / 4`
+                  : timer.program === "countup" ? `${countupLap}周目 · 目安 ${formatDuration(timer.durationMs)}` : programLabels[timer.program]}
+              </span>
+              <span className="floating-timer__session">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 8v4l3 2" /></svg>
+                {sessionLabel}
+              </span>
+              {statusText && <span className="floating-timer__status">{statusText}</span>}
+              <strong>{formatDuration(displayMs)}</strong>
+              <div className="floating-timer__controls" onPointerDown={(event) => event.stopPropagation()}>
+                {timer.status === "overtime" ? (
+                  <button className="floating-timer__primary floating-timer__end" type="button" onClick={onEnd} aria-label="タイマーを終了" title="タイマーを終了">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1" /></svg>
+                  </button>
+                ) : timer.status === "running" ? (
+                  <button className="floating-timer__primary" type="button" onClick={onPause} aria-label="一時停止" title="一時停止">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
+                  </button>
+                ) : timer.status !== "completed" ? (
+                  <button className="floating-timer__primary" type="button" onClick={onStart} aria-label={timer.status === "idle" ? "開始" : "再開"} title={timer.status === "idle" ? "開始" : "再開"}>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6V6Z" /></svg>
+                  </button>
+                ) : <span className="floating-timer__done">完了</span>}
+                <button type="button" onClick={onShowSetup} aria-label={returnToSetupLabel} title={returnToSetupLabel}>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 4v6M17 14v6M4 17h16" /></svg>
                 </button>
-              ) : timer.status === "running" ? (
-                <button className="floating-timer__primary" type="button" onClick={onPause} aria-label="一時停止" title="一時停止">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
-                </button>
-              ) : timer.status !== "completed" ? (
-                <button className="floating-timer__primary" type="button" onClick={onStart} aria-label={timer.status === "idle" ? "開始" : "再開"} title={timer.status === "idle" ? "開始" : "再開"}>
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6V6Z" /></svg>
-                </button>
-              ) : <span className="floating-timer__done">完了</span>}
-              <button type="button" onClick={onShowSetup} aria-label={returnToSetupLabel} title={returnToSetupLabel}>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 4v6M17 14v6M4 17h16" /></svg>
-              </button>
+              </div>
             </div>
-          </div>
         )}
       </div>
     </section>

@@ -1,7 +1,9 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defaultSettings } from "../types/settings";
+import type { Orientation } from "../types/settings";
 import { TIMER_KEY } from "../utils/storage";
+import { getCountupLap } from "../utils/time";
 import { usePomodoroTimer } from "./usePomodoroTimer";
 
 describe("usePomodoroTimer", () => {
@@ -13,7 +15,7 @@ describe("usePomodoroTimer", () => {
 
   afterEach(() => vi.useRealTimers());
 
-  it("uses endAt to restore elapsed time and selects a long break after four work sessions", async () => {
+  it("uses endAt to restore elapsed time and keeps the timer in overtime", async () => {
     localStorage.setItem(TIMER_KEY, JSON.stringify({
       version: 1,
       mode: "work",
@@ -27,10 +29,14 @@ describe("usePomodoroTimer", () => {
 
     await act(async () => { await vi.advanceTimersByTimeAsync(1_250); });
 
-    expect(result.current.timer.mode).toBe("longBreak");
-    expect(result.current.timer.status).toBe("paused");
-    expect(result.current.timer.completedWorkSessions).toBe(4);
-    expect(result.current.announcement).toContain("長い休憩");
+    expect(result.current.timer.mode).toBe("work");
+    expect(result.current.timer.status).toBe("overtime");
+    expect(result.current.timer.completedWorkSessions).toBe(3);
+    expect(result.current.timer.remainingMs).toBeGreaterThan(0);
+    expect(result.current.announcement).toContain("延長中");
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(2_000); });
+    expect(result.current.timer.remainingMs).toBeGreaterThan(2_000);
   });
 
   it("freezes remaining time when paused", () => {
@@ -51,7 +57,7 @@ describe("usePomodoroTimer", () => {
     expect(result.current.timer.status).toBe("idle");
   });
 
-  it("keeps a separate break count-up timer running past its configured duration", async () => {
+  it("keeps counting up and starts a new progress lap after its configured duration", async () => {
     const { result } = renderHook(() => usePomodoroTimer({ ...defaultSettings, soundEnabled: false }));
     act(() => {
       result.current.selectProgram("countup");
@@ -64,6 +70,7 @@ describe("usePomodoroTimer", () => {
     expect(result.current.timer.category).toBe("break");
     expect(result.current.timer.status).toBe("running");
     expect(result.current.timer.remainingMs).toBeGreaterThanOrEqual(60_000);
+    expect(getCountupLap(result.current.timer.remainingMs, result.current.timer.durationMs)).toBe(2);
     expect(result.current.announcement).toBe("");
   });
 
@@ -73,31 +80,13 @@ describe("usePomodoroTimer", () => {
     expect(result.current.timer.floatingPosition).toEqual({ x: 0.2, y: 0.7 });
   });
 
-  it("links a task to a completed work session and emits it once", async () => {
-    const onSessionEnd = vi.fn();
-    const settings = { ...defaultSettings, workMinutes: 1, soundEnabled: false };
-    const { result } = renderHook(() => usePomodoroTimer(settings, onSessionEnd));
-    act(() => result.current.start("task-1"));
-    expect(result.current.timer).toMatchObject({ activeTaskId: "task-1", status: "running" });
-    await act(async () => { await vi.advanceTimersByTimeAsync(60_250); });
-    expect(onSessionEnd).toHaveBeenCalledTimes(1);
-    expect(onSessionEnd).toHaveBeenCalledWith(expect.objectContaining({
-      taskId: "task-1",
-      mode: "work",
-      result: "completed",
-      plannedDurationMs: 60_000,
-      focusedDurationMs: 60_000
-    }));
-    expect(result.current.timer).toMatchObject({ mode: "shortBreak", activeTaskId: "task-1", activeSessionId: null });
-  });
-
-  it("records a reset running session as cancelled", () => {
-    const onSessionEnd = vi.fn();
-    const { result } = renderHook(() => usePomodoroTimer({ ...defaultSettings, soundEnabled: false }, onSessionEnd));
-    act(() => result.current.start("task-1"));
-    act(() => vi.advanceTimersByTime(5_000));
-    act(() => result.current.reset());
-    expect(onSessionEnd).toHaveBeenCalledWith(expect.objectContaining({ taskId: "task-1", result: "cancelled", focusedDurationMs: 5_000 }));
-    expect(result.current.timer).toMatchObject({ status: "idle", activeTaskId: null, activeSessionId: null });
+  it("restores a different floating position for each orientation", () => {
+    const { result, rerender } = renderHook(({ orientation }: { orientation: Orientation }) => usePomodoroTimer({ ...defaultSettings, soundEnabled: false }, orientation), { initialProps: { orientation: "portrait" as Orientation } });
+    act(() => result.current.setFloatingPosition({ x: 0.2, y: 0.7 }));
+    rerender({ orientation: "landscape" });
+    expect(result.current.timer.floatingPosition).toEqual({ x: 0.18, y: 0.38 });
+    act(() => result.current.setFloatingPosition({ x: 0.8, y: 0.25 }));
+    rerender({ orientation: "portrait" });
+    expect(result.current.timer.floatingPosition).toEqual({ x: 0.2, y: 0.7 });
   });
 });

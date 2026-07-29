@@ -76,29 +76,7 @@ function getFocusedSampleRegion(
   return { x: imageX - sampleWidth / 2, y: imageY - sampleHeight / 2, width: sampleWidth, height: sampleHeight };
 }
 
-function BackgroundSlideshowComponent({
-  intervalSec,
-  overlayOpacity,
-  backgroundChoice,
-  customBackgrounds,
-  hiddenBackgroundIds = [],
-  clockPosition = defaultClockPosition,
-  clockFontSize = 104,
-  dateFontSize = 20,
-  showClock = true,
-  showDate = true,
-  showSeconds = false,
-  dateFormat = "",
-  backgroundPosition = defaultBackgroundPosition,
-  backgroundScale = minBackgroundScale,
-  backgroundFrames = {},
-  editing = false,
-  onEditModeChange,
-  onFramePreview,
-  onFrameChange,
-  onPaletteChange,
-  onActiveBackgroundChange
-}: Props) {
+function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundChoice, customBackgrounds, hiddenBackgroundIds = [], clockPosition = defaultClockPosition, clockFontSize = 104, dateFontSize = 20, showClock = true, showDate = true, showSeconds = false, dateFormat = "", backgroundPosition = defaultBackgroundPosition, backgroundScale = minBackgroundScale, backgroundFrames = {}, editing = false, onEditModeChange, onFramePreview, onFrameChange, onPaletteChange, onActiveBackgroundChange }: Props) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [failed, setFailed] = useState<Set<string>>(() => new Set());
   const [imageRevision, setImageRevision] = useState(0);
