@@ -438,6 +438,24 @@ describe("TaskDrawer", () => {
     expect(props.onStartTask).toHaveBeenCalledWith(nextTask.id);
   });
 
+  it("opens the next focus candidate details from the task editor", async () => {
+    const nextTask: TaskRecord = {
+      ...task,
+      id: "task-2",
+      title: "英語の宿題",
+      dueDate: addLocalDays(today, 1),
+      estimatedPomodoros: 1,
+      order: 1,
+      updatedAt: 2
+    };
+
+    renderDrawer({ tasks: [task, nextTask] });
+    fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
+    fireEvent.click(screen.getByRole("button", { name: "英語の宿題の候補を詳細で見る" }));
+
+    await waitFor(() => expect(screen.getByRole("form", { name: "英語の宿題の詳細" })).toBeTruthy());
+  });
+
   it("returns to the running timer instead of showing a disabled start for the active task", () => {
     const props = renderDrawer({ timerStatus: "running", activeTaskId: task.id });
     fireEvent.click(screen.getAllByRole("button", { name: "タイマーへ戻る" })[0]);

@@ -819,8 +819,12 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .task-editor__focus span { color: #60768f; font-size: 12px; line-height: 1.55; }
 .task-editor__focus-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .task-editor__focus-actions > button { min-width: 108px; min-height: 46px; padding-inline: 16px; white-space: nowrap; }
-.task-editor__next-flow { margin: -3px 2px 0; color: #5f768f; font-size: 12px; line-height: 1.55; }
-.task-editor__next-flow strong { color: #17375f; }
+.task-editor__next-card { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 16px; margin-top: -2px; border: 1px solid rgba(45,143,132,.16); border-radius: 16px; background: linear-gradient(180deg, rgba(242,251,248,.95), rgba(255,255,255,.95)); }
+.task-editor__next-card-copy { display: grid; gap: 4px; min-width: 0; }
+.task-editor__next-card-copy > span { color: #2d7269; font-size: 11px; font-weight: 850; letter-spacing: .14em; text-transform: uppercase; }
+.task-editor__next-card-copy strong { color: #17375f; font-size: 16px; letter-spacing: -.02em; }
+.task-editor__next-card-copy p { margin: 0; color: #5f768f; font-size: 12px; line-height: 1.55; }
+.task-editor__next-card-action { min-width: 104px; min-height: 42px; padding: 0 14px; color: #245954; border: 1px solid rgba(45,143,132,.18); border-radius: 14px; background: rgba(255,255,255,.82); font-size: 13px; font-weight: 800; }
 .task-editor__actions { align-items: center; padding-top: 4px; }
 .subtask-editor h4 { margin: 0 0 9px; font-size: 13px; }
 .task-empty { display: grid; justify-items: center; gap: 7px; padding: 52px 18px; border: 1px dashed #c6d5e5; border-radius: 16px; background: rgba(255,255,255,.58); }
@@ -972,7 +976,8 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
   .task-editor__focus { display: grid; }
   .task-editor__focus-actions { display: grid; }
   .task-editor__focus-actions > button { width: 100%; min-width: 0; }
-  .task-editor__next-flow { margin-top: -1px; }
+  .task-editor__next-card { display: grid; }
+  .task-editor__next-card-action { width: 100%; }
   .task-editor__actions { flex-wrap: wrap; }
   .task-editor__move { order: 3; width: 100%; margin: 0; }
   .task-editor__move button { flex: 1; }
