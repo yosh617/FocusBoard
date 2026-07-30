@@ -22,8 +22,8 @@ import { formatFocusedTime } from "./utils/productivityReport";
 import { getTasksForView, sortTasksForFocus, toLocalDateKey } from "./utils/taskQueries";
 import { formatDuration, getTimerElapsedMs, getTimerOvertimeMs, modeLabels } from "./utils/time";
 
-const settingsButtonDisplayMs = 2_500;
-const settingsButtonFadeMs = 280;
+const taskDetailCardDisplayMs = 2_500;
+const taskDetailCardFadeMs = 280;
 
 const toHistoryStateObject = (state: unknown): Record<string, unknown> => {
   if (state && typeof state === "object" && !Array.isArray(state)) return { ...(state as Record<string, unknown>) };
@@ -91,13 +91,13 @@ export default function App() {
   } | null>(null);
   const [breakResumeTaskId, setBreakResumeTaskId] = useState<string | null>(null);
   const [timerSetupVisible, setTimerSetupVisible] = useState(false);
-  const [settingsButtonVisible, setSettingsButtonVisible] = useState(false);
-  const [settingsButtonFading, setSettingsButtonFading] = useState(false);
+  const [taskDetailCardVisible, setTaskDetailCardVisible] = useState(false);
+  const [taskDetailCardFading, setTaskDetailCardFading] = useState(false);
   const [backgroundEditing, setBackgroundEditing] = useState(false);
   const [activeBackgroundId, setActiveBackgroundId] = useState<string>(() => settings.backgroundChoice === "slideshow" ? "bg1" : settings.backgroundChoice);
   const [adaptivePalette, setAdaptivePalette] = useState<AdaptivePalette>(() => getAdaptivePalette(fallbackBackgroundRgb, settings.overlayOpacity));
-  const settingsButtonTimeoutRef = useRef<number | null>(null);
-  const settingsButtonFadeTimeoutRef = useRef<number | null>(null);
+  const taskDetailCardTimeoutRef = useRef<number | null>(null);
+  const taskDetailCardFadeTimeoutRef = useRef<number | null>(null);
   const taskLauncherRef = useRef<HTMLButtonElement>(null);
   const homeTasksRef = useRef<HTMLButtonElement>(null);
   const homeSettingsRef = useRef<HTMLButtonElement>(null);
@@ -253,57 +253,57 @@ export default function App() {
     start(taskId);
     setTasksOpen(false);
   }, [setTaskMessage, start]);
-  const hideSettingsButton = useCallback(() => {
-    if (settingsButtonTimeoutRef.current !== null) window.clearTimeout(settingsButtonTimeoutRef.current);
-    if (settingsButtonFadeTimeoutRef.current !== null) window.clearTimeout(settingsButtonFadeTimeoutRef.current);
-    settingsButtonTimeoutRef.current = null;
-    settingsButtonFadeTimeoutRef.current = null;
-    setSettingsButtonFading(false);
-    setSettingsButtonVisible(false);
+  const hideTaskDetailCard = useCallback(() => {
+    if (taskDetailCardTimeoutRef.current !== null) window.clearTimeout(taskDetailCardTimeoutRef.current);
+    if (taskDetailCardFadeTimeoutRef.current !== null) window.clearTimeout(taskDetailCardFadeTimeoutRef.current);
+    taskDetailCardTimeoutRef.current = null;
+    taskDetailCardFadeTimeoutRef.current = null;
+    setTaskDetailCardFading(false);
+    setTaskDetailCardVisible(false);
   }, []);
   const openSettings = useCallback((returnTarget: HTMLElement | null = homeSettingsRef.current) => {
     overlayReturnTargetRef.current = returnTarget;
-    hideSettingsButton();
+    hideTaskDetailCard();
     setTasksOpen(false);
     setSettingsOpen(true);
-  }, [hideSettingsButton]);
+  }, [hideTaskDetailCard]);
   const openTasks = useCallback((returnTarget: HTMLElement | null = homeTasksRef.current) => {
     overlayReturnTargetRef.current = returnTarget;
     setSettingsOpen(false);
     setTasksOpen(true);
   }, []);
-  const revealHomeControls = useCallback((force = false) => {
+  const revealTaskDetailCard = useCallback((force = false) => {
     if (settingsOpen || backgroundEditing || (!force && tasksOpen)) return;
-    if (settingsButtonTimeoutRef.current !== null) window.clearTimeout(settingsButtonTimeoutRef.current);
-    if (settingsButtonFadeTimeoutRef.current !== null) window.clearTimeout(settingsButtonFadeTimeoutRef.current);
-    setSettingsButtonFading(false);
-    setSettingsButtonVisible(true);
-    settingsButtonFadeTimeoutRef.current = window.setTimeout(() => {
-      settingsButtonFadeTimeoutRef.current = null;
-      setSettingsButtonFading(true);
-    }, settingsButtonDisplayMs);
-    settingsButtonTimeoutRef.current = window.setTimeout(() => {
-      settingsButtonTimeoutRef.current = null;
-      setSettingsButtonFading(false);
-      setSettingsButtonVisible(false);
-    }, settingsButtonDisplayMs + settingsButtonFadeMs);
+    if (taskDetailCardTimeoutRef.current !== null) window.clearTimeout(taskDetailCardTimeoutRef.current);
+    if (taskDetailCardFadeTimeoutRef.current !== null) window.clearTimeout(taskDetailCardFadeTimeoutRef.current);
+    setTaskDetailCardFading(false);
+    setTaskDetailCardVisible(true);
+    taskDetailCardFadeTimeoutRef.current = window.setTimeout(() => {
+      taskDetailCardFadeTimeoutRef.current = null;
+      setTaskDetailCardFading(true);
+    }, taskDetailCardDisplayMs);
+    taskDetailCardTimeoutRef.current = window.setTimeout(() => {
+      taskDetailCardTimeoutRef.current = null;
+      setTaskDetailCardFading(false);
+      setTaskDetailCardVisible(false);
+    }, taskDetailCardDisplayMs + taskDetailCardFadeMs);
   }, [backgroundEditing, settingsOpen, tasksOpen]);
-  const revealSettingsButton = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+  const revealTaskDetailCardOnBackgroundTap = useCallback((event: ReactPointerEvent<HTMLElement>) => {
     if (!(event.target instanceof Element)) return;
     const interactiveTarget = event.target.closest("button, input, select, textarea, a, [role='dialog'], .clock-widget, .floating-timer, .timer-card");
-    if (!interactiveTarget) revealHomeControls();
-  }, [revealHomeControls]);
+    if (!interactiveTarget) revealTaskDetailCard();
+  }, [revealTaskDetailCard]);
   const closeTasks = useCallback(() => {
     setTaskDrawerResumeContext(null);
     setTasksOpen(false);
-    if (settings.taskLauncherVisibility === "background-tap") revealHomeControls(true);
+    if (settings.taskLauncherVisibility === "background-tap") revealTaskDetailCard(true);
     restoreOverlayFocus();
-  }, [restoreOverlayFocus, revealHomeControls, settings.taskLauncherVisibility]);
+  }, [restoreOverlayFocus, revealTaskDetailCard, settings.taskLauncherVisibility]);
   const startBackgroundEditing = useCallback(() => {
-    hideSettingsButton();
+    hideTaskDetailCard();
     setSettingsOpen(false);
     setBackgroundEditing(true);
-  }, [hideSettingsButton]);
+  }, [hideTaskDetailCard]);
   const showMessage = useCallback((message: string) => {
     setStorageMessage(message);
     setAnnouncement("");
@@ -402,8 +402,8 @@ export default function App() {
   }, [liveMessage, setAnnouncement, setStorageMessage, setBackgroundMessage, setTaskMessage, setReminderMessage]);
 
   useEffect(() => () => {
-    if (settingsButtonTimeoutRef.current !== null) window.clearTimeout(settingsButtonTimeoutRef.current);
-    if (settingsButtonFadeTimeoutRef.current !== null) window.clearTimeout(settingsButtonFadeTimeoutRef.current);
+    if (taskDetailCardTimeoutRef.current !== null) window.clearTimeout(taskDetailCardTimeoutRef.current);
+    if (taskDetailCardFadeTimeoutRef.current !== null) window.clearTimeout(taskDetailCardFadeTimeoutRef.current);
   }, []);
 
   useEffect(() => {
@@ -450,7 +450,7 @@ export default function App() {
     <main
       className={`app-shell${backgroundEditing ? " app-shell--background-editing" : ""}`}
       style={appStyle}
-      onPointerUp={revealSettingsButton}
+      onPointerUp={revealTaskDetailCardOnBackgroundTap}
     >
       <BackgroundSlideshow
         intervalSec={settings.slideshowIntervalSec}
@@ -511,7 +511,7 @@ export default function App() {
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.3a3.3 3.3 0 1 0 0-6.6 3.3 3.3 0 0 0 0 6.6Z" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" /></svg><span>設定</span>
         </button>
       </nav>
-      {(settings.taskLauncherVisibility === "always" || settingsButtonVisible) && <TaskLauncher
+      {(settings.taskLauncherVisibility === "always" || taskDetailCardVisible) && <TaskLauncher
         todayCount={todayOpenTaskCount}
         todaySummary={{
           completedCount: todayCompletedTaskCount,
@@ -564,7 +564,7 @@ export default function App() {
         }}
         ref={taskLauncherRef}
         transient={settings.taskLauncherVisibility === "background-tap"}
-        fading={settings.taskLauncherVisibility === "background-tap" && settingsButtonFading}
+        fading={settings.taskLauncherVisibility === "background-tap" && taskDetailCardFading}
       />}
       <SettingsPanel
         open={settingsOpen}

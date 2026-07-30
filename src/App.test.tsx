@@ -121,7 +121,16 @@ describe("App", () => {
     expect(document.querySelector(".settings-button")).toBeNull();
   });
 
-  it("reveals only the detailed task launcher after a background tap", () => {
+  it("does not reveal the detailed task card when an interactive home dock control is clicked", () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...defaultSettings, taskLauncherVisibility: "background-tap" }));
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+
+    expect(document.querySelector(".task-launcher")).toBeNull();
+  });
+
+  it("reveals only the detailed task card after a background tap", () => {
     vi.useFakeTimers();
     try {
       localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...defaultSettings, taskLauncherVisibility: "background-tap" }));
@@ -143,7 +152,7 @@ describe("App", () => {
     }
   });
 
-  it("reveals and fades the task launcher with the settings button in background-tap mode", () => {
+  it("keeps the task dock available while the detailed task card fades in background-tap mode", () => {
     vi.useFakeTimers();
     try {
       localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...defaultSettings, taskLauncherVisibility: "background-tap" }));
@@ -158,6 +167,7 @@ describe("App", () => {
       expect(launcher.classList.contains("task-launcher--fading")).toBe(true);
       act(() => { vi.advanceTimersByTime(280); });
       expect(screen.queryByRole("button", { name: /タスクを開く/ })).toBeNull();
+      expect(screen.getByRole("button", { name: "タスク" })).toBeTruthy();
 
       revealSettings();
       expect(screen.getByRole("button", { name: /タスクを開く/ })).toBeTruthy();
@@ -213,13 +223,21 @@ describe("App", () => {
   });
 
   it("saves the selected task launcher visibility from display settings", () => {
-    render(<App />);
+    const view = render(<App />);
     revealSettings();
     fireEvent.click(screen.getByRole("button", { name: "設定" }));
     fireEvent.click(screen.getByRole("tab", { name: "表示" }));
-    fireEvent.click(screen.getByRole("radio", { name: "背景タップで表示" }));
+    const taskCardVisibility = screen.getByRole("radiogroup", { name: "メイン画面のタスクカード" });
+    expect(taskCardVisibility.getAttribute("aria-describedby")).toBe("task-card-visibility-description");
+    fireEvent.click(screen.getByRole("radio", { name: "背景タップ時のみ" }));
 
     expect(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}").taskLauncherVisibility).toBe("background-tap");
+    expect(screen.getByRole("radio", { name: "背景タップ時のみ" }).getAttribute("aria-checked")).toBe("true");
+    expect(document.querySelector(".task-launcher")).toBeNull();
+
+    view.unmount();
+    render(<App />);
+    expect(document.querySelector(".task-launcher")).toBeNull();
   });
 
   it("starts in setup mode, collapses to a floating timer, and opens settings", () => {
