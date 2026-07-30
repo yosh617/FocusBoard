@@ -114,31 +114,30 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "数学の復習のタイマーを開始" }));
   };
 
-  it("reveals the settings button after tapping the background", () => {
+  it("keeps settings in the home dock and never renders the legacy settings button", () => {
     render(<App />);
-    expect(screen.queryByRole("button", { name: "設定" })).toBeNull();
-
     revealSettings();
-
     expect(screen.getByRole("button", { name: "設定" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "設定" }).classList.contains("settings-button--with-task-launcher")).toBe(true);
+    expect(document.querySelector(".settings-button")).toBeNull();
   });
 
-  it("fades the settings button after its display period and reveals it again on a background tap", () => {
+  it("reveals only the detailed task launcher after a background tap", () => {
     vi.useFakeTimers();
     try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...defaultSettings, taskLauncherVisibility: "background-tap" }));
       render(<App />);
       revealSettings();
-      const settingsButton = screen.getByRole("button", { name: "設定" });
+      const launcher = screen.getByRole("button", { name: /タスクを開く/ });
 
       act(() => { vi.advanceTimersByTime(2_500); });
-      expect(settingsButton.classList.contains("settings-button--fading")).toBe(true);
+      expect(launcher.classList.contains("task-launcher--fading")).toBe(true);
 
       act(() => { vi.advanceTimersByTime(280); });
-      expect(screen.queryByRole("button", { name: "設定" })).toBeNull();
+      expect(document.querySelector(".task-launcher")).toBeNull();
+      expect(document.querySelector(".settings-button")).toBeNull();
 
       revealSettings();
-      expect(screen.getByRole("button", { name: "設定" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: /タスクを開く/ })).toBeTruthy();
     } finally {
       vi.useRealTimers();
     }
@@ -153,7 +152,7 @@ describe("App", () => {
 
       revealSettings();
       const launcher = screen.getByRole("button", { name: /タスクを開く/ });
-      expect(screen.getByRole("button", { name: "設定" })).toBeTruthy();
+      expect(document.querySelector(".settings-button")).toBeNull();
 
       act(() => { vi.advanceTimersByTime(2_500); });
       expect(launcher.classList.contains("task-launcher--fading")).toBe(true);
@@ -165,6 +164,52 @@ describe("App", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("provides a shared home dock and switches between task and settings panels", () => {
+    render(<App />);
+    const homeDock = screen.getByRole("navigation", { name: "ホーム操作" });
+    expect(within(homeDock).getByRole("button", { name: "タスク" }).textContent).toContain("タスク");
+    expect(within(homeDock).getByRole("button", { name: "設定" }).textContent).toContain("設定");
+
+    fireEvent.click(within(homeDock).getByRole("button", { name: "タスク" }));
+    expect(screen.getByRole("dialog", { name: "タスクと集中" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "設定を開く" }));
+    expect(screen.queryByRole("dialog", { name: "タスクと集中" })).toBeNull();
+    expect(screen.getByRole("dialog", { name: "設定" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "タスクを開く" }));
+    expect(screen.queryByRole("dialog", { name: "設定" })).toBeNull();
+    expect(screen.getByRole("dialog", { name: "タスクと集中" })).toBeTruthy();
+  });
+
+  it("returns focus to the trigger that remains available after closing or switching panels", async () => {
+    render(<App />);
+    const homeDock = screen.getByRole("navigation", { name: "ホーム操作" });
+    const homeTasks = within(homeDock).getByRole("button", { name: "タスク" });
+    const homeSettings = within(homeDock).getByRole("button", { name: "設定" });
+
+    fireEvent.click(homeTasks);
+    fireEvent.click(screen.getByRole("button", { name: "タスクを閉じる" }));
+    await waitFor(() => expect(document.activeElement).toBe(homeTasks));
+
+    const launcher = screen.getByRole("button", { name: /タスクを開く/ });
+    fireEvent.click(launcher);
+    fireEvent.click(screen.getByRole("button", { name: "タスクを閉じる" }));
+    await waitFor(() => expect(document.activeElement).toBe(launcher));
+
+    fireEvent.click(homeSettings);
+    fireEvent.click(screen.getByRole("button", { name: "設定を閉じる" }));
+    await waitFor(() => expect(document.activeElement).toBe(homeSettings));
+
+    fireEvent.click(homeTasks);
+    fireEvent.click(screen.getByRole("button", { name: "設定を開く" }));
+    fireEvent.click(screen.getByRole("button", { name: "設定を閉じる" }));
+    await waitFor(() => expect(document.activeElement).toBe(homeSettings));
+
+    fireEvent.click(homeSettings);
+    fireEvent.click(screen.getByRole("button", { name: "タスクを開く" }));
+    fireEvent.click(screen.getByRole("button", { name: "タスクを閉じる" }));
+    await waitFor(() => expect(document.activeElement).toBe(homeTasks));
   });
 
   it("saves the selected task launcher visibility from display settings", () => {

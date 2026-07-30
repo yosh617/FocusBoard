@@ -99,6 +99,9 @@ export default function App() {
   const settingsButtonTimeoutRef = useRef<number | null>(null);
   const settingsButtonFadeTimeoutRef = useRef<number | null>(null);
   const taskLauncherRef = useRef<HTMLButtonElement>(null);
+  const homeTasksRef = useRef<HTMLButtonElement>(null);
+  const homeSettingsRef = useRef<HTMLButtonElement>(null);
+  const overlayReturnTargetRef = useRef<HTMLElement | null>(null);
   const overlayHistoryKindRef = useRef<"settings" | "tasks" | "session" | null>(null);
   const tasksOpenRef = useRef(false);
   const settingsOpenRef = useRef(false);
@@ -235,7 +238,13 @@ export default function App() {
     });
   }, [activeBackgroundId, orientation, updateSettings]);
 
-  const closeSettings = useCallback(() => setSettingsOpen(false), []);
+  const restoreOverlayFocus = useCallback(() => {
+    window.setTimeout(() => overlayReturnTargetRef.current?.focus(), 0);
+  }, []);
+  const closeSettings = useCallback(() => {
+    setSettingsOpen(false);
+    restoreOverlayFocus();
+  }, [restoreOverlayFocus]);
   const closeCompletedSession = useCallback(() => setCompletedSession(null), []);
   const startTask = useCallback((taskId: string) => {
     setTaskMessage("");
@@ -251,6 +260,17 @@ export default function App() {
     settingsButtonFadeTimeoutRef.current = null;
     setSettingsButtonFading(false);
     setSettingsButtonVisible(false);
+  }, []);
+  const openSettings = useCallback((returnTarget: HTMLElement | null = homeSettingsRef.current) => {
+    overlayReturnTargetRef.current = returnTarget;
+    hideSettingsButton();
+    setTasksOpen(false);
+    setSettingsOpen(true);
+  }, [hideSettingsButton]);
+  const openTasks = useCallback((returnTarget: HTMLElement | null = homeTasksRef.current) => {
+    overlayReturnTargetRef.current = returnTarget;
+    setSettingsOpen(false);
+    setTasksOpen(true);
   }, []);
   const revealHomeControls = useCallback((force = false) => {
     if (settingsOpen || backgroundEditing || (!force && tasksOpen)) return;
@@ -277,8 +297,8 @@ export default function App() {
     setTaskDrawerResumeContext(null);
     setTasksOpen(false);
     if (settings.taskLauncherVisibility === "background-tap") revealHomeControls(true);
-    window.setTimeout(() => taskLauncherRef.current?.focus(), 0);
-  }, [revealHomeControls, settings.taskLauncherVisibility]);
+    restoreOverlayFocus();
+  }, [restoreOverlayFocus, revealHomeControls, settings.taskLauncherVisibility]);
   const startBackgroundEditing = useCallback(() => {
     hideSettingsButton();
     setSettingsOpen(false);
@@ -483,6 +503,14 @@ export default function App() {
       )}
 
       {liveMessage && <div className="toast" role="status" aria-live="polite">{liveMessage}</div>}
+      <nav className="home-dock" aria-label="ホーム操作">
+        <button className="home-dock__button home-dock__button--tasks" type="button" aria-label="タスク" aria-pressed={tasksOpen} onClick={() => openTasks(homeTasksRef.current)} ref={homeTasksRef}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h10M9 12h10M9 18h10M4 6h.01M4 12h.01M4 18h.01" /></svg><span>タスク</span>
+        </button>
+        <button className="home-dock__button" type="button" aria-label="設定" aria-pressed={settingsOpen} onClick={() => openSettings(homeSettingsRef.current)} ref={homeSettingsRef}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.3a3.3 3.3 0 1 0 0-6.6 3.3 3.3 0 0 0 0 6.6Z" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" /></svg><span>設定</span>
+        </button>
+      </nav>
       {(settings.taskLauncherVisibility === "always" || settingsButtonVisible) && <TaskLauncher
         todayCount={todayOpenTaskCount}
         todaySummary={{
@@ -495,6 +523,7 @@ export default function App() {
         suggestedTask={launcherSuggestedTask}
         timerSummary={taskLauncherSummary}
         onClick={() => {
+          overlayReturnTargetRef.current = taskLauncherRef.current;
           setSettingsOpen(false);
           if (timer.status !== "idle" && timer.mode !== "work" && launcherSuggestedTask) {
             setTaskDrawerResumeContext({
@@ -537,14 +566,6 @@ export default function App() {
         transient={settings.taskLauncherVisibility === "background-tap"}
         fading={settings.taskLauncherVisibility === "background-tap" && settingsButtonFading}
       />}
-      {settingsButtonVisible && <button className={`settings-button settings-button--with-task-launcher${settingsButtonFading ? " settings-button--fading" : ""}`} type="button" aria-label="設定" title="設定を開く" onClick={() => { hideSettingsButton(); setSettingsOpen(true); }}>
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 15.3a3.3 3.3 0 1 0 0-6.6 3.3 3.3 0 0 0 0 6.6Z" />
-          <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" />
-        </svg>
-        <span>設定</span>
-      </button>}
-
       <SettingsPanel
         open={settingsOpen}
         settings={settings}
@@ -553,6 +574,7 @@ export default function App() {
         onChange={updateSettings}
         onUndo={undoSettings}
         onClose={closeSettings}
+        onOpenTasks={openTasks}
         onStartBackgroundEditing={startBackgroundEditing}
         adaptivePalette={adaptivePalette}
         fullscreenSupported={fullscreenSupported}
@@ -580,6 +602,7 @@ export default function App() {
         storageAvailable={taskStorageAvailable}
         canUndo={canUndoTask}
         onClose={closeTasks}
+        onOpenSettings={openSettings}
         onAddTask={addTask}
         onUpdateTask={updateTask}
         onToggleTask={toggleTask}
