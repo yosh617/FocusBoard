@@ -66,6 +66,10 @@ describe("App", () => {
   });
 
   const revealSettings = () => fireEvent.pointerUp(document.querySelector<HTMLElement>(".background")!);
+  const openSettings = () => {
+    fireEvent.click(screen.getByRole("button", { name: "タスク" }));
+    fireEvent.click(screen.getByRole("button", { name: "設定を開く" }));
+  };
   const today = toLocalDateKey(new Date("2026-07-29T09:00:00+09:00"));
   const focusTask: TaskRecord = {
     version: 1,
@@ -114,10 +118,11 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "数学の復習のタイマーを開始" }));
   };
 
-  it("keeps settings in the home dock and never renders the legacy settings button", () => {
+  it("keeps only tasks in the home dock and never renders a direct settings button", () => {
     render(<App />);
-    revealSettings();
-    expect(screen.getByRole("button", { name: "設定" })).toBeTruthy();
+    const homeDock = screen.getByRole("navigation", { name: "ホーム操作" });
+    expect(within(homeDock).getByRole("button", { name: "タスク" })).toBeTruthy();
+    expect(within(homeDock).queryByRole("button", { name: "設定" })).toBeNull();
     expect(document.querySelector(".settings-button")).toBeNull();
   });
 
@@ -125,7 +130,7 @@ describe("App", () => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...defaultSettings, taskLauncherVisibility: "background-tap" }));
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    openSettings();
 
     expect(document.querySelector(".task-launcher")).toBeNull();
   });
@@ -176,27 +181,26 @@ describe("App", () => {
     }
   });
 
-  it("provides a shared home dock and switches between task and settings panels", () => {
+  it("uses the task workspace as the settings entry point and switches between panels", () => {
     render(<App />);
     const homeDock = screen.getByRole("navigation", { name: "ホーム操作" });
     expect(within(homeDock).getByRole("button", { name: "タスク" }).textContent).toContain("タスク");
-    expect(within(homeDock).getByRole("button", { name: "設定" }).textContent).toContain("設定");
+    expect(within(homeDock).queryByRole("button", { name: "設定" })).toBeNull();
 
     fireEvent.click(within(homeDock).getByRole("button", { name: "タスク" }));
-    expect(screen.getByRole("dialog", { name: "タスクと集中" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "タスク管理" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "設定を開く" }));
-    expect(screen.queryByRole("dialog", { name: "タスクと集中" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "タスク管理" })).toBeNull();
     expect(screen.getByRole("dialog", { name: "設定" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "タスクを開く" }));
     expect(screen.queryByRole("dialog", { name: "設定" })).toBeNull();
-    expect(screen.getByRole("dialog", { name: "タスクと集中" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "タスク管理" })).toBeTruthy();
   });
 
   it("returns focus to the trigger that remains available after closing or switching panels", async () => {
     render(<App />);
     const homeDock = screen.getByRole("navigation", { name: "ホーム操作" });
     const homeTasks = within(homeDock).getByRole("button", { name: "タスク" });
-    const homeSettings = within(homeDock).getByRole("button", { name: "設定" });
 
     fireEvent.click(homeTasks);
     fireEvent.click(screen.getByRole("button", { name: "タスクを閉じる" }));
@@ -207,16 +211,18 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "タスクを閉じる" }));
     await waitFor(() => expect(document.activeElement).toBe(launcher));
 
-    fireEvent.click(homeSettings);
+    fireEvent.click(homeTasks);
+    fireEvent.click(screen.getByRole("button", { name: "設定を開く" }));
     fireEvent.click(screen.getByRole("button", { name: "設定を閉じる" }));
-    await waitFor(() => expect(document.activeElement).toBe(homeSettings));
+    await waitFor(() => expect(document.activeElement).toBe(homeTasks));
 
     fireEvent.click(homeTasks);
     fireEvent.click(screen.getByRole("button", { name: "設定を開く" }));
     fireEvent.click(screen.getByRole("button", { name: "設定を閉じる" }));
-    await waitFor(() => expect(document.activeElement).toBe(homeSettings));
+    await waitFor(() => expect(document.activeElement).toBe(homeTasks));
 
-    fireEvent.click(homeSettings);
+    fireEvent.click(homeTasks);
+    fireEvent.click(screen.getByRole("button", { name: "設定を開く" }));
     fireEvent.click(screen.getByRole("button", { name: "タスクを開く" }));
     fireEvent.click(screen.getByRole("button", { name: "タスクを閉じる" }));
     await waitFor(() => expect(document.activeElement).toBe(homeTasks));
@@ -224,8 +230,7 @@ describe("App", () => {
 
   it("saves the selected task launcher visibility from display settings", () => {
     const view = render(<App />);
-    revealSettings();
-    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    openSettings();
     fireEvent.click(screen.getByRole("tab", { name: "表示" }));
     const taskCardVisibility = screen.getByRole("radiogroup", { name: "メイン画面のタスクカード" });
     expect(taskCardVisibility.getAttribute("aria-describedby")).toBe("task-card-visibility-description");
@@ -248,15 +253,13 @@ describe("App", () => {
     expect(screen.getByLabelText("集中タイマー")).toBeTruthy();
     expect(screen.queryByLabelText("タイマー設定")).toBeNull();
     expect(document.querySelector(".dashboard")?.classList.contains("dashboard--timer-setup")).toBe(false);
-    revealSettings();
-    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    openSettings();
     expect(screen.getByRole("dialog", { name: "設定" })).toBeTruthy();
   });
 
   it("closes settings on browser back", () => {
     render(<App />);
-    revealSettings();
-    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    openSettings();
     expect(screen.getByRole("dialog", { name: "設定" })).toBeTruthy();
 
     act(() => {
@@ -268,10 +271,9 @@ describe("App", () => {
 
   it("uses familiar icons alongside labels for every settings category", () => {
     render(<App />);
-    revealSettings();
-    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    openSettings();
 
-    ["背景", "表示", "タイマー", "保存・リセット"].forEach((name) => {
+    ["背景", "表示", "タイマー", "データ"].forEach((name) => {
       expect(screen.getByRole("tab", { name }).querySelector("svg")).toBeTruthy();
     });
   });
@@ -387,7 +389,7 @@ describe("App", () => {
     prepareTaskFlow([focusTask, nextFocusTask]);
 
     fireEvent.click(screen.getByRole("button", { name: "タスクを開く。集中中のタスクは数学の復習。今日の未完了は2件" }));
-    expect(screen.getByRole("dialog", { name: "タスクと集中" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "タスク管理" })).toBeTruthy();
     expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("いまの集中");
     expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("数学の復習へ戻れます");
     expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy();
@@ -399,13 +401,13 @@ describe("App", () => {
     const launcher = screen.getByRole("button", { name: "タスクを開く。集中中のタスクは数学の復習。今日の未完了は2件" });
 
     fireEvent.click(launcher);
-    expect(screen.getByRole("dialog", { name: "タスクと集中" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "タスク管理" })).toBeTruthy();
 
     act(() => {
       window.dispatchEvent(new PopStateEvent("popstate"));
     });
 
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "タスクと集中" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "タスク管理" })).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(launcher));
   });
 
@@ -418,7 +420,7 @@ describe("App", () => {
 
       fireEvent.click(screen.getByRole("button", { name: "タスク一覧を開く" }));
       expect(screen.queryByRole("dialog", { name: "集中セッション完了" })).toBeNull();
-      expect(screen.getByRole("dialog", { name: "タスクと集中" })).toBeTruthy();
+      expect(screen.getByRole("dialog", { name: "タスク管理" })).toBeTruthy();
       expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("英語の宿題を次の候補として開いています");
       expect(screen.getByRole("form", { name: "英語の宿題の詳細" })).toBeTruthy();
       expect(screen.getByText("今日の集中ハブ")).toBeTruthy();
@@ -447,8 +449,7 @@ describe("App", () => {
 
   it("applies a shared opacity to timer backgrounds", () => {
     render(<App />);
-    revealSettings();
-    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    openSettings();
     fireEvent.click(screen.getByRole("tab", { name: "タイマー" }));
     fireEvent.click(screen.getByText("タイマーの表示と配置"));
     fireEvent.change(screen.getByRole("slider", { name: /タイマー背景の不透明度/ }), { target: { value: "60" } });
@@ -460,8 +461,7 @@ describe("App", () => {
     Object.defineProperty(document.documentElement, "requestFullscreen", { configurable: true, value: requestFullscreen });
     try {
       render(<App />);
-      revealSettings();
-      fireEvent.click(screen.getByRole("button", { name: "設定" }));
+      openSettings();
       fireEvent.click(screen.getByRole("tab", { name: "表示" }));
       const fullscreen = screen.getByLabelText("全画面表示") as HTMLInputElement;
       expect(fullscreen.disabled).toBe(false);
@@ -476,8 +476,7 @@ describe("App", () => {
 
   it("shows readable size labels without pixel units", () => {
     render(<App />);
-    revealSettings();
-    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    openSettings();
     fireEvent.click(screen.getByRole("tab", { name: "表示" }));
     fireEvent.click(screen.getByText("時計・日付の見やすさ"));
     expect(screen.getAllByText("標準").length).toBe(2);
@@ -486,8 +485,7 @@ describe("App", () => {
 
   it("places the font setting after the higher-priority appearance settings", () => {
     render(<App />);
-    revealSettings();
-    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    openSettings();
     fireEvent.click(screen.getByRole("tab", { name: "表示" }));
     const section = document.querySelector<HTMLElement>(".settings-section");
     const fontControl = screen.getByText("フォント").closest(".setting-control");
@@ -501,15 +499,13 @@ describe("App", () => {
 
   it("does not show an empty accessibility settings tab", () => {
     render(<App />);
-    revealSettings();
-    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    openSettings();
     expect(screen.queryByRole("tab", { name: "アクセシビリティ" })).toBeNull();
   });
 
   it("changes the date display format from clock settings", () => {
     render(<App />);
-    revealSettings();
-    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    openSettings();
     fireEvent.click(screen.getByRole("tab", { name: "表示" }));
     fireEvent.click(screen.getByText("時計・日付の見やすさ"));
     fireEvent.change(screen.getByLabelText("日付の形式"), { target: { value: "mm/dd weekday" } });
@@ -518,8 +514,7 @@ describe("App", () => {
 
   it("opens the selected background settings from its image card", () => {
     render(<App />);
-    revealSettings();
-    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    openSettings();
     fireEvent.click(screen.getByRole("tab", { name: "背景" }));
     const picker = screen.getByRole("radiogroup", { name: "背景を選択" });
     expect(screen.queryByRole("heading", { name: "この背景を設定" })).toBeNull();
@@ -538,8 +533,7 @@ describe("App", () => {
 
   it("selects a background image for direct editing on the home screen", () => {
     render(<App />);
-    revealSettings();
-    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    openSettings();
     fireEvent.click(screen.getByRole("tab", { name: "背景" }));
     fireEvent.click(within(screen.getByRole("radiogroup", { name: "背景を選択" })).getByRole("radio", { name: "ラベンダー" }));
     expect(screen.getByRole("button", { name: "この背景を調整" })).toBeTruthy();
@@ -556,8 +550,7 @@ describe("App", () => {
 
   it("keeps the clock available during background editing and hides it while the background moves", () => {
     render(<App />);
-    revealSettings();
-    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    openSettings();
     fireEvent.click(screen.getByRole("tab", { name: "背景" }));
     fireEvent.click(within(screen.getByRole("radiogroup", { name: "背景を選択" })).getByRole("radio", { name: "ラベンダー" }));
     fireEvent.click(screen.getByRole("button", { name: "この背景を調整" }));
@@ -580,8 +573,7 @@ describe("App", () => {
 
   it("keeps background edits temporary until completion", () => {
     render(<App />);
-    revealSettings();
-    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    openSettings();
     fireEvent.click(screen.getByRole("tab", { name: "背景" }));
     fireEvent.click(within(screen.getByRole("radiogroup", { name: "背景を選択" })).getByRole("radio", { name: "ラベンダー" }));
     fireEvent.click(screen.getByRole("button", { name: "この背景を調整" }));
@@ -667,9 +659,8 @@ describe("App", () => {
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
     try {
       render(<App />);
-      revealSettings();
-      fireEvent.click(screen.getByRole("button", { name: "設定" }));
-      fireEvent.click(screen.getByRole("tab", { name: "保存・リセット" }));
+      openSettings();
+      fireEvent.click(screen.getByRole("tab", { name: "データ" }));
       expect(screen.getByText(/^v(?:\d+\.\d+\.\d+|開発版)$/)).toBeTruthy();
       expect(screen.getByRole("button", { name: "アプリを再読み込み" })).toBeTruthy();
       expect(screen.getByRole("heading", { name: "設定をバックアップ" })).toBeTruthy();
@@ -686,8 +677,7 @@ describe("App", () => {
 
   it("uses the rounded font picker and keeps clock and timer colors independent", () => {
     render(<App />);
-    revealSettings();
-    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    openSettings();
     fireEvent.click(screen.getByRole("tab", { name: "表示" }));
     fireEvent.click(screen.getByText("カラーテーマ"));
     fireEvent.click(screen.getByRole("radio", { name: "丸ゴシック" }));
@@ -725,8 +715,7 @@ describe("App", () => {
 
   it("allows clock and timer adaptive colors to be toggled separately", () => {
     render(<App />);
-    revealSettings();
-    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    openSettings();
     fireEvent.click(screen.getByRole("tab", { name: "表示" }));
     fireEvent.click(screen.getByText("時計・日付の見やすさ"));
     const clockAutoToggle = screen.getByLabelText("自動調整") as HTMLInputElement;
@@ -758,8 +747,7 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "時計とカレンダーの表示設定を開く" }).style.color).toBe("rgb(17, 34, 51)");
     expect(document.querySelector(".slot--top-right .timer-setup")).not.toBeNull();
 
-    revealSettings();
-    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    openSettings();
     fireEvent.click(screen.getByRole("tab", { name: "背景" }));
     fireEvent.click(within(screen.getByRole("radiogroup", { name: "背景を選択" })).getByRole("radio", { name: "ラベンダー" }));
     expect(document.querySelector<HTMLElement>(".clock-widget")?.style.left).toBe("10%");
@@ -779,8 +767,7 @@ describe("App", () => {
       }
     }));
     render(<App />);
-    revealSettings();
-    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    openSettings();
     fireEvent.click(screen.getByRole("tab", { name: "表示" }));
     fireEvent.click(screen.getByText("時計・日付の見やすさ"));
     const autoToggle = screen.getByLabelText("自動調整") as HTMLInputElement;
@@ -795,8 +782,7 @@ describe("App", () => {
   it("applies the selected theme color to the clock and date", () => {
     render(<App />);
     const display = screen.getByRole("button", { name: "時計とカレンダーの表示設定を開く" });
-    revealSettings();
-    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    openSettings();
     fireEvent.click(screen.getByRole("tab", { name: "表示" }));
     fireEvent.click(screen.getByText("カラーテーマ"));
     const colorThemes = within(screen.getByRole("radiogroup", { name: "カラーテーマ" }));
@@ -860,13 +846,11 @@ describe("App", () => {
 
   it("starts with background settings and keeps display and timer controls separate", () => {
     render(<App />);
-    revealSettings();
-    expect(screen.getByRole("button", { name: "設定" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "設定" }));
+    openSettings();
     expect(screen.getByRole("tab", { name: "背景" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "表示" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "タイマー" })).toBeTruthy();
-    expect(screen.getByRole("tab", { name: "保存・リセット" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "データ" })).toBeTruthy();
     expect(screen.getAllByRole("tab")).toHaveLength(4);
     expect(screen.getByRole("tab", { name: "背景" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.queryByLabelText("時計を表示")).toBeNull();
@@ -885,9 +869,9 @@ describe("App", () => {
     render(<App />);
     const launcher = screen.getByRole("button", { name: /タスクを開く/ });
     fireEvent.click(launcher);
-    expect(screen.getByRole("dialog", { name: "タスクと集中" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "タスク管理" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "タスクを閉じる" }));
-    expect(screen.queryByRole("dialog", { name: "タスクと集中" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "タスク管理" })).toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(launcher));
   });
 
@@ -912,7 +896,7 @@ describe("App", () => {
     render(<App />);
 
     fireEvent.click(screen.getByRole("button", { name: "タスクを開く。次のおすすめは数学の復習。今日の未完了は2件" }));
-    expect(screen.getByRole("dialog", { name: "タスクと集中" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "タスク管理" })).toBeTruthy();
     expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("今日のおすすめ");
     await waitFor(() => expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy());
     expect(screen.getByRole("button", { name: "おすすめを開く" })).toBeTruthy();

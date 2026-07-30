@@ -23,7 +23,7 @@ type Props = {
 };
 
 const categories: { id: Category; label: string }[] = [
-  { id: "background", label: "背景" }, { id: "display", label: "表示" }, { id: "timer", label: "タイマー" }, { id: "data", label: "保存・リセット" }
+  { id: "background", label: "背景" }, { id: "display", label: "表示" }, { id: "timer", label: "タイマー" }, { id: "data", label: "データ" }
 ];
 const positionLabels: Record<PositionPreset, string> = {
   "top-left": "左上",
@@ -147,7 +147,7 @@ function BackgroundSettings({ settings, frame, customBackgrounds, customSize, fr
 
   return <>
     <section className="background-source-settings" aria-labelledby="background-source-heading">
-      <div className="background-settings-heading"><div><span className="background-settings-kicker">STEP 1</span><h4 id="background-source-heading">背景を選ぶ・追加する</h4><p>使いたい背景を選ぶと、すぐに画面へ反映されます。</p></div><span className="background-settings-count">{customBackgrounds.length}枚追加</span></div>
+      <div className="background-settings-heading"><div><h4 id="background-source-heading">背景を選ぶ・追加する</h4><p>使いたい背景を選ぶと、すぐに画面へ反映されます。</p></div><span className="background-settings-count">{customBackgrounds.length}枚追加</span></div>
       <div className="background-current" aria-live="polite">
         <span className={`background-current__preview${selectedOption?.value === "slideshow" ? " background-option__preview--auto" : ""}`} style={selectedOption?.imageUrl ? { backgroundImage: `url(${selectedOption.imageUrl})` } : undefined} />
         <div><span>現在の背景</span><strong>{selectedOption?.label ?? "自動切替"}</strong><small>{selectedOption?.value === "slideshow" ? "時間ごとに自動で切り替わります" : "下の画像から変更・調整できます"}</small></div>
@@ -281,7 +281,7 @@ export function SettingsPanel({ open, settings, orientation, saveState, onChange
 
   return <div className="drawer-backdrop" onPointerDown={(event) => event.target === event.currentTarget && onClose()}><aside className="settings-drawer" role="dialog" aria-modal="true" aria-labelledby="settings-title" ref={drawerRef}>
     <span className="settings-sheet-handle" aria-hidden="true" />
-    <header className="settings-header"><div><p className="eyebrow">FOCUSBOARD</p><h2 id="settings-title">設定</h2></div><div className={`save-state save-state--${saveState}`} role="status">{saveState === "saving" ? "保存中" : saveState === "failed" ? "保存失敗" : "保存済み"}</div><div className="settings-header__actions"><button className="panel-switch-button" type="button" aria-label="タスクを開く" onClick={() => onOpenTasks()}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h10M9 12h10M9 18h10M4 6h.01M4 12h.01M4 18h.01" /></svg><span>タスク</span></button><button className="icon-button" type="button" aria-label="設定を閉じる" title="設定を閉じる" onClick={onClose} ref={closeRef}>×</button></div></header>
+    <header className="settings-header"><div><h2 id="settings-title">設定</h2></div><div className={`save-state save-state--${saveState}`} role="status">{saveState === "saving" ? "保存中" : saveState === "failed" ? "保存失敗" : "保存済み"}</div><div className="settings-header__actions"><button className="panel-switch-button" type="button" aria-label="タスクを開く" onClick={() => onOpenTasks()}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h10M9 12h10M9 18h10M4 6h.01M4 12h.01M4 18h.01" /></svg><span>タスク</span></button><button className="icon-button" type="button" aria-label="設定を閉じる" title="設定を閉じる" onClick={onClose} ref={closeRef}>×</button></div></header>
     <nav className="settings-tabs" aria-label="設定カテゴリー" role="tablist">{categories.map((item) => <button id={`settings-tab-${item.id}`} type="button" role="tab" aria-selected={category === item.id} aria-controls="settings-category-panel" className={category === item.id ? "is-active" : ""} onClick={() => setCategory(item.id)} key={item.id}><SettingsCategoryIcon category={item.id} /><span>{item.label}</span></button>)}</nav>
     <div className="settings-content"><section id="settings-category-panel" className="settings-section" role="tabpanel" aria-labelledby={`settings-tab-${category}`} tabIndex={0}><div className="section-heading"><h3 id="category-title">{sectionTitle}</h3>{category !== "data" && <button className="text-button" type="button" onClick={() => resetSection(resetPatches[category])}>初期値に戻す</button>}</div>
       {category === "background" && <BackgroundSettings settings={settings} frame={backgroundFrame} customBackgrounds={customBackgrounds} customSize={customSize} frameOptions={frameOptions} frameTarget={frameTarget} onFrameTargetChange={(target) => { setFrameTarget(target); onChange({ backgroundChoice: target }); }} onStartBackgroundEditing={onStartBackgroundEditing} onChange={onChange} uploads={uploads} move={move} onRemoveBackground={onRemoveBackground} />}
