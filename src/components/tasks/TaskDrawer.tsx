@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { ProjectRecord } from "../../types/project";
 import type { FocusSessionRecord } from "../../types/focusSession";
 import type { RepeatRule, TaskDraft, TaskRecord, TaskView } from "../../types/task";
@@ -553,9 +553,12 @@ export function TaskDrawer({
     return visibleTasks.filter((task) => activeTaskId === task.id || task.estimatedPomodoros > 0 || (completedPomodorosByTask.get(task.id) ?? 0) > 0);
   }, [activeTaskId, completedPomodorosByTask, listFilter, today, visibleTasks]);
   const isSearchPending = deferredSearchQuery !== searchQuery;
-  const displayedTasks = isSearchPending && selectedTask && !filteredTasks.some((task) => task.id === selectedTask.id)
-    ? [selectedTask, ...filteredTasks]
-    : filteredTasks;
+  const displayedTasks = useMemo(
+    () => isSearchPending && selectedTask && !filteredTasks.some((task) => task.id === selectedTask.id)
+      ? [selectedTask, ...filteredTasks]
+      : filteredTasks,
+    [filteredTasks, isSearchPending, selectedTask]
+  );
   const taskSections = useMemo<TaskListSection[]>(() => {
     if (displayedTasks.length === 0) return [];
     if (projectId) {
@@ -767,9 +770,9 @@ export function TaskDrawer({
     if (isCompactTaskNavigationViewport()) setNavigationCollapsed(true);
     quickAddInputRef.current?.focus();
   };
-  const collapseNavigationIfCompact = () => {
+  const collapseNavigationIfCompact = useCallback(() => {
     if (isCompactTaskNavigationViewport()) setNavigationCollapsed(true);
-  };
+  }, []);
 
   const currentListRootTasks = scopedTasks.filter((task) => task.parentTaskId === null);
   const currentListOpenCount = currentListRootTasks.filter((task) => task.status === "open").length;
@@ -843,7 +846,7 @@ export function TaskDrawer({
             onClick: focusQuickAddInput
         }
       : null;
-  const openTaskDetails = (task: TaskRecord, options?: { revealInList?: boolean }) => {
+  const openTaskDetails = useCallback((task: TaskRecord, options?: { revealInList?: boolean }) => {
     if (options?.revealInList) {
       setSearchQuery("");
       setListFilter("all");
@@ -860,7 +863,7 @@ export function TaskDrawer({
     }
     setProjectId(null);
     setView(getViewForTask(task, today, tomorrow));
-  };
+  }, [activeProjects, collapseNavigationIfCompact, today, tomorrow]);
   const focusTaskTrigger = (taskId: string) => {
     window.setTimeout(() => taskContentButtonRefs.current.get(taskId)?.focus(), 0);
   };
@@ -929,7 +932,7 @@ export function TaskDrawer({
     if (!task) return;
     appliedResumeTaskIdRef.current = resumeContext.taskId;
     openTaskDetails(task, { revealInList: true });
-  }, [open, resumeContext, tasks]);
+  }, [open, openTaskDetails, resumeContext, tasks]);
 
   useEffect(() => {
     const pendingCreatedTaskId = pendingCreatedTaskIdRef.current;
@@ -938,7 +941,7 @@ export function TaskDrawer({
     if (!task) return;
     pendingCreatedTaskIdRef.current = null;
     openTaskDetails(task, { revealInList: true });
-  }, [open, tasks]);
+  }, [open, openTaskDetails, tasks]);
 
   useEffect(() => {
     if (!open || !selectedTaskId) return;

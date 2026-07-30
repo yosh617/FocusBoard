@@ -1073,3 +1073,17 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 }
 
 .task-drawer button { min-width: 44px; min-height: 44px; }
+
+/* Keep controls legible over a photo when the system asks for less transparency or more contrast. */
+@media (prefers-reduced-transparency: reduce) {
+  .home-dock, .task-launcher, .settings-drawer, .toast { background: #f8fbff; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .task-drawer { background: #f6f9fd; }
+}
+
+@media (prefers-contrast: more) {
+  :root { --ink-muted: #294d76; --line: rgba(23, 52, 95, .42); }
+  .home-dock, .task-launcher, .settings-drawer, .toast { color: #102f58; border-color: #17345f; background: #fff; box-shadow: 0 8px 24px rgba(23,52,95,.24); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .task-drawer, .task-drawer__header, .task-mode-tabs, .task-workspace, .task-navigation { border-color: #9aafc8; background: #fff; }
+  .home-dock__button:hover, .home-dock__button[aria-pressed="true"], .panel-switch-button:hover, .task-header-action:hover, .task-mode-tabs button:hover { color: #102f58; background: #d9eaff; }
+  .task-drawer button:focus-visible, .task-drawer input:focus-visible, .task-drawer select:focus-visible, .task-drawer textarea:focus-visible { box-shadow: 0 0 0 3px #fff, 0 0 0 6px #174f91; }
+}

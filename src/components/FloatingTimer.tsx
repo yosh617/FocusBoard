@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import type { FloatingPosition, TimerState } from "../types/timer";
 import type { Orientation } from "../types/settings";
 import { getOrientation } from "../hooks/useOrientation";
@@ -42,7 +42,7 @@ export function FloatingTimer({ timer, onStart, onPause, onEnd, onShowSetup, onP
     setPosition(timer.floatingPosition);
   }, [timer.floatingPosition]);
 
-  const clampPosition = (x: number, y: number): FloatingPosition => {
+  const clampPosition = useCallback((x: number, y: number): FloatingPosition => {
     const rect = dragElementRef.current?.getBoundingClientRect();
     const width = rect?.width || (isCompact ? 88 : 224);
     const height = rect?.height || (isCompact ? 88 : 224);
@@ -53,7 +53,7 @@ export function FloatingTimer({ timer, onStart, onPause, onEnd, onShowSetup, onP
       x: Math.max(Math.min(.5, xMargin), Math.min(1 - Math.min(.5, xMargin), x)),
       y: Math.max(Math.min(.5, yMargin), Math.min(1 - Math.min(.5, yMargin), y))
     };
-  };
+  }, [isCompact]);
 
   useEffect(() => {
     const keepInsideViewport = () => {
@@ -70,7 +70,7 @@ export function FloatingTimer({ timer, onStart, onPause, onEnd, onShowSetup, onP
     keepInsideViewport();
     window.addEventListener("resize", keepInsideViewport);
     return () => window.removeEventListener("resize", keepInsideViewport);
-  }, [isCompact, onPositionChange, orientation, timer.floatingPosition.x, timer.floatingPosition.y, timer.floatingPositions]);
+  }, [clampPosition, onPositionChange, orientation, timer.floatingPosition.x, timer.floatingPosition.y, timer.floatingPositions]);
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if ((event.target as Element).closest("button")) return;

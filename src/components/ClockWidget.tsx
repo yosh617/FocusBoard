@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { defaultSettings, describeFontSize, fontOptions, settingRanges, type AppSettings, type ClockDateAlignment, type FreePosition, type Orientation } from "../types/settings";
 import { getOrientation } from "../hooks/useOrientation";
@@ -42,7 +42,7 @@ export function ClockWidget({ now, settings, textColor, onChange, onMessage, ori
   const moved = useRef(false);
   positionRef.current = position;
 
-  const getPositionBounds = () => {
+  const getPositionBounds = useCallback(() => {
     const displayRect = displayRef.current?.getBoundingClientRect();
     const displayWidth = displayRect?.width || Math.min(window.innerWidth * .86, 900);
     const displayHeight = displayRect?.height || 120;
@@ -56,15 +56,15 @@ export function ClockWidget({ now, settings, textColor, onChange, onMessage, ori
       : settings.clockDateAlignment === "right"
         ? { minX: xMargin, maxX: 1 - edgeGap / window.innerWidth, minY: yMargin, maxY: 1 - yMargin }
         : { minX: xMargin, maxX: 1 - xMargin, minY: yMargin, maxY: 1 - yMargin };
-  };
+  }, [settings.clockDateAlignment]);
 
-  const clampPosition = (x: number, y: number): FreePosition => {
+  const clampPosition = useCallback((x: number, y: number): FreePosition => {
     const bounds = getPositionBounds();
     return {
       x: clamp(x, bounds.minX, bounds.maxX),
       y: clamp(y, bounds.minY, bounds.maxY)
     };
-  };
+  }, [getPositionBounds]);
 
   useLayoutEffect(() => {
     const keepInsideViewport = () => {
@@ -82,7 +82,7 @@ export function ClockWidget({ now, settings, textColor, onChange, onMessage, ori
       window.removeEventListener("resize", keepInsideViewport);
       observer?.disconnect();
     };
-  }, [onChange, orientation, settings.clockDateAlignment, settings.clockFontSize, settings.dateFontSize, settings.dateFormat, settings.showClock, settings.showDate, settings.showSeconds]);
+  }, [clampPosition, onChange, orientation, settings.clockDateAlignment, settings.clockFontSize, settings.dateFontSize, settings.dateFormat, settings.showClock, settings.showDate, settings.showSeconds]);
 
   useEffect(() => {
     if (!open) return;

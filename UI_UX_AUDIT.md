@@ -1,6 +1,6 @@
 # FocusBoard タスクUI/UX監査
 
-更新日: 2026-07-18  
+更新日: 2026-07-30
 対象: タスク一覧、タスク詳細、集中レポート、データ管理  
 評価環境: Headless Chrome、375×812 / 768×1024 / 1024×768
 
@@ -114,3 +114,13 @@
 | 768×1024 | [final-tablet-portrait-tasks.png](screenshots/ui-audit/final-tablet-portrait-tasks.png) |
 | 1024×768 | [final-tablet-landscape-tasks.png](screenshots/ui-audit/final-tablet-landscape-tasks.png) |
 | 1440×900 | [final-desktop-tasks.png](screenshots/ui-audit/final-desktop-tasks.png) |
+
+## 2026-07-30 統合UI・アクセシビリティ仕上げ
+
+ホームのタスク起点と設定起点は、共通のホームドックにアイコンと文字を併記して配置した。「背景タップ時のみ」を選んだ場合は、タスク詳細カードを背景タップ後だけ一時表示し、カードを開いている間もドックを残すため、現在地の把握と次の操作を両立する。タスクカードの「表示」設定は、「常に表示」と「背景タップ時のみ」を説明文付きで選択でき、選択状態を色だけで伝えない。
+
+今回の監査では、ホームドック、ランチャー、タスク／設定パネル、タスク行と主要アクションを対象に、表示中の操作領域を44×44px以上、キーボードの`focus-visible`、本文の4.5:1を目安とするコントラスト、アイコン単独にしないラベルを確認した。`prefers-reduced-motion`では遷移を止め、`prefers-reduced-transparency`では背景上のドック／カード／パネルを不透明寄りにし、`prefers-contrast: more`では境界線・選択状態・フォーカスリングを強める。通常表示のレイアウトとタイマー／タスク／保存仕様は変更していない。
+
+判断はAppleの[Accessibility](https://developer.apple.com/design/human-interface-guidelines/accessibility)、[Buttons](https://developer.apple.com/design/human-interface-guidelines/buttons)、[Modality](https://developer.apple.com/design/human-interface-guidelines/modality)、[Design principles](https://developer.apple.com/design/human-interface-guidelines/design-principles)を参照した。ここでは公式ガイドの長文を転載せず、十分な操作領域、明確なラベル、操作後も戻り先を失わないパネル切替、ユーザー設定の尊重として実装へ対応付けている。
+
+既存スクリーンショットQAの記録は375×812、768×1024、1024×768、1440×900である。今回のアクセシビリティ仕上げでは390×844も確認対象に加え、モバイルからデスクトップまで横スクロールを増やさず、ドック・カード・パネルの操作領域を維持する方針とした。
