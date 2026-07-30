@@ -245,6 +245,21 @@ describe("App", () => {
     expect(document.querySelector(".task-launcher")).toBeNull();
   });
 
+  it("applies, persists, and resets the task workspace theme from display settings", () => {
+    render(<App />);
+    openSettings();
+    fireEvent.click(screen.getByRole("tab", { name: "表示" }));
+    const taskThemes = screen.getByRole("radiogroup", { name: "タスク画面のテーマ" });
+    const violet = within(taskThemes).getByRole("radio", { name: /バイオレット/ });
+    expect(violet.getAttribute("aria-checked")).toBe("false");
+    fireEvent.click(violet);
+    expect(violet.getAttribute("aria-checked")).toBe("true");
+    expect(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}").taskTheme).toBe("violet");
+    expect(document.querySelector<HTMLElement>(".app-shell")?.style.getPropertyValue("--task-primary")).toBe("#c9b8f4");
+    fireEvent.click(screen.getByRole("button", { name: "初期値に戻す" }));
+    expect(document.querySelector<HTMLElement>(".app-shell")?.style.getPropertyValue("--task-primary")).toBe("#f4a6a8");
+  });
+
   it("starts in setup mode, collapses to a floating timer, and opens settings", () => {
     render(<App />);
     expect(screen.getByLabelText("タイマー設定")).toBeTruthy();

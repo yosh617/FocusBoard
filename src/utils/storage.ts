@@ -1,4 +1,4 @@
-import { backgroundChoices, colorPresets, defaultSettings, fontOptions, isDateFormat, orientations, positionPresets, type AppSettings, type BackgroundChoice, type BackgroundFrames, type ClockBackgroundSettings, type ClockDateAlignment, type ColorPreset, type Orientation, type OrientationPositions, type OrientationPositionPresets, type PositionPreset, type TaskLauncherVisibility } from "../types/settings";
+import { backgroundChoices, colorPresets, defaultSettings, fontOptions, isDateFormat, orientations, positionPresets, taskThemePresets, type AppSettings, type BackgroundChoice, type BackgroundFrames, type ClockBackgroundSettings, type ClockDateAlignment, type ColorPreset, type Orientation, type OrientationPositions, type OrientationPositionPresets, type PositionPreset, type TaskLauncherVisibility, type TaskThemePreset } from "../types/settings";
 import type { SessionCategory, TimerMode, TimerProgram, TimerState, TimerStatus } from "../types/timer";
 import { BACKGROUND_DB_NAME } from "./backgroundStorage";
 import { PRODUCTIVITY_DB_NAME } from "./productivityStorage";
@@ -27,6 +27,8 @@ const isAlignment = (value: unknown): value is ClockDateAlignment =>
   value === "left" || value === "center" || value === "right";
 const isTaskLauncherVisibility = (value: unknown): value is TaskLauncherVisibility =>
   value === "always" || value === "background-tap";
+const isTaskThemePreset = (value: unknown): value is TaskThemePreset =>
+  typeof value === "string" && value in taskThemePresets;
 
 const readHiddenBackgroundIds = (value: unknown) => {
   if (!Array.isArray(value)) return [...defaultSettings.hiddenBackgroundIds];
@@ -170,7 +172,8 @@ export function migrateSettings(value: unknown): AppSettings {
     shortBreakMinutes: numberValue(value.shortBreakMinutes, defaultSettings.shortBreakMinutes, 1, 60),
     longBreakMinutes: numberValue(value.longBreakMinutes, defaultSettings.longBreakMinutes, 1, 120),
     soundEnabled: booleanValue(value.soundEnabled, defaultSettings.soundEnabled),
-    taskLauncherVisibility: isTaskLauncherVisibility(value.taskLauncherVisibility) ? value.taskLauncherVisibility : defaultSettings.taskLauncherVisibility
+    taskLauncherVisibility: isTaskLauncherVisibility(value.taskLauncherVisibility) ? value.taskLauncherVisibility : defaultSettings.taskLauncherVisibility,
+    taskTheme: isTaskThemePreset(value.taskTheme) ? value.taskTheme : defaultSettings.taskTheme
   };
 }
 

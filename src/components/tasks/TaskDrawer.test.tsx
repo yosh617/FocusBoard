@@ -422,7 +422,7 @@ describe("TaskDrawer", () => {
     renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: "数学の復習の順番と詳細を開く" }));
     expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "タスク詳細" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "タスクの設定" })).toBeTruthy();
     expect(screen.getByText("0 / 1件が完了")).toBeTruthy();
   });
 
@@ -657,6 +657,39 @@ describe("TaskDrawer", () => {
     expect((details.getByLabelText("見積もり") as HTMLInputElement).value).toBe("4");
     fireEvent.click(details.getByRole("button", { name: "保存" }));
     await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({ estimatedPomodoros: 4 })));
+  });
+
+  it("syncs detail quick presets into the date, bucket, estimate, and saved patch", async () => {
+    const props = renderDrawer();
+    fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
+    const details = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
+
+    const inSevenDays = details.getByRole("button", { name: "7日後" });
+    fireEvent.click(inSevenDays);
+    expect(inSevenDays.getAttribute("aria-pressed")).toBe("true");
+    expect((details.getByLabelText("期限") as HTMLInputElement).value).toBe(addLocalDays(today, 7));
+    expect((details.getByLabelText("分類") as HTMLSelectElement).value).toBe("inbox");
+
+    const fourPomodoros = details.getByRole("button", { name: "4" });
+    fireEvent.click(fourPomodoros);
+    expect(fourPomodoros.getAttribute("aria-pressed")).toBe("true");
+    expect((details.getByLabelText("見積もり") as HTMLInputElement).value).toBe("4");
+
+    fireEvent.click(details.getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({ dueDate: addLocalDays(today, 7), bucket: "inbox", estimatedPomodoros: 4 })));
+  });
+
+  it("sets someday from the detail quick preset and clears the date before saving", async () => {
+    const props = renderDrawer();
+    fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
+    const details = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
+    const someday = details.getByRole("button", { name: "いつか" });
+    fireEvent.click(someday);
+    expect(someday.getAttribute("aria-pressed")).toBe("true");
+    expect((details.getByLabelText("期限") as HTMLInputElement).value).toBe("");
+    expect((details.getByLabelText("分類") as HTMLSelectElement).value).toBe("someday");
+    fireEvent.click(details.getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({ dueDate: null, bucket: "someday" })));
   });
 
   it("saves priority detail changes from the top save action", async () => {

@@ -15,7 +15,7 @@ import { useFullscreen } from "./hooks/useFullscreen";
 import { useOrientation } from "./hooks/useOrientation";
 import { useTasks } from "./hooks/useTasks";
 import { useTaskReminders } from "./hooks/useTaskReminders";
-import { defaultSettings, fontOptions, positionPresets, type OrientationPositions, type PositionPreset } from "./types/settings";
+import { defaultSettings, fontOptions, positionPresets, taskThemePresets, type OrientationPositions, type PositionPreset } from "./types/settings";
 import type { TimerSessionEvent } from "./types/timer";
 import { getAdaptivePalette, fallbackBackgroundRgb, getStrongAccent, type AdaptivePalette } from "./utils/adaptiveColor";
 import { formatFocusedTime } from "./utils/productivityReport";
@@ -378,6 +378,7 @@ export default function App() {
   sessionOverlayOpenRef.current = completedSession !== null && completedTask !== null;
   const clockColor = activeClockSetting.matchColors ? adaptivePalette.text : activeClockSetting.color;
   const timerColor = settings.matchTimerBackgroundColors ? adaptivePalette.accent : settings.timerColor;
+  const taskTheme = taskThemePresets[settings.taskTheme];
   const appStyle = {
     color: clockColor,
     fontFamily: fontOptions[settings.fontFamily as keyof typeof fontOptions] ?? fontOptions.system,
@@ -385,7 +386,13 @@ export default function App() {
     "--timer-accent-strong": getStrongAccent(timerColor),
     "--adaptive-accent": timerColor,
     "--adaptive-accent-strong": getStrongAccent(timerColor),
-    "--timer-background-opacity": settings.timerBackgroundOpacity
+    "--timer-background-opacity": settings.timerBackgroundOpacity,
+    "--task-primary": taskTheme.primary,
+    "--task-primary-hover": taskTheme.hover,
+    "--task-primary-soft": taskTheme.soft,
+    "--task-primary-border": taskTheme.border,
+    "--task-primary-text": taskTheme.text,
+    "--task-primary-shadow": taskTheme.shadow
   } as CSSProperties;
 
   useEffect(() => {

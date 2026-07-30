@@ -214,7 +214,17 @@ function TaskEditor({ task, projects, subtasks, timerStatus, activeTaskId, nextT
   const canStartTask = isActiveTask || (timerStatus === "idle" && task.status === "open");
   const canCompleteAndStartNext = task.status === "open" && timerStatus === "idle" && nextTask !== null && onCompleteAndStartNextTask !== undefined;
   const now = new Date();
+  const today = toLocalDateKey(now);
   const reminderSummary = reminder ? reminderLabel(new Date(reminder).getTime(), now) : "通知なし";
+  const applyDuePreset = (preset: "today" | "tomorrow" | "week" | "someday") => {
+    if (preset === "someday") {
+      setDueDate("");
+      setBucket("someday");
+      return;
+    }
+    setDueDate(addLocalDays(today, preset === "today" ? 0 : preset === "tomorrow" ? 1 : 7));
+    setBucket("inbox");
+  };
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setSaving(true);
@@ -234,9 +244,27 @@ function TaskEditor({ task, projects, subtasks, timerStatus, activeTaskId, nextT
   return (
     <form className="task-editor" onSubmit={submit} aria-label={`${task.title}の詳細`}>
       <div className="task-editor__heading">
-        <h3>タスク詳細</h3>
-        {onClose && <button className="task-editor__close" type="button" onClick={onClose} aria-label="詳細を閉じる"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg></button>}
+        <h3>タスクの設定</h3>
+        <div className="task-editor__heading-actions"><button className="task-editor__save primary-button" type="submit" disabled={saving} aria-label="保存">{saving ? "保存中" : "変更を保存"}</button>{onClose && <button className="task-editor__close" type="button" onClick={onClose} aria-label="詳細を閉じる"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg></button>}</div>
       </div>
+      <section className="task-editor__summary" aria-label="タスクの要点">
+        <label className="task-editor__title-field">タスク名<span aria-hidden="true">必須</span><input aria-label="タスク名" value={title} maxLength={200} required onChange={(event) => setTitle(event.target.value)} /></label>
+        <div className="task-editor__summary-meta"><em className={task.status === "completed" ? "is-completed" : "is-open"}>{task.status === "completed" ? "完了済み" : "未完了"}</em>{dueDate && <em>期限 {dueDate}</em>}{estimatedPomodoros > 0 && <em>集中 {estimatedPomodoros}回</em>}{projectId && <em>{projects.find((project) => project.id === projectId)?.name}</em>}</div>
+      </section>
+      <section className="task-editor__quick-actions" aria-label="よく使う設定">
+        <div className="task-editor__quick-group">
+          <span>期限を選ぶ</span>
+          <div role="group" aria-label="タスクの期限をすばやく設定">
+            {([ ["today", "今日"], ["tomorrow", "明日"], ["week", "7日後"], ["someday", "いつか"] ] as const).map(([preset, label]) => <button type="button" aria-pressed={preset === "someday" ? bucket === "someday" && !dueDate : dueDate === addLocalDays(today, preset === "today" ? 0 : preset === "tomorrow" ? 1 : 7) && bucket === "inbox"} className={(preset === "someday" ? bucket === "someday" && !dueDate : dueDate === addLocalDays(today, preset === "today" ? 0 : preset === "tomorrow" ? 1 : 7) && bucket === "inbox") ? "is-active" : ""} onClick={() => applyDuePreset(preset)} key={preset}>{label}</button>)}
+          </div>
+        </div>
+        <div className="task-editor__quick-group">
+          <span>集中回数を選ぶ</span>
+          <div role="group" aria-label="集中回数をすばやく設定">
+            {[0, ...quickEstimateOptions].map((value) => <button type="button" aria-pressed={estimatedPomodoros === value} className={estimatedPomodoros === value ? "is-active" : ""} onClick={() => setEstimatedPomodoros(value)} key={value}>{value === 0 ? "なし" : value}</button>)}
+          </div>
+        </div>
+      </section>
       <div className="task-editor__focus">
         <div>
           <strong>{task.status === "completed" ? "完了済みの状態です" : isActiveTask ? "いまの集中へ戻る" : "このタスクを始める"}</strong>
@@ -288,9 +316,6 @@ function TaskEditor({ task, projects, subtasks, timerStatus, activeTaskId, nextT
           )}
         </div>
       </div>
-      <button className="task-editor__save primary-button" type="submit" disabled={saving}>
-        {saving ? "保存中" : "保存"}
-      </button>
       {canCompleteAndStartNext && (
         <section className="task-editor__next-card" aria-label="次に進む候補">
           <div className="task-editor__next-card-copy">
@@ -316,7 +341,6 @@ function TaskEditor({ task, projects, subtasks, timerStatus, activeTaskId, nextT
             <h4 id={`task-plan-${task.id}`}>基本情報</h4>
           </div>
         </div>
-        <label>タスク名<input value={title} maxLength={200} required onChange={(event) => setTitle(event.target.value)} /></label>
         <div className="task-editor__row">
           <label>プロジェクト<select value={projectId} onChange={(event) => setProjectId(event.target.value)}><option value="">なし</option>{projects.map((project) => <option value={project.id} key={project.id}>{project.name}</option>)}</select></label>
           <label>期限<input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label>

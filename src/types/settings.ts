@@ -24,6 +24,15 @@ export type ClockBackgroundSettings = Record<string, ClockBackgroundSetting>;
 export type DateFormat = string;
 export type TaskLauncherVisibility = "always" | "background-tap";
 
+export const taskThemePresets = {
+  coral: { label: "コーラル", primary: "#f4a6a8", hover: "#e58e92", soft: "#fff6f6", border: "#e9b1b4", text: "#5a1f24", shadow: "rgba(244, 166, 168, .32)" },
+  blue: { label: "ブルー", primary: "#afcbff", hover: "#9cbdf7", soft: "#f5f8ff", border: "#b8ccf2", text: "#17345f", shadow: "rgba(175, 203, 255, .36)" },
+  mint: { label: "ミント", primary: "#a8ddd2", hover: "#94cfc1", soft: "#f3fbf9", border: "#afd8d0", text: "#174b43", shadow: "rgba(168, 221, 210, .36)" },
+  violet: { label: "バイオレット", primary: "#c9b8f4", hover: "#b7a4e8", soft: "#f8f6ff", border: "#cdbfe8", text: "#392b66", shadow: "rgba(201, 184, 244, .36)" },
+  amber: { label: "アンバー", primary: "#f3d6a2", hover: "#e7c589", soft: "#fffaf1", border: "#e9d0a1", text: "#5a3a0c", shadow: "rgba(243, 214, 162, .36)" }
+} as const;
+export type TaskThemePreset = keyof typeof taskThemePresets;
+
 export const dateFormatPresets = [
   { value: "yyyy/mm/dd weekday", label: "yyyy/mm/dd 曜日" },
   { value: "mm/dd weekday", label: "mm/dd 曜日" },
@@ -101,6 +110,7 @@ export type AppSettings = {
   longBreakMinutes: number;
   soundEnabled: boolean;
   taskLauncherVisibility: TaskLauncherVisibility;
+  taskTheme: TaskThemePreset;
 };
 
 export const settingRanges = {
@@ -158,7 +168,8 @@ export const defaultSettings: AppSettings = {
   shortBreakMinutes: 5,
   longBreakMinutes: 15,
   soundEnabled: true,
-  taskLauncherVisibility: "always"
+  taskLauncherVisibility: "always",
+  taskTheme: "coral"
 };
 
 export const fontOptions = {

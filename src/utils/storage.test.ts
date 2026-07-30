@@ -19,6 +19,7 @@ describe("settings storage", () => {
     expect(result.clockColor).toBe(defaultSettings.clockColor);
     expect(result.timerColor).toBe(defaultSettings.timerColor);
     expect(result.colorPreset).toBe(defaultSettings.colorPreset);
+    expect(result.taskTheme).toBe(defaultSettings.taskTheme);
     expect(result.timerBackgroundOpacity).toBe(.6);
   });
 
@@ -40,6 +41,15 @@ describe("settings storage", () => {
     expect(migrateSettings(legacy).taskLauncherVisibility).toBe("always");
     expect(migrateSettings({ ...defaultSettings, taskLauncherVisibility: "hidden" }).taskLauncherVisibility).toBe("always");
     expect(migrateSettings({ ...defaultSettings, taskLauncherVisibility: "background-tap" }).taskLauncherVisibility).toBe("background-tap");
+  });
+
+  it("restores a valid task theme and falls back for absent or invalid values", () => {
+    const legacy = { ...defaultSettings } as Record<string, unknown>;
+    Reflect.deleteProperty(legacy, "taskTheme");
+    expect(migrateSettings(legacy).taskTheme).toBe(defaultSettings.taskTheme);
+    expect(migrateSettings({ ...defaultSettings, taskTheme: "unknown" }).taskTheme).toBe(defaultSettings.taskTheme);
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...defaultSettings, taskTheme: "violet" }));
+    expect(loadSettings().taskTheme).toBe("violet");
   });
 
   it("clamps background framing settings", () => {
