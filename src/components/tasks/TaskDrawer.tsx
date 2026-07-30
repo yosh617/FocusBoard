@@ -670,10 +670,6 @@ export function TaskDrawer({
     };
   }, [activeFocusProject, activeFocusTask, today]);
   const toolbarContext = resumeContext ?? activeFocusBanner;
-  const focusCandidateProject = focusCandidate?.projectId
-    ? activeProjects.find((project) => project.id === focusCandidate.projectId) ?? null
-    : null;
-  const focusCandidateDueLabel = focusCandidate ? dueLabel(focusCandidate, today) : "";
   const quickDatePreset = dueDate === today ? "today" : dueDate === tomorrow ? "tomorrow" : dueDate === "" ? "none" : "custom";
   const quickEstimatePreset = quickEstimatedPomodoros === 0 ? "none" : String(quickEstimatedPomodoros);
   const todayCompletionRate = todayTasks.length === 0 ? 0 : Math.round((todayCompletedTasks / todayTasks.length) * 100);
@@ -823,18 +819,6 @@ export function TaskDrawer({
             : view === "completed"
               ? "完了済みでは追加できません"
               : "頭に浮かんだタスクをすぐ入力";
-  const focusHeadline = activeTaskId
-    ? "進行中の集中"
-    : projectId
-      ? "このプロジェクトの次の1件"
-      : view === "today"
-        ? "今日のおすすめ"
-        : "次に始める";
-  const focusSupportText = activeTaskId
-    ? "タイマーを止めずに、タスクの詳細と進み具合を確認できます。"
-    : focusCandidate
-      ? "開始ボタンから、そのまま集中タイマーへ入れます。"
-      : "まずは下の入力欄から、次の1件を追加してください。";
   const currentListAction = activeFocusTask && timerStatus !== "idle"
     ? {
         label: "タイマーへ戻る",
@@ -857,8 +841,6 @@ export function TaskDrawer({
             onClick: focusQuickAddInput
         }
       : null;
-  const isActiveFocusTask = focusCandidate !== null && activeTaskId === focusCandidate.id && timerStatus !== "idle";
-
   const openTaskDetails = (task: TaskRecord, options?: { revealInList?: boolean }) => {
     if (options?.revealInList) {
       setSearchQuery("");
@@ -884,12 +866,6 @@ export function TaskDrawer({
     setSelectedTaskId(null);
     focusTaskTrigger(taskId);
   };
-  const focusCandidateSummaryParts = focusCandidate ? [
-    focusCandidateProject?.name ?? null,
-    focusCandidateDueLabel || null,
-    focusCandidate.reminderAt !== null ? reminderLabel(focusCandidate.reminderAt, now) : null,
-    focusCandidate.estimatedPomodoros > 0 ? `目安 ${focusCandidate.estimatedPomodoros}セット` : null
-  ].filter((item): item is string => item !== null) : [];
   const selectedTaskNextCandidate = selectedTask
     ? sortTasksForFocus(tasks, today, activeTaskId).find((task) => task.id !== selectedTask.id) ?? null
     : null;
@@ -901,99 +877,6 @@ export function TaskDrawer({
     dueLabel(selectedTaskNextCandidate, today) || null,
     selectedTaskNextCandidate.estimatedPomodoros > 0 ? `目安 ${selectedTaskNextCandidate.estimatedPomodoros}セット` : null
   ].filter((item): item is string => item !== null).join(" ・ ") : "";
-  const dayFlowCards = [
-    {
-      key: "plan",
-      step: "STEP 1",
-      title: "整える",
-      detail: currentListDescription,
-      meta: quickAddContextLabel,
-      recommended: activeFocusTask === null && focusCandidate === null,
-      onSelect: focusQuickAddInput
-    },
-    {
-      key: "focus",
-      step: "STEP 2",
-      title: "集中する",
-      detail: activeFocusTask
-        ? `${activeFocusTask.title}に集中中です。止めずにタイマーへ戻るか、詳細を確認できます。`
-        : focusCandidate
-          ? `${focusCandidate.title}を次の候補として開き、そのまま開始できます。`
-          : "今日の1件を追加すると、ここから次のおすすめへ進めます。",
-      meta: activeFocusTask ? "タイマーへ戻る" : focusCandidate ? "候補を開く" : "追加して準備",
-      recommended: activeFocusTask !== null || (focusCandidate !== null && timerStatus === "idle"),
-      onSelect: () => {
-        if (activeFocusTask && timerStatus !== "idle") {
-          onClose();
-          return;
-        }
-        if (focusCandidate) {
-          openTaskDetails(focusCandidate, { revealInList: true });
-          return;
-        }
-        focusQuickAddInput();
-      }
-    },
-    {
-      key: "review",
-      step: "STEP 3",
-      title: "振り返る",
-      detail: todayFocusedMs > 0 || todayCompletedTasks > 0
-        ? `集中 ${todayFocusedMs > 0 ? formatFocusedTime(todayFocusedMs) : "0分"}・完了 ${todayCompletedTasks}件をレポートで見直せます。`
-        : "集中時間と完了数はレポートに自動で蓄積されます。",
-      meta: todayFocusedMs > 0 || todayCompletedTasks > 0 ? "レポートを見る" : "記録の見方を確認",
-      recommended: activeFocusTask === null && (todayFocusedMs > 0 || todayCompletedTasks > 0),
-      onSelect: () => {
-        setSelectedTaskId(null);
-        setWorkspaceMode("report");
-      }
-    }
-  ];
-  const nextStepCard = activeFocusTask && timerStatus !== "idle"
-    ? {
-        tone: "focus" as const,
-        label: "NOW",
-        title: `${activeFocusTask.title}を続ける`,
-        detail: "タイマー表示へ戻るか、進行中タスクの詳細を開いて進み具合を確認できます。",
-        primaryLabel: "タイマーへ戻る",
-        primaryAriaLabel: "次の操作からタイマーへ戻る",
-        onPrimary: onClose,
-        secondaryLabel: "進行中を開く",
-        secondaryAriaLabel: `${activeFocusTask.title}の詳細を次の操作から開く`,
-        onSecondary: () => openTaskDetails(activeFocusTask, { revealInList: true })
-      }
-    : focusCandidate && focusCandidate.status === "open" && timerStatus === "idle"
-      ? {
-          tone: focusCandidateDueLabel.startsWith("期限切れ") ? "alert" as const : "default" as const,
-          label: "NEXT",
-          title: `${focusCandidate.title}を始める`,
-          detail: `${focusCandidateSummaryParts.join(" ・ ")}${focusCandidateSummaryParts.length > 0 ? " ・ " : ""}そのまま集中タイマーを開始できます。`,
-          primaryLabel: "開始する",
-          primaryAriaLabel: `${focusCandidate.title}を次の操作から開始`,
-          onPrimary: () => onStartTask(focusCandidate.id),
-          secondaryLabel: "詳細を見る",
-          secondaryAriaLabel: `${focusCandidate.title}の詳細を次の操作から開く`,
-          onSecondary: () => openTaskDetails(focusCandidate, { revealInList: true })
-        }
-      : storageAvailable && view !== "completed"
-        ? {
-            tone: "default" as const,
-            label: "CAPTURE",
-            title: "次の1件を追加する",
-            detail: `${quickAddContextLabel}。タイトルだけ入れて、あとから詳細を整えられます。`,
-            primaryLabel: "入力へ移動",
-            primaryAriaLabel: "次の操作から入力欄へ移動",
-            onPrimary: focusQuickAddInput
-          }
-        : {
-            tone: "default" as const,
-            label: "REVIEW",
-            title: "完了記録を見直す",
-            detail: "今日の流れが終わったあとは、レポートで集中時間と完了数を振り返れます。",
-            primaryLabel: "レポートを見る",
-            primaryAriaLabel: "次の操作からレポートを開く",
-            onPrimary: () => setWorkspaceMode("report")
-          };
   const smartJumps: SmartJump[] = [];
   const jumpedTaskIds = new Set<string>();
   const pushTaskJump = (task: TaskRecord, label: string, keyPrefix: string, tone: SmartJump["tone"] = "default") => {
@@ -1185,56 +1068,6 @@ export function TaskDrawer({
                 </div>
                 <progress max={100} value={todayCompletionRate} aria-label={`今日の進捗 ${todayCompletionRate}%`} />
               </div>
-              <section className="task-day-flow" aria-labelledby="task-day-flow-title">
-                <div className="task-day-flow__heading">
-                  <div>
-                    <h4 id="task-day-flow-title">今日の進め方</h4>
-                    <p>整える、集中する、振り返るを同じ流れのまま切り替えられます。</p>
-                  </div>
-                </div>
-                <div className="task-day-flow__grid">
-                  {dayFlowCards.map((card) => (
-                    <button
-                      className={`task-day-flow__card${card.recommended ? " is-recommended" : ""}`}
-                      type="button"
-                      key={card.key}
-                      onClick={card.onSelect}
-                    >
-                      <span className="task-day-flow__step">{card.step}</span>
-                      <strong>{card.title}</strong>
-                      <p>{card.detail}</p>
-                      <em>{card.meta}</em>
-                    </button>
-                  ))}
-                </div>
-              </section>
-              <section className={`task-next-step task-next-step--${nextStepCard.tone}`} aria-label="次のおすすめ操作">
-                <div className="task-next-step__copy">
-                  <span>{nextStepCard.label}</span>
-                  <strong>{nextStepCard.title}</strong>
-                  <p>{nextStepCard.detail}</p>
-                </div>
-                <div className="task-next-step__actions">
-                  <button
-                    className="task-next-step__primary"
-                    type="button"
-                    aria-label={nextStepCard.primaryAriaLabel}
-                    onClick={nextStepCard.onPrimary}
-                  >
-                    {nextStepCard.primaryLabel}
-                  </button>
-                  {nextStepCard.secondaryLabel && nextStepCard.onSecondary && (
-                    <button
-                      className="task-next-step__secondary"
-                      type="button"
-                      aria-label={nextStepCard.secondaryAriaLabel}
-                      onClick={nextStepCard.onSecondary}
-                    >
-                      {nextStepCard.secondaryLabel}
-                    </button>
-                  )}
-                </div>
-              </section>
               {nextReminderTask && nextReminderText && (
                 <div className="task-focus-hero__alert" role="status" aria-label="次のリマインダー">
                   <strong>次の通知</strong>
@@ -1242,51 +1075,6 @@ export function TaskDrawer({
                   <em>{nextReminderText}</em>
                 </div>
               )}
-              <div className="task-focus-card">
-                <div className="task-focus-card__copy">
-                  <span>{focusHeadline}</span>
-                  <strong>{focusCandidate?.title ?? "次に取り組むタスクを決めましょう"}</strong>
-                  <p>{focusSupportText}</p>
-                  {focusCandidate && (
-                    <div className="task-focus-card__meta">
-                      {focusCandidateProject && <em><i style={{ background: focusCandidateProject.color }} />{focusCandidateProject.name}</em>}
-                      {focusCandidateDueLabel && <em className={focusCandidateDueLabel.startsWith("期限切れ") ? "is-overdue" : ""}>{focusCandidateDueLabel}</em>}
-                      {focusCandidate.reminderAt !== null && <em>{reminderLabel(focusCandidate.reminderAt, now)}</em>}
-                      {(focusCandidate.estimatedPomodoros > 0 || (completedPomodorosByTask.get(focusCandidate.id) ?? 0) > 0) && (
-                        <em>集中 {completedPomodorosByTask.get(focusCandidate.id) ?? 0} / {focusCandidate.estimatedPomodoros || "—"}</em>
-                      )}
-                    </div>
-                  )}
-                </div>
-                {focusCandidate ? (
-                  <div className="task-focus-card__actions">
-                    <button
-                      className="task-focus-card__secondary"
-                      type="button"
-                      onClick={() => openTaskDetails(focusCandidate, { revealInList: true })}
-                      aria-label={`${focusCandidate.title}の詳細を開く`}
-                    >
-                      詳細
-                    </button>
-                    <button
-                      className="task-focus-card__action"
-                      type="button"
-                      onClick={() => {
-                        if (isActiveFocusTask) {
-                          onClose();
-                          return;
-                        }
-                        onStartTask(focusCandidate.id);
-                      }}
-                      disabled={!isActiveFocusTask && (timerStatus !== "idle" || focusCandidate.status !== "open")}
-                    >
-                      {isActiveFocusTask ? "タイマーへ戻る" : activeTaskId === focusCandidate.id ? "進行中" : "開始"}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="task-focus-card__empty" aria-hidden="true">+</div>
-                )}
-              </div>
               {focusQueue.length > 0 && (
                 <section className="task-focus-queue" aria-labelledby="task-focus-queue-title">
                   <div className="task-focus-queue__heading">

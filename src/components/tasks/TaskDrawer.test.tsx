@@ -89,27 +89,10 @@ describe("TaskDrawer", () => {
   it("shows a daily focus summary before the task list", () => {
     renderDrawer({ sessions: [session] });
     expect(screen.getByRole("region", { name: "今日の集中サマリー" }).textContent).toContain("今日の集中ハブ");
-    expect(screen.getByRole("region", { name: "今日の進め方" }).textContent).toContain("整える");
-    expect(screen.getByRole("region", { name: "今日の進め方" }).textContent).toContain("集中する");
-    expect(screen.getByRole("region", { name: "今日の進め方" }).textContent).toContain("振り返る");
-    expect(screen.getByRole("region", { name: "次のおすすめ操作" }).textContent).toContain("数学の復習を始める");
+    expect(screen.queryByRole("region", { name: "今日の進め方" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "次のおすすめ操作" })).toBeNull();
     expect(screen.getByRole("region", { name: "現在の一覧" }).textContent).toContain("今日動かすタスクを、この画面だけで追加して集中できます。");
-    expect(screen.getByRole("heading", { name: "今日の流れ" })).toBeTruthy();
     expect(screen.getByText("25分")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "開始" })).toBeTruthy();
-  });
-
-  it("lets the user move through plan, focus, and review from the daily flow", async () => {
-    renderDrawer({ sessions: [session] });
-
-    fireEvent.click(screen.getByRole("button", { name: /整える/ }));
-    expect(document.activeElement).toBe(screen.getByLabelText("新しいタスク"));
-
-    fireEvent.click(screen.getByRole("button", { name: /集中する/ }));
-    await waitFor(() => expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy());
-
-    fireEvent.click(screen.getByRole("button", { name: /振り返る/ }));
-    expect(screen.getByRole("heading", { name: "集中レポート" })).toBeTruthy();
   });
 
   it("shows a focus-ready label and a visible start action in the task row", () => {
@@ -158,8 +141,7 @@ describe("TaskDrawer", () => {
     renderDrawer({ timerStatus: "running", activeTaskId: task.id });
     expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("いまの集中");
     expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("数学の復習に集中中です");
-    expect(screen.getByRole("region", { name: "次のおすすめ操作" }).textContent).toContain("数学の復習を続ける");
-    fireEvent.click(screen.getByRole("button", { name: "進行中を開く" }));
+    fireEvent.click(screen.getByRole("button", { name: "数学の復習の順番と詳細を開く" }));
     await waitFor(() => expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy());
     expect(screen.getByRole("button", { name: "数学の復習の詳細からタイマーへ戻る" })).toBeTruthy();
   });
@@ -431,9 +413,9 @@ describe("TaskDrawer", () => {
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "理科の暗記", estimatedPomodoros: 2 })));
   });
 
-  it("opens the focus candidate details from the hero card", () => {
+  it("opens the focus candidate details from the focus queue", () => {
     renderDrawer();
-    fireEvent.click(screen.getByRole("button", { name: "数学の復習の詳細を開く" }));
+    fireEvent.click(screen.getByRole("button", { name: "数学の復習の順番と詳細を開く" }));
     expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy();
     expect(screen.getByRole("region", { name: "タスクの概要" }).textContent).toContain("集中 0 / 2");
     expect(screen.getByText("0 / 1件が完了")).toBeTruthy();
