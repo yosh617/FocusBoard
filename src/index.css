@@ -1651,3 +1651,69 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .report-empty-state svg { flex: none; width: 30px; height: 30px; color: #6b6f76; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .report-empty-state h4 { margin: 0; font-size: 14px; }
 .report-empty-state p { margin: 3px 0 0; color: #6b6f76; font-size: 12px; }
+
+/* Focus-style capture: one title, one estimate, and a five-action toolbar. */
+.task-capture { position: relative; display: grid; grid-template-columns: 1fr; gap: 0; padding: 0; overflow: visible; border: 1px solid var(--task-primary-border); border-radius: 14px; background: #fff; }
+.task-capture__title { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; min-height: 64px; padding: 0 14px; border-bottom: 1px solid #e6e8eb; }
+.task-capture__title > span { color: var(--task-primary); font-size: 32px; font-weight: 300; line-height: 1; }
+.task-capture .task-capture__title input { min-width: 0; min-height: 62px; padding: 0; color: #202124; border: 0; border-radius: 0; background: #fff; font-size: 18px; font-weight: 650; outline: 0; }
+.task-capture .task-capture__title input:focus { box-shadow: none; }
+.task-capture__estimate { display: grid; gap: 8px; padding: 12px 14px; border-bottom: 1px solid #e6e8eb; }
+.task-capture__estimate > span { color: #6b6f76; text-align: center; font-size: 11px; font-weight: 700; }
+.task-capture__estimate > div { display: grid; grid-template-columns: repeat(5, minmax(44px, 1fr)); gap: 8px; }
+.task-capture__estimate button { display: grid; place-items: center; min-width: 44px; min-height: 50px; padding: 3px; color: #a2a6ac; border: 0; border-radius: 9px; background: #fff; }
+.task-capture button, .quick-add-popover button { box-shadow: none; }
+.task-capture__estimate button svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.task-capture__estimate button strong { font-size: 10px; font-variant-numeric: tabular-nums; }
+.task-capture__estimate button.is-active { color: var(--task-primary-text); background: var(--task-primary-soft); box-shadow: inset 0 0 0 1px var(--task-primary-border); }
+.task-capture__estimate-slider { display: grid; gap: 8px; padding: 12px 16px; border-bottom: 1px solid #e6e8eb; }
+.task-capture__estimate-slider label { display: flex; justify-content: space-between; color: #555d67; font-size: 12px; font-weight: 750; }
+.task-capture__estimate-slider output { color: var(--task-primary-text); }
+.task-capture__estimate-slider input { width: 100%; accent-color: var(--task-primary); }
+.task-capture__toolbar { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); min-height: 60px; padding: 4px 8px; }
+.task-capture__toolbar button { display: grid; place-items: center; align-content: center; min-width: 44px; min-height: 52px; gap: 2px; padding: 3px; color: #737982; border: 0; border-radius: 9px; background: #fff; font-size: 10px; font-weight: 750; }
+.task-capture__toolbar button svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.task-capture__toolbar button:hover:not(:disabled), .task-capture__toolbar button.is-active { color: var(--task-primary-text); background: var(--task-primary-soft); }
+.task-capture__toolbar button:disabled { opacity: .35; }
+.task-capture__toolbar .task-capture__submit { display: grid; color: #fff; background: var(--task-primary); font-size: 14px; }
+.task-capture__toolbar .task-capture__submit:hover:not(:disabled) { color: #fff; background: var(--task-primary-hover); }
+.task-capture__toolbar .task-capture__submit:disabled { color: #8d939b; background: #fff; }
+.quick-add-popover { position: absolute; z-index: 3; top: calc(100% + 8px); left: 0; width: min(420px, 100%); padding: 14px; color: #202124; border: 1px solid #dfe3e7; border-radius: 14px; background: #fff; box-shadow: 0 18px 46px rgba(31,44,61,.2); }
+.quick-add-calendar { position: fixed; top: 50%; left: calc(50% + 75px); max-height: calc(100dvh - 64px); overflow-y: auto; transform: translate(-50%, -50%); }
+.quick-add-popover__header { display: flex; align-items: center; justify-content: space-between; min-height: 40px; margin-bottom: 10px; }
+.quick-add-popover__header strong { font-size: 16px; }
+.quick-add-popover__header button { width: 44px; height: 44px; color: #555d67; border: 0; border-radius: 9px; background: #fff; font-size: 22px; }
+.quick-add-calendar__shortcuts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.quick-add-calendar__shortcuts button { min-height: 48px; color: #252a31; border: 1px solid #dfe3e7; border-radius: 10px; background: #fff; font-weight: 750; }
+.quick-add-calendar__shortcuts button:hover { color: var(--task-primary-text); border-color: var(--task-primary-border); background: var(--task-primary-soft); }
+.quick-add-calendar__month { display: flex; align-items: center; justify-content: space-between; min-height: 54px; margin-top: 8px; }
+.quick-add-calendar__month > span { display: flex; gap: 4px; }
+.quick-add-calendar__month button { width: 44px; height: 44px; color: var(--task-primary); border: 0; background: #fff; font-size: 30px; }
+.quick-add-calendar__week, .quick-add-calendar__grid { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; }
+.quick-add-calendar__week span { padding: 7px 0; color: #767c85; font-size: 11px; font-weight: 750; }
+.quick-add-calendar__grid button, .quick-add-calendar__grid > span { min-width: 0; min-height: 44px; color: #252a31; border: 0; border-radius: 50%; background: #fff; font-size: 14px; }
+.quick-add-calendar__grid button:hover, .quick-add-calendar__grid button.is-today { color: var(--task-primary-text); background: var(--task-primary-soft); }
+.quick-add-calendar__grid button.is-selected { color: #fff; background: var(--task-primary); }
+.quick-add-priority > div:last-child { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.quick-add-priority > div:last-child button { display: grid; place-items: center; min-height: 76px; gap: 5px; color: #252a31; border: 1px solid #dfe3e7; border-radius: 10px; background: #fff; }
+.quick-add-priority button.is-selected { border-color: var(--task-primary); background: var(--task-primary-soft); }
+.quick-add-priority button svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.quick-add-project > div:last-child { display: grid; gap: 4px; max-height: 280px; overflow-y: auto; }
+.quick-add-project > div:last-child button { display: flex; align-items: center; min-height: 48px; gap: 10px; padding: 0 12px; color: #252a31; text-align: left; border: 0; border-radius: 9px; background: #fff; }
+.quick-add-project > div:last-child button:hover, .quick-add-project > div:last-child button.is-selected { background: var(--task-primary-soft); }
+.quick-add-project i { width: 10px; height: 10px; border-radius: 50%; background: #8e8e93; }
+.task-editor__priority { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.task-editor__priority button { display: flex; align-items: center; justify-content: center; min-height: 44px; gap: 5px; color: #555d67; border: 1px solid #dfe3e7; border-radius: 9px; background: #fff; }
+.task-editor__priority button.is-active { color: var(--task-primary-text); border-color: var(--task-primary-border); background: var(--task-primary-soft); }
+.task-editor__priority svg, .task-row__priority svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.task-row__content > strong { display: flex; align-items: center; gap: 5px; }
+.task-row__priority { display: inline-flex; flex: none; }
+.task-list__section[aria-labelledby="task-section-today-overdue"] .task-list__section-header h4 { color: #b23b32; }
+
+@media (max-width: 520px) {
+  .task-capture__estimate > div { gap: 3px; }
+  .task-capture__estimate button { min-width: 42px; }
+  .task-capture__toolbar { padding-inline: 4px; }
+  .task-capture__toolbar button span { max-width: 52px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .quick-add-popover { position: fixed; top: auto; right: 0; bottom: 0; left: 0; width: 100%; max-height: min(78dvh, 680px); overflow-y: auto; padding: 18px max(18px, env(safe-area-inset-right)) max(22px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left)); border-width: 1px 0 0; border-radius: 18px 18px 0 0; transform: none; }
+}

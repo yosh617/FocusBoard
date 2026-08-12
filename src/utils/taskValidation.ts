@@ -1,6 +1,6 @@
 import type { FocusSessionRecord } from "../types/focusSession";
 import type { ProjectRecord } from "../types/project";
-import type { RepeatRule, TaskRecord, TaskStatus } from "../types/task";
+import type { RepeatRule, TaskPriority, TaskRecord, TaskStatus } from "../types/task";
 import type { TimerMode, TimerProgram } from "../types/timer";
 
 const idPattern = /^[a-zA-Z0-9_-]{1,128}$/;
@@ -8,6 +8,7 @@ const colorPattern = /^#[0-9a-f]{6}$/i;
 const datePattern = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 const taskStatuses: TaskStatus[] = ["open", "completed", "archived"];
+const taskPriorities: TaskPriority[] = ["none", "low", "medium", "high"];
 const timerPrograms: TimerProgram[] = ["pomodoro", "countdown", "countup"];
 const timerModes: TimerMode[] = ["work", "shortBreak", "longBreak"];
 
@@ -81,6 +82,8 @@ export function validateTaskRecord(value: unknown): TaskRecord | null {
   const repeatRule = validateRepeatRule(value.repeatRule);
   if (repeatRule === undefined) return null;
   if (!isBoundedInteger(value.estimatedPomodoros, 0, 99)) return null;
+  const priority = value.priority === undefined ? "none" : value.priority;
+  if (!taskPriorities.includes(priority as TaskPriority)) return null;
   if (typeof value.order !== "number" || !Number.isFinite(value.order)) return null;
   if (!isTimestamp(value.createdAt) || !isTimestamp(value.updatedAt) || !isOptionalTimestamp(value.completedAt)) return null;
   return {
@@ -97,6 +100,7 @@ export function validateTaskRecord(value: unknown): TaskRecord | null {
     repeatRule,
     repeatSeriesId: value.repeatSeriesId,
     estimatedPomodoros: value.estimatedPomodoros,
+    priority: priority as TaskPriority,
     order: value.order,
     createdAt: value.createdAt,
     updatedAt: value.updatedAt,

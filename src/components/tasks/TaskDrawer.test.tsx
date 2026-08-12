@@ -106,7 +106,7 @@ describe("TaskDrawer", () => {
     renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: /勉強 1/ }));
     expect(screen.getByRole("heading", { name: "勉強" })).toBeTruthy();
-    expect(screen.getByLabelText("新しいタスク").getAttribute("placeholder")).toBe("タスクを追加");
+    expect(screen.getByLabelText("新しいタスク").getAttribute("placeholder")).toBe("タスクを追加…");
   });
 
   it("adds projects with an accessible fixed color palette", async () => {
@@ -243,12 +243,13 @@ describe("TaskDrawer", () => {
 
     try {
       renderDrawer({ timerStatus: "running", activeTaskId: task.id });
+      fireEvent.click(screen.getByRole("button", { name: "Inbox 1" }));
       fireEvent.click(screen.getByRole("button", { name: "期限切れ 0" }));
 
       fireEvent.click(screen.getByRole("button", { name: "進行中を開く" }));
 
       await waitFor(() => expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy());
-      expect(screen.getByRole("button", { name: "すべて 1" }).getAttribute("aria-pressed")).toBe("true");
+      expect(screen.queryByRole("group", { name: "表示するタスクを絞り込む" })).toBeNull();
       expect(scrollIntoView).toHaveBeenCalledWith(expect.objectContaining({ block: "start" }));
     } finally {
       Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
@@ -284,6 +285,7 @@ describe("TaskDrawer", () => {
       activeTaskId: task.id
     });
 
+    fireEvent.click(screen.getByRole("button", { name: "Inbox 3" }));
     fireEvent.click(screen.getByRole("button", { name: "期限切れ 1" }));
     const list = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
     await waitFor(() => expect(within(list).getByText("英語の宿題")).toBeTruthy());
@@ -338,7 +340,7 @@ describe("TaskDrawer", () => {
   it("adds a task to today's list with a single title", async () => {
     const props = renderDrawer();
     fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "英単語を覚える" } });
-    fireEvent.click(screen.getByRole("button", { name: "追加" }));
+    fireEvent.click(screen.getByRole("button", { name: "完了" }));
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "英単語を覚える", dueDate: today })));
   });
 
@@ -398,7 +400,7 @@ describe("TaskDrawer", () => {
     );
 
     fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: createdTask.title } });
-    fireEvent.click(screen.getByRole("button", { name: "追加" }));
+    fireEvent.click(screen.getByRole("button", { name: "完了" }));
     await waitFor(() => expect(onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: createdTask.title })));
     await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("新しいタスク")));
 
@@ -433,32 +435,61 @@ describe("TaskDrawer", () => {
     await waitFor(() => expect(screen.queryByRole("form", { name: `${createdTask.title}の詳細` })).toBeNull());
   });
 
-  it("uses the quick due-date presets for fast mobile entry", async () => {
+  it("sets today on the first due-date tap and opens the calendar on the second", async () => {
     const props = renderDrawer();
     fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "理科の暗記" } });
-    expect(screen.queryByRole("group", { name: "追加するタスクの期限" })).toBeNull();
-    const detailsToggle = screen.getByRole("button", { name: "詳細" });
-    expect(detailsToggle.getAttribute("aria-expanded")).toBe("false");
-    fireEvent.click(detailsToggle);
-    const dueDatePresets = screen.getByRole("group", { name: "追加するタスクの期限" });
-    expect(within(dueDatePresets).getByRole("button", { name: "なし" })).toBeTruthy();
-    expect(within(dueDatePresets).queryByRole("button", { name: "期限なし" })).toBeNull();
-    const tomorrowButton = screen.getByRole("button", { name: "明日" });
-    fireEvent.click(tomorrowButton);
-    expect(tomorrowButton.getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(screen.getByRole("button", { name: "追加" }));
+    expect(screen.queryByRole("dialog", { name: "期限を設定" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "期限を今日に設定" }));
+    expect(screen.queryByRole("dialog", { name: "期限を設定" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(`期限 ${today}`) }));
+    const calendar = screen.getByRole("dialog", { name: "期限を設定" });
+    fireEvent.click(within(calendar).getByRole("button", { name: "明日" }));
+    fireEvent.click(screen.getByRole("button", { name: "完了" }));
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "理科の暗記", dueDate: addLocalDays(today, 1) })));
   });
 
   it("adds a task with a focus estimate from the quick presets", async () => {
     const props = renderDrawer();
     fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "理科の暗記" } });
-    fireEvent.click(screen.getByRole("button", { name: "詳細" }));
-    const estimateButton = screen.getByRole("button", { name: "2" });
+    const estimateButton = screen.getByRole("button", { name: "2回" });
     fireEvent.click(estimateButton);
     expect(estimateButton.getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(screen.getByRole("button", { name: "追加" }));
+    fireEvent.click(screen.getByRole("button", { name: "完了" }));
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "理科の暗記", estimatedPomodoros: 2 })));
+  });
+
+  it("uses a horizontal slider for five or more planned pomodoros", async () => {
+    const props = renderDrawer();
+    fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "長めの課題" } });
+    fireEvent.click(screen.getByRole("button", { name: "5回以上を設定" }));
+    const slider = screen.getByRole("slider", { name: "予定数 5回" });
+    fireEvent.change(slider, { target: { value: "8" } });
+    expect((slider as HTMLInputElement).value).toBe("8");
+    fireEvent.click(screen.getByRole("button", { name: "完了" }));
+    await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ estimatedPomodoros: 8 })));
+  });
+
+  it("adds the selected priority and project from the bottom toolbar", async () => {
+    const props = renderDrawer();
+    fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "重要な課題" } });
+    fireEvent.click(screen.getByRole("button", { name: "優先度 なし" }));
+    fireEvent.click(within(screen.getByRole("dialog", { name: "優先度を設定" })).getByRole("button", { name: "高" }));
+    fireEvent.click(screen.getByRole("button", { name: "プロジェクトを設定" }));
+    fireEvent.click(within(screen.getByRole("dialog", { name: "プロジェクトを設定" })).getByRole("button", { name: "勉強" }));
+    fireEvent.click(screen.getByRole("button", { name: "完了" }));
+    await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ priority: "high", projectId: project.id })));
+  });
+
+  it("shows filters only in Inbox and puts overdue work last in Today", () => {
+    const overdueTask = { ...task, id: "task-overdue", title: "期限切れタスク", dueDate: addLocalDays(today, -1), order: 2 };
+    renderDrawer({ tasks: [overdueTask, task] });
+
+    expect(screen.queryByRole("group", { name: "表示するタスクを絞り込む" })).toBeNull();
+    const sectionHeadings = [...document.querySelectorAll(".task-list__section-header h4")].map((heading) => heading.textContent);
+    expect(sectionHeadings.at(-1)).toBe("期限切れ");
+
+    fireEvent.click(screen.getByRole("button", { name: "Inbox 2" }));
+    expect(screen.getByRole("group", { name: "表示するタスクを絞り込む" })).toBeTruthy();
   });
 
   it("opens task details from the task list", () => {
@@ -611,6 +642,7 @@ describe("TaskDrawer", () => {
       tasks: [task, overdueTask, reminderTask, plainTask]
     });
 
+    fireEvent.click(screen.getByRole("button", { name: "Inbox 4" }));
     const list = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
     fireEvent.click(screen.getByRole("button", { name: "期限切れ 1" }));
     expect(within(list).getByText("英語の宿題")).toBeTruthy();
@@ -737,6 +769,7 @@ describe("TaskDrawer", () => {
 
     fireEvent.change(details.getByLabelText("期限"), { target: { value: addLocalDays(today, 1) } });
     fireEvent.change(details.getByLabelText("見積もり"), { target: { value: "4" } });
+    fireEvent.click(details.getByRole("radio", { name: "高" }));
     fireEvent.click(details.getByText("通知と繰り返し"));
     fireEvent.change(details.getByLabelText("リマインダー"), { target: { value: `${addLocalDays(today, 1)}T09:00` } });
     fireEvent.click(details.getByRole("button", { name: "保存" }));
@@ -744,6 +777,7 @@ describe("TaskDrawer", () => {
     await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({
       dueDate: addLocalDays(today, 1),
       estimatedPomodoros: 4,
+      priority: "high",
       reminderAt: new Date(`${addLocalDays(today, 1)}T09:00:00`).getTime()
     })));
   });

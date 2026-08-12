@@ -24,7 +24,7 @@ export function getTasksForView(tasks: TaskRecord[], view: TaskView, today = toL
       if (view === "tomorrow") return task.dueDate === tomorrow;
       if (view === "upcoming") return task.dueDate !== null && task.dueDate > tomorrow;
       if (view === "someday") return task.bucket === "someday" && task.dueDate === null;
-      return task.bucket === "inbox" && task.dueDate === null;
+      return task.bucket === "inbox";
     })
     .sort((a, b) => {
       if (a.dueDate !== b.dueDate) return (a.dueDate ?? "9999-12-31").localeCompare(b.dueDate ?? "9999-12-31");
