@@ -1,4 +1,4 @@
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
 import type { BackgroundChoice, BackgroundFrame, BackgroundFrames, FreePosition } from "../types/settings";
 import type { CustomBackground } from "../utils/backgroundStorage";
 import { getBackgroundImageLayout } from "../utils/backgroundFrame";
@@ -103,6 +103,7 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
     startPosition: backgroundPosition,
     startScale: backgroundScale
   });
+  const { x: clockPositionX, y: clockPositionY } = clockPosition;
   const hiddenIds = new Set(hiddenBackgroundIds);
   const builtInLayers = defaultBackgrounds.map((path, index) => ({ id: `bg${index + 1}`, path: `${import.meta.env.BASE_URL}${path}` })).filter((background) => !hiddenIds.has(background.id));
   const customLayers = customBackgrounds.map((background) => ({ id: `custom:${background.id}`, path: background.url }));
@@ -110,10 +111,13 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
   const allLayers = slideshowLayers;
   const fallbackLayer = allLayers[0] ?? { id: "bg1", path: `${import.meta.env.BASE_URL}${defaultBackgrounds[0]}` };
   const hasPerImageFrames = Object.keys(backgroundFrames).length > 0;
-  const legacyFrame: BackgroundFrame = { position: backgroundPosition, scale: backgroundScale };
+  const legacyFrame = useMemo<BackgroundFrame>(
+    () => ({ position: backgroundPosition, scale: backgroundScale }),
+    [backgroundPosition, backgroundScale]
+  );
 
-  const getPersistedFrame = (id: string): BackgroundFrame => backgroundFrames[id]
-    ?? (hasPerImageFrames ? { position: defaultBackgroundPosition, scale: minBackgroundScale } : legacyFrame);
+  const getPersistedFrame = useCallback((id: string): BackgroundFrame => backgroundFrames[id]
+    ?? (hasPerImageFrames ? { position: defaultBackgroundPosition, scale: minBackgroundScale } : legacyFrame), [backgroundFrames, hasPerImageFrames, legacyFrame]);
 
   useEffect(() => {
     if (backgroundChoice !== "slideshow" || slideshowLayers.length === 0) return;
@@ -140,7 +144,7 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
 
   const requestedId = backgroundChoice === "slideshow" && slideshowLayers.length > 0 ? slideshowLayers[activeIndex % slideshowLayers.length]?.id : backgroundChoice;
   const selectedId = requestedId && allLayers.some(({ id }) => id === requestedId) ? requestedId : fallbackLayer.id;
-  const persistedSelectedFrame = getPersistedFrame(selectedId);
+  const persistedSelectedFrame = useMemo(() => getPersistedFrame(selectedId), [getPersistedFrame, selectedId]);
   const selectedFrame = draftFrame?.id === selectedId ? draftFrame : persistedSelectedFrame;
 
   useEffect(() => {
@@ -175,7 +179,7 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
       document.body.classList.remove("focusboard-background-editing");
       nativeGestureEvents.forEach((eventName) => document.removeEventListener(eventName, preventNativeGesture));
     };
-  }, [editing, selectedId]);
+  }, [editing, getPersistedFrame, selectedId]);
 
   useLayoutEffect(() => {
     if (!editing) {
@@ -205,7 +209,7 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
     updateEditorClosePosition();
     window.addEventListener("resize", updateEditorClosePosition);
     return () => window.removeEventListener("resize", updateEditorClosePosition);
-  }, [editing, clockPosition.x, clockPosition.y, clockFontSize, dateFontSize, showClock, showDate, showSeconds, dateFormat, viewportRevision]);
+  }, [editing, clockPositionX, clockPositionY, clockFontSize, dateFontSize, showClock, showDate, showSeconds, dateFormat, viewportRevision]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("focusboard-background-gesturing", gestureActive);
@@ -234,12 +238,12 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
         setSelectedSamples([fallbackBackgroundRgb]);
         return;
       }
-      const region = getFocusedSampleRegion(image, bounds.width, bounds.height, clockPosition, persistedSelectedFrame, clockFontSize, dateFontSize, showClock, showDate);
+      const region = getFocusedSampleRegion(image, bounds.width, bounds.height, { x: clockPositionX, y: clockPositionY }, persistedSelectedFrame, clockFontSize, dateFontSize, showClock, showDate);
       const profile = sampleImageColorProfile(image, region);
       setSelectedSamples(profile?.samples.length ? profile.samples : [fallbackBackgroundRgb]);
     });
     return () => window.cancelAnimationFrame(animation);
-  }, [editing, selectedId, imageRevision, viewportRevision, clockPosition.x, clockPosition.y, persistedSelectedFrame.position.x, persistedSelectedFrame.position.y, persistedSelectedFrame.scale, clockFontSize, dateFontSize, showClock, showDate, showSeconds, dateFormat]);
+  }, [editing, selectedId, imageRevision, viewportRevision, clockPositionX, clockPositionY, persistedSelectedFrame, clockFontSize, dateFontSize, showClock, showDate, showSeconds, dateFormat]);
 
   const palette = useMemo(
     () => getAdaptivePaletteFromSamples(selectedSamples, overlayOpacity),

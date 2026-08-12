@@ -22,6 +22,16 @@ export type BackgroundFrames = Record<string, BackgroundFrame>;
 export type ClockBackgroundSetting = { positions: OrientationPositions; color: string; matchColors: boolean };
 export type ClockBackgroundSettings = Record<string, ClockBackgroundSetting>;
 export type DateFormat = string;
+export type TaskLauncherVisibility = "always" | "background-tap";
+
+export const taskThemePresets = {
+  coral: { label: "コーラル", primary: "#f4a6a8", hover: "#e58e92", soft: "#fff6f6", border: "#e9b1b4", text: "#5a1f24", shadow: "rgba(244, 166, 168, .32)" },
+  blue: { label: "ブルー", primary: "#afcbff", hover: "#9cbdf7", soft: "#f5f8ff", border: "#b8ccf2", text: "#17345f", shadow: "rgba(175, 203, 255, .36)" },
+  mint: { label: "ミント", primary: "#a8ddd2", hover: "#94cfc1", soft: "#f3fbf9", border: "#afd8d0", text: "#174b43", shadow: "rgba(168, 221, 210, .36)" },
+  violet: { label: "バイオレット", primary: "#c9b8f4", hover: "#b7a4e8", soft: "#f8f6ff", border: "#cdbfe8", text: "#392b66", shadow: "rgba(201, 184, 244, .36)" },
+  amber: { label: "アンバー", primary: "#f3d6a2", hover: "#e7c589", soft: "#fffaf1", border: "#e9d0a1", text: "#5a3a0c", shadow: "rgba(243, 214, 162, .36)" }
+} as const;
+export type TaskThemePreset = keyof typeof taskThemePresets;
 
 export const dateFormatPresets = [
   { value: "yyyy/mm/dd weekday", label: "yyyy/mm/dd 曜日" },
@@ -75,6 +85,10 @@ export type AppSettings = {
   timerColor: string;
   matchClockBackgroundColors: boolean;
   matchTimerBackgroundColors: boolean;
+  /** @deprecated Kept temporarily for compatibility while the main UI is being integrated. */
+  textColor: string;
+  /** @deprecated Kept temporarily for compatibility while the main UI is being integrated. */
+  accentColor: string;
   /** @deprecated Used only when migrating settings created before separate auto-color switches. */
   matchBackgroundColors: boolean;
   overlayOpacity: number;
@@ -95,6 +109,9 @@ export type AppSettings = {
   shortBreakMinutes: number;
   longBreakMinutes: number;
   soundEnabled: boolean;
+  taskLauncherVisibility: TaskLauncherVisibility;
+  taskLauncherPosition: FreePosition;
+  taskTheme: TaskThemePreset;
 };
 
 export const settingRanges = {
@@ -131,6 +148,8 @@ export const defaultSettings: AppSettings = {
   timerColor: "#91bde8",
   matchClockBackgroundColors: true,
   matchTimerBackgroundColors: false,
+  textColor: "#17345f",
+  accentColor: "#91bde8",
   matchBackgroundColors: false,
   overlayOpacity: 0.16,
   backgroundScale: 100,
@@ -149,7 +168,10 @@ export const defaultSettings: AppSettings = {
   workMinutes: 25,
   shortBreakMinutes: 5,
   longBreakMinutes: 15,
-  soundEnabled: true
+  soundEnabled: true,
+  taskLauncherVisibility: "always",
+  taskLauncherPosition: { x: .2, y: .86 },
+  taskTheme: "coral"
 };
 
 export const fontOptions = {

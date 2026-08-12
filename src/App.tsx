@@ -4,21 +4,67 @@ import { ClockWidget } from "./components/ClockWidget";
 import { PomodoroTimer } from "./components/PomodoroTimer";
 import { FloatingTimer } from "./components/FloatingTimer";
 import { SettingsPanel } from "./components/SettingsPanel";
+import { TaskDrawer } from "./components/tasks/TaskDrawer";
+import { TaskLauncher } from "./components/tasks/TaskLauncher";
+import { SessionCompleteDialog } from "./components/tasks/SessionCompleteDialog";
 import { useClock } from "./hooks/useClock";
 import { useLocalStorageSettings } from "./hooks/useLocalStorageSettings";
 import { usePomodoroTimer } from "./hooks/usePomodoroTimer";
 import { useCustomBackgrounds } from "./hooks/useCustomBackgrounds";
 import { useFullscreen } from "./hooks/useFullscreen";
 import { useOrientation } from "./hooks/useOrientation";
-import { defaultSettings, fontOptions, positionPresets, type OrientationPositions, type PositionPreset } from "./types/settings";
+import { useTasks } from "./hooks/useTasks";
+import { useTaskReminders } from "./hooks/useTaskReminders";
+import { defaultSettings, fontOptions, positionPresets, taskThemePresets, type OrientationPositions, type PositionPreset } from "./types/settings";
+import type { TimerSessionEvent } from "./types/timer";
 import { getAdaptivePalette, fallbackBackgroundRgb, getStrongAccent, type AdaptivePalette } from "./utils/adaptiveColor";
+import { formatFocusedTime } from "./utils/productivityReport";
+import { getTasksForView, sortTasksForFocus, toLocalDateKey } from "./utils/taskQueries";
+import { formatDuration, getTimerElapsedMs, getTimerOvertimeMs, modeLabels } from "./utils/time";
 
-const settingsButtonDisplayMs = 2_500;
-const settingsButtonFadeMs = 280;
+const taskDetailCardDisplayMs = 2_500;
+const taskDetailCardFadeMs = 280;
+
+const toHistoryStateObject = (state: unknown): Record<string, unknown> => {
+  if (state && typeof state === "object" && !Array.isArray(state)) return { ...(state as Record<string, unknown>) };
+  return {};
+};
+
+const withoutOverlayHistoryState = (state: unknown): Record<string, unknown> | null => {
+  const historyState = toHistoryStateObject(state);
+  const { focusboardOverlay: _focusboardOverlay, ...nextState } = historyState;
+  return Object.keys(nextState).length > 0 ? nextState : null;
+};
 
 export default function App() {
   const { settings, updateSettings, undoSettings, resetSettings, storageMessage, setStorageMessage, saveState } = useLocalStorageSettings();
   const orientation = useOrientation();
+  const {
+    tasks,
+    projects,
+    sessions,
+    loading: tasksLoading,
+    storageAvailable: taskStorageAvailable,
+    taskMessage,
+    setTaskMessage,
+    canUndo: canUndoTask,
+    addTask,
+    updateTask,
+    toggleTask,
+    archiveTask,
+    moveTask,
+    addProject,
+    archiveProject,
+    undo: undoTask,
+    recordTimerSession,
+    importProductivityBackup
+  } = useTasks();
+  const { reminderMessage, setReminderMessage, notificationPermission, requestNotificationPermission } = useTaskReminders(tasks);
+  const [completedSession, setCompletedSession] = useState<TimerSessionEvent | null>(null);
+  const handleSessionEnd = useCallback((event: TimerSessionEvent) => {
+    recordTimerSession(event);
+    if (event.result === "completed" && event.mode === "work" && event.taskId) setCompletedSession(event);
+  }, [recordTimerSession]);
   const {
     timer,
     announcement,
@@ -32,18 +78,135 @@ export default function App() {
     setCustomDurationMinutes,
     setFloatingPosition,
     clearTimer
-  } = usePomodoroTimer(settings, orientation);
+  } = usePomodoroTimer(settings, orientation, handleSessionEnd);
   const { backgrounds, addBackgrounds, removeBackground, reorderBackgrounds, backgroundMessage, setBackgroundMessage } = useCustomBackgrounds();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [tasksOpen, setTasksOpen] = useState(false);
+  const [taskDrawerResumeContext, setTaskDrawerResumeContext] = useState<{
+    label: string;
+    title: string;
+    detail: string;
+    taskId: string | null;
+    actionLabel?: string;
+  } | null>(null);
+  const [breakResumeTaskId, setBreakResumeTaskId] = useState<string | null>(null);
   const [timerSetupVisible, setTimerSetupVisible] = useState(false);
-  const [settingsButtonVisible, setSettingsButtonVisible] = useState(false);
-  const [settingsButtonFading, setSettingsButtonFading] = useState(false);
+  const [taskDetailCardVisible, setTaskDetailCardVisible] = useState(false);
+  const [taskDetailCardFading, setTaskDetailCardFading] = useState(false);
   const [backgroundEditing, setBackgroundEditing] = useState(false);
   const [activeBackgroundId, setActiveBackgroundId] = useState<string>(() => settings.backgroundChoice === "slideshow" ? "bg1" : settings.backgroundChoice);
   const [adaptivePalette, setAdaptivePalette] = useState<AdaptivePalette>(() => getAdaptivePalette(fallbackBackgroundRgb, settings.overlayOpacity));
-  const settingsButtonTimeoutRef = useRef<number | null>(null);
-  const settingsButtonFadeTimeoutRef = useRef<number | null>(null);
+  const taskDetailCardTimeoutRef = useRef<number | null>(null);
+  const taskDetailCardFadeTimeoutRef = useRef<number | null>(null);
+  const taskLauncherRef = useRef<HTMLButtonElement>(null);
+  const homeTasksRef = useRef<HTMLButtonElement>(null);
+  const overlayReturnTargetRef = useRef<HTMLElement | null>(null);
+  const overlayHistoryKindRef = useRef<"settings" | "tasks" | "session" | null>(null);
+  const tasksOpenRef = useRef(false);
+  const settingsOpenRef = useRef(false);
+  const sessionOverlayOpenRef = useRef(false);
   const now = useClock(settings.showSeconds);
+  const updateTaskLauncherPosition = useCallback((taskLauncherPosition: { x: number; y: number }) => updateSettings({ taskLauncherPosition }), [updateSettings]);
+  const todayKey = toLocalDateKey(now);
+  const activeTask = timer.activeTaskId ? tasks.find((task) => task.id === timer.activeTaskId) ?? null : null;
+  const completedTask = completedSession?.taskId ? tasks.find((task) => task.id === completedSession.taskId) ?? null : null;
+  const todayOpenTaskCount = useMemo(() => getTasksForView(tasks, "today", todayKey).length, [tasks, todayKey]);
+  const todayCompletedTaskCount = useMemo(
+    () => tasks.filter((task) => task.parentTaskId === null && task.status === "completed" && task.completedAt !== null && toLocalDateKey(new Date(task.completedAt)) === todayKey).length,
+    [tasks, todayKey]
+  );
+  const todayTaskTotalCount = todayOpenTaskCount + todayCompletedTaskCount;
+  const todayFocusedMs = useMemo(
+    () => sessions
+      .filter((session) => session.mode === "work" && toLocalDateKey(new Date(session.endedAt)) === todayKey)
+      .reduce((sum, session) => sum + session.focusedDurationMs, 0),
+    [sessions, todayKey]
+  );
+  const todayOverdueTaskCount = useMemo(
+    () => tasks.filter((task) => task.parentTaskId === null && task.status === "open" && task.dueDate !== null && task.dueDate < todayKey).length,
+    [tasks, todayKey]
+  );
+  const suggestedNextTask = useMemo(
+    () => sortTasksForFocus(tasks, todayKey).find((task) => task.id !== completedSession?.taskId) ?? null,
+    [completedSession?.taskId, tasks, todayKey]
+  );
+  const suggestedNextTaskProject = suggestedNextTask?.projectId
+    ? projects.find((project) => project.id === suggestedNextTask.projectId) ?? null
+    : null;
+  const suggestedNextTaskDetail = useMemo(() => {
+    if (!suggestedNextTask) return null;
+    const labels: string[] = [];
+    if (suggestedNextTaskProject) labels.push(suggestedNextTaskProject.name);
+    if (suggestedNextTask.dueDate !== null) {
+      if (suggestedNextTask.dueDate < todayKey) labels.push("期限切れ");
+      else if (suggestedNextTask.dueDate === todayKey) labels.push("今日");
+      else labels.push(suggestedNextTask.dueDate.replace(/-/g, "/"));
+    } else if (suggestedNextTask.bucket === "someday") {
+      labels.push("いつか");
+    } else {
+      labels.push("Inbox");
+    }
+    if (suggestedNextTask.estimatedPomodoros > 0) labels.push(`目安 ${suggestedNextTask.estimatedPomodoros}セット`);
+    return labels.join(" ・ ");
+  }, [suggestedNextTask, suggestedNextTaskProject, todayKey]);
+  const breakResumeTask = useMemo(() => {
+    if (timer.status === "idle" || timer.mode === "work" || !breakResumeTaskId) return null;
+    return tasks.find((task) => task.id === breakResumeTaskId && task.status === "open") ?? null;
+  }, [breakResumeTaskId, tasks, timer.mode, timer.status]);
+  const launcherSuggestedTask = useMemo(() => {
+    const task = breakResumeTask ?? (timer.status === "idle" ? sortTasksForFocus(tasks, todayKey)[0] ?? null : null);
+    if (!task) return null;
+    const project = task.projectId ? projects.find((item) => item.id === task.projectId) ?? null : null;
+    const detailParts: string[] = [];
+    if (project) detailParts.push(project.name);
+    if (task.dueDate !== null) {
+      if (task.dueDate < todayKey) detailParts.push("期限切れ");
+      else if (task.dueDate === todayKey) detailParts.push("今日の予定");
+      else detailParts.push(task.dueDate.replace(/-/g, "/"));
+    } else if (task.bucket === "someday") {
+      detailParts.push("いつか");
+    } else {
+      detailParts.push("Inbox");
+    }
+    detailParts.push(todayOpenTaskCount === 0 ? "次の追加を決める" : `未完了 ${todayOpenTaskCount}件`);
+    return {
+      id: task.id,
+      title: task.title,
+      detail: detailParts.join(" · ")
+    };
+  }, [breakResumeTask, projects, tasks, timer.status, todayKey, todayOpenTaskCount]);
+  const taskLauncherSummary = useMemo(() => {
+    if (timer.status === "idle") return null;
+    const isBreakFlow = timer.mode !== "work";
+    const statusText = timer.status === "running"
+      ? timer.mode === "work" ? "集中中" : "休憩中"
+      : timer.status === "paused"
+        ? "一時停止中"
+        : "延長中";
+    const defaultTitle = timer.program === "pomodoro"
+      ? modeLabels[timer.mode]
+      : timer.category === "focus" ? "集中タイマー" : "休憩タイマー";
+    const title = isBreakFlow
+      ? defaultTitle
+      : activeTask?.title ?? defaultTitle;
+    const displayMs = timer.program === "countup"
+      ? getTimerElapsedMs(timer)
+      : timer.status === "overtime"
+        ? getTimerOvertimeMs(timer)
+        : timer.remainingMs;
+    const detailPrefix = timer.program === "countup"
+      ? `${statusText} · ${formatDuration(displayMs)}`
+      : `${modeLabels[timer.mode]} · ${statusText} · ${formatDuration(displayMs)}`;
+    const detail = isBreakFlow && launcherSuggestedTask?.title
+      ? `${detailPrefix} · 次は ${launcherSuggestedTask.title}`
+      : detailPrefix;
+    const accessibleLabel = isBreakFlow
+      ? `タスクを開く。${defaultTitle}中。${launcherSuggestedTask?.title ? `次のおすすめは${launcherSuggestedTask.title}。` : ""}今日の未完了は${todayOpenTaskCount}件`
+      : activeTask?.title
+        ? `タスクを開く。集中中のタスクは${activeTask.title}。今日の未完了は${todayOpenTaskCount}件`
+        : `タスクを開く。${statusText}。今日の未完了は${todayOpenTaskCount}件`;
+    return { statusText, title, detail, accessibleLabel };
+  }, [activeTask?.title, launcherSuggestedTask?.title, timer, todayOpenTaskCount]);
 
   const activeClockSetting = settings.clockBackgroundSettings[activeBackgroundId] ?? {
     positions: { portrait: defaultSettings.clockDatePosition, landscape: defaultSettings.clockDatePosition } satisfies OrientationPositions,
@@ -75,43 +238,79 @@ export default function App() {
     });
   }, [activeBackgroundId, orientation, updateSettings]);
 
-  const closeSettings = useCallback(() => setSettingsOpen(false), []);
-  const hideSettingsButton = useCallback(() => {
-    if (settingsButtonTimeoutRef.current !== null) window.clearTimeout(settingsButtonTimeoutRef.current);
-    if (settingsButtonFadeTimeoutRef.current !== null) window.clearTimeout(settingsButtonFadeTimeoutRef.current);
-    settingsButtonTimeoutRef.current = null;
-    settingsButtonFadeTimeoutRef.current = null;
-    setSettingsButtonFading(false);
-    setSettingsButtonVisible(false);
+  const restoreOverlayFocus = useCallback(() => {
+    window.setTimeout(() => overlayReturnTargetRef.current?.focus(), 0);
   }, []);
-  const revealSettingsButton = useCallback((event: ReactPointerEvent<HTMLElement>) => {
-    if (settingsOpen || backgroundEditing || !(event.target instanceof Element)) return;
+  const closeSettings = useCallback(() => {
+    setSettingsOpen(false);
+    restoreOverlayFocus();
+  }, [restoreOverlayFocus]);
+  const closeCompletedSession = useCallback(() => setCompletedSession(null), []);
+  const startTask = useCallback((taskId: string) => {
+    setTaskMessage("");
+    setTaskDrawerResumeContext(null);
+    setBreakResumeTaskId(null);
+    start(taskId);
+    setTasksOpen(false);
+  }, [setTaskMessage, start]);
+  const hideTaskDetailCard = useCallback(() => {
+    if (taskDetailCardTimeoutRef.current !== null) window.clearTimeout(taskDetailCardTimeoutRef.current);
+    if (taskDetailCardFadeTimeoutRef.current !== null) window.clearTimeout(taskDetailCardFadeTimeoutRef.current);
+    taskDetailCardTimeoutRef.current = null;
+    taskDetailCardFadeTimeoutRef.current = null;
+    setTaskDetailCardFading(false);
+    setTaskDetailCardVisible(false);
+  }, []);
+  const openSettings = useCallback((returnTarget: HTMLElement | null = homeTasksRef.current) => {
+    overlayReturnTargetRef.current = returnTarget;
+    hideTaskDetailCard();
+    setTasksOpen(false);
+    setSettingsOpen(true);
+  }, [hideTaskDetailCard]);
+  const openTasks = useCallback((returnTarget: HTMLElement | null = homeTasksRef.current) => {
+    overlayReturnTargetRef.current = returnTarget;
+    setSettingsOpen(false);
+    setTasksOpen(true);
+  }, []);
+  const revealTaskDetailCard = useCallback((force = false) => {
+    if (settingsOpen || backgroundEditing || (!force && tasksOpen)) return;
+    if (taskDetailCardTimeoutRef.current !== null) window.clearTimeout(taskDetailCardTimeoutRef.current);
+    if (taskDetailCardFadeTimeoutRef.current !== null) window.clearTimeout(taskDetailCardFadeTimeoutRef.current);
+    setTaskDetailCardFading(false);
+    setTaskDetailCardVisible(true);
+    taskDetailCardFadeTimeoutRef.current = window.setTimeout(() => {
+      taskDetailCardFadeTimeoutRef.current = null;
+      setTaskDetailCardFading(true);
+    }, taskDetailCardDisplayMs);
+    taskDetailCardTimeoutRef.current = window.setTimeout(() => {
+      taskDetailCardTimeoutRef.current = null;
+      setTaskDetailCardFading(false);
+      setTaskDetailCardVisible(false);
+    }, taskDetailCardDisplayMs + taskDetailCardFadeMs);
+  }, [backgroundEditing, settingsOpen, tasksOpen]);
+  const revealTaskDetailCardOnBackgroundTap = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    if (!(event.target instanceof Element)) return;
     const interactiveTarget = event.target.closest("button, input, select, textarea, a, [role='dialog'], .clock-widget, .floating-timer, .timer-card");
-    if (interactiveTarget) return;
-    if (settingsButtonTimeoutRef.current !== null) window.clearTimeout(settingsButtonTimeoutRef.current);
-    if (settingsButtonFadeTimeoutRef.current !== null) window.clearTimeout(settingsButtonFadeTimeoutRef.current);
-    setSettingsButtonFading(false);
-    setSettingsButtonVisible(true);
-    settingsButtonFadeTimeoutRef.current = window.setTimeout(() => {
-      settingsButtonFadeTimeoutRef.current = null;
-      setSettingsButtonFading(true);
-    }, settingsButtonDisplayMs);
-    settingsButtonTimeoutRef.current = window.setTimeout(() => {
-      settingsButtonTimeoutRef.current = null;
-      setSettingsButtonFading(false);
-      setSettingsButtonVisible(false);
-    }, settingsButtonDisplayMs + settingsButtonFadeMs);
-  }, [backgroundEditing, settingsOpen]);
+    if (!interactiveTarget) revealTaskDetailCard();
+  }, [revealTaskDetailCard]);
+  const closeTasks = useCallback(() => {
+    setTaskDrawerResumeContext(null);
+    setTasksOpen(false);
+    if (settings.taskLauncherVisibility === "background-tap") revealTaskDetailCard(true);
+    restoreOverlayFocus();
+  }, [restoreOverlayFocus, revealTaskDetailCard, settings.taskLauncherVisibility]);
   const startBackgroundEditing = useCallback(() => {
-    hideSettingsButton();
+    hideTaskDetailCard();
     setSettingsOpen(false);
     setBackgroundEditing(true);
-  }, [hideSettingsButton]);
+  }, [hideTaskDetailCard]);
   const showMessage = useCallback((message: string) => {
     setStorageMessage(message);
     setAnnouncement("");
     setBackgroundMessage("");
-  }, [setAnnouncement, setStorageMessage, setBackgroundMessage]);
+    setTaskMessage("");
+    setReminderMessage("");
+  }, [setAnnouncement, setStorageMessage, setBackgroundMessage, setTaskMessage, setReminderMessage]);
   const { isFullscreen, isSupported: fullscreenSupported, setFullscreen } = useFullscreen();
   const handleFullscreenToggle = useCallback(async (enabled: boolean) => {
     const changed = await setFullscreen(enabled);
@@ -165,17 +364,36 @@ export default function App() {
       />
     );
     return slots;
-  }, [orientation, settings, timer, timerSetupVisible, startTimer, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, showFloatingTimer, updateSettings]);
+  }, [orientation, settings, timer, timerSetupVisible, startTimer, resetTimer, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, showFloatingTimer, updateSettings]);
 
-  const liveMessage = backgroundMessage || announcement || storageMessage;
+  const liveMessage = reminderMessage || taskMessage || backgroundMessage || announcement || storageMessage;
+  const activeOverlay = completedSession !== null && completedTask !== null
+    ? "session"
+    : tasksOpen
+      ? "tasks"
+      : settingsOpen
+        ? "settings"
+        : null;
+  tasksOpenRef.current = tasksOpen;
+  settingsOpenRef.current = settingsOpen;
+  sessionOverlayOpenRef.current = completedSession !== null && completedTask !== null;
   const clockColor = activeClockSetting.matchColors ? adaptivePalette.text : activeClockSetting.color;
   const timerColor = settings.matchTimerBackgroundColors ? adaptivePalette.accent : settings.timerColor;
+  const taskTheme = taskThemePresets[settings.taskTheme];
   const appStyle = {
     color: clockColor,
     fontFamily: fontOptions[settings.fontFamily as keyof typeof fontOptions] ?? fontOptions.system,
     "--timer-accent": timerColor,
     "--timer-accent-strong": getStrongAccent(timerColor),
-    "--timer-background-opacity": settings.timerBackgroundOpacity
+    "--adaptive-accent": timerColor,
+    "--adaptive-accent-strong": getStrongAccent(timerColor),
+    "--timer-background-opacity": settings.timerBackgroundOpacity,
+    "--task-primary": taskTheme.primary,
+    "--task-primary-hover": taskTheme.hover,
+    "--task-primary-soft": taskTheme.soft,
+    "--task-primary-border": taskTheme.border,
+    "--task-primary-text": taskTheme.text,
+    "--task-primary-shadow": taskTheme.shadow
   } as CSSProperties;
 
   useEffect(() => {
@@ -184,20 +402,62 @@ export default function App() {
       setAnnouncement("");
       setStorageMessage("");
       setBackgroundMessage("");
+      setTaskMessage("");
+      setReminderMessage("");
     }, 7_000);
     return () => window.clearTimeout(timeout);
-  }, [liveMessage, setAnnouncement, setStorageMessage, setBackgroundMessage]);
+  }, [liveMessage, setAnnouncement, setStorageMessage, setBackgroundMessage, setTaskMessage, setReminderMessage]);
 
   useEffect(() => () => {
-    if (settingsButtonTimeoutRef.current !== null) window.clearTimeout(settingsButtonTimeoutRef.current);
-    if (settingsButtonFadeTimeoutRef.current !== null) window.clearTimeout(settingsButtonFadeTimeoutRef.current);
+    if (taskDetailCardTimeoutRef.current !== null) window.clearTimeout(taskDetailCardTimeoutRef.current);
+    if (taskDetailCardFadeTimeoutRef.current !== null) window.clearTimeout(taskDetailCardFadeTimeoutRef.current);
   }, []);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (sessionOverlayOpenRef.current) {
+        overlayHistoryKindRef.current = null;
+        closeCompletedSession();
+        return;
+      }
+      if (tasksOpenRef.current) {
+        overlayHistoryKindRef.current = null;
+        closeTasks();
+        return;
+      }
+      if (settingsOpenRef.current) {
+        overlayHistoryKindRef.current = null;
+        closeSettings();
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [closeCompletedSession, closeSettings, closeTasks]);
+
+  useEffect(() => {
+    if (activeOverlay === null) {
+      if (overlayHistoryKindRef.current !== null) {
+        overlayHistoryKindRef.current = null;
+        window.history.replaceState(withoutOverlayHistoryState(window.history.state), "", window.location.href);
+      }
+      return;
+    }
+    if (overlayHistoryKindRef.current === null) {
+      overlayHistoryKindRef.current = activeOverlay;
+      window.history.pushState({ ...toHistoryStateObject(window.history.state), focusboardOverlay: activeOverlay }, "", window.location.href);
+      return;
+    }
+    if (overlayHistoryKindRef.current !== activeOverlay) {
+      overlayHistoryKindRef.current = activeOverlay;
+      window.history.replaceState({ ...toHistoryStateObject(window.history.state), focusboardOverlay: activeOverlay }, "", window.location.href);
+    }
+  }, [activeOverlay]);
 
   return (
     <main
       className={`app-shell${backgroundEditing ? " app-shell--background-editing" : ""}`}
       style={appStyle}
-      onPointerUp={revealSettingsButton}
+      onPointerUp={revealTaskDetailCardOnBackgroundTap}
     >
       <BackgroundSlideshow
         intervalSec={settings.slideshowIntervalSec}
@@ -239,6 +499,7 @@ export default function App() {
       {settings.showTimer && (timer.status !== "idle" || settings.timerSetupCollapsed) && !timerSetupVisible && (
         <FloatingTimer
           timer={timer}
+          taskTitle={activeTask?.title ?? null}
           onStart={startTimer}
           onPause={pause}
           onEnd={endTimer}
@@ -249,14 +510,68 @@ export default function App() {
       )}
 
       {liveMessage && <div className="toast" role="status" aria-live="polite">{liveMessage}</div>}
-      {settingsButtonVisible && <button className={`settings-button${settingsButtonFading ? " settings-button--fading" : ""}`} type="button" aria-label="設定" title="設定を開く" onClick={() => { hideSettingsButton(); setSettingsOpen(true); }}>
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 15.3a3.3 3.3 0 1 0 0-6.6 3.3 3.3 0 0 0 0 6.6Z" />
-            <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" />
-          </svg>
-          <span>設定</span>
-      </button>}
-
+      <nav className="home-dock" aria-label="ホーム操作">
+        <button className="home-dock__button home-dock__button--tasks" type="button" aria-label="タスク" aria-pressed={tasksOpen} onClick={() => openTasks(homeTasksRef.current)} ref={homeTasksRef}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h10M9 12h10M9 18h10M4 6h.01M4 12h.01M4 18h.01" /></svg><span>タスク</span>
+        </button>
+      </nav>
+      {(settings.taskLauncherVisibility === "always" || taskDetailCardVisible) && <TaskLauncher
+        todayCount={todayOpenTaskCount}
+        todaySummary={{
+          completedCount: todayCompletedTaskCount,
+          totalCount: todayTaskTotalCount,
+          focusedLabel: todayFocusedMs > 0 ? formatFocusedTime(todayFocusedMs) : "0分",
+          overdueCount: todayOverdueTaskCount
+        }}
+        activeTaskTitle={timer.status !== "idle" && timer.mode === "work" ? activeTask?.title ?? null : null}
+        suggestedTask={launcherSuggestedTask}
+        timerSummary={taskLauncherSummary}
+        position={settings.taskLauncherPosition}
+        onPositionChange={updateTaskLauncherPosition}
+        onClick={() => {
+          overlayReturnTargetRef.current = taskLauncherRef.current;
+          setSettingsOpen(false);
+          if (timer.status !== "idle" && timer.mode !== "work" && launcherSuggestedTask) {
+            setTaskDrawerResumeContext({
+              label: "休憩のあと",
+              title: `${launcherSuggestedTask.title}を休憩後の候補として開いています`,
+              detail: `${launcherSuggestedTask.detail}。休憩タイマーを止めずに、次の集中を確認できます。`,
+              taskId: launcherSuggestedTask.id,
+              actionLabel: "休憩後の候補を開く"
+            });
+          } else if (activeTask && timer.status !== "idle") {
+            const activeTaskProject = activeTask.projectId
+              ? projects.find((project) => project.id === activeTask.projectId) ?? null
+              : null;
+            const activeTaskDetailParts = [
+              activeTaskProject?.name ?? null,
+              taskLauncherSummary?.detail ?? null,
+              todayOpenTaskCount > 0 ? `今日の未完了はあと${todayOpenTaskCount}件です。` : "今日はこのタスクが最後です。"
+            ].filter((item): item is string => item !== null);
+            setTaskDrawerResumeContext({
+              label: "いまの集中",
+              title: `${activeTask.title}へ戻れます`,
+              detail: `${activeTaskDetailParts.join(" ・ ")} 集中を止めずに、詳細と一覧を見直せます。`,
+              taskId: activeTask.id,
+              actionLabel: "進行中を開く"
+            });
+          } else if (launcherSuggestedTask) {
+            setTaskDrawerResumeContext({
+              label: "今日のおすすめ",
+              title: `${launcherSuggestedTask.title}を開いています`,
+              detail: `${launcherSuggestedTask.detail}。そのまま開始するか、一覧で順番を見直せます。`,
+              taskId: launcherSuggestedTask.id,
+              actionLabel: "おすすめを開く"
+            });
+          } else {
+            setTaskDrawerResumeContext(null);
+          }
+          setTasksOpen(true);
+        }}
+        ref={taskLauncherRef}
+        transient={settings.taskLauncherVisibility === "background-tap"}
+        fading={settings.taskLauncherVisibility === "background-tap" && taskDetailCardFading}
+      />}
       <SettingsPanel
         open={settingsOpen}
         settings={settings}
@@ -265,6 +580,7 @@ export default function App() {
         onChange={updateSettings}
         onUndo={undoSettings}
         onClose={closeSettings}
+        onOpenTasks={openTasks}
         onStartBackgroundEditing={startBackgroundEditing}
         adaptivePalette={adaptivePalette}
         fullscreenSupported={fullscreenSupported}
@@ -282,6 +598,91 @@ export default function App() {
           }));
         }}
         onReorderBackgrounds={reorderBackgrounds}
+      />
+      <TaskDrawer
+        open={tasksOpen}
+        tasks={tasks}
+        projects={projects}
+        sessions={sessions}
+        loading={tasksLoading}
+        storageAvailable={taskStorageAvailable}
+        canUndo={canUndoTask}
+        onClose={closeTasks}
+        onOpenSettings={openSettings}
+        onAddTask={addTask}
+        onUpdateTask={updateTask}
+        onToggleTask={toggleTask}
+        onArchiveTask={archiveTask}
+        onMoveTask={moveTask}
+        onAddProject={addProject}
+        onArchiveProject={archiveProject}
+        onUndo={undoTask}
+        timerStatus={timer.status}
+        activeTaskId={timer.activeTaskId}
+        workMinutes={settings.workMinutes}
+        onStartTask={startTask}
+        notificationPermission={notificationPermission}
+        onRequestNotification={requestNotificationPermission}
+        onImportBackup={importProductivityBackup}
+        resumeContext={taskDrawerResumeContext}
+      />
+      <SessionCompleteDialog
+        open={completedSession !== null && completedTask !== null}
+        taskTitle={completedTask?.title ?? "タスク"}
+        focusedDurationLabel={completedSession ? formatDuration(completedSession.focusedDurationMs) : null}
+        nextModeLabel={modeLabels[timer.mode]}
+        remainingTodayCount={todayOpenTaskCount}
+        nextTaskTitle={suggestedNextTask?.title ?? null}
+        nextTaskDetail={suggestedNextTaskDetail}
+        onStartBreak={() => {
+          setBreakResumeTaskId(suggestedNextTask?.id ?? null);
+          setCompletedSession(null);
+          startTimer();
+        }}
+        onStartNextTask={() => {
+          const taskId = suggestedNextTask?.id;
+          setBreakResumeTaskId(null);
+          setCompletedSession(null);
+          if (!taskId) return;
+          selectMode("work");
+          start(taskId);
+        }}
+        onContinueTask={() => {
+          const taskId = completedSession?.taskId;
+          setBreakResumeTaskId(null);
+          setCompletedSession(null);
+          if (!taskId) return;
+          selectMode("work");
+          start(taskId);
+        }}
+        onCompleteTask={() => {
+          const task = completedTask;
+          setBreakResumeTaskId(null);
+          setCompletedSession(null);
+          if (task?.status === "open") void toggleTask(task.id);
+        }}
+        onOpenTaskList={() => {
+          const resumeTask = suggestedNextTask;
+          const resumeTitle = resumeTask
+            ? `${resumeTask.title}を次の候補として開いています`
+            : "一覧で次のタスクを選べます";
+          const resumeDetail = resumeTask
+            ? `${suggestedNextTaskDetail ?? "休憩前に次の候補を調整できます。"}${todayOpenTaskCount > 0 ? ` 今日の未完了はあと${todayOpenTaskCount}件です。` : ""}`
+            : todayOpenTaskCount > 0
+              ? `今日の未完了はあと${todayOpenTaskCount}件です。休憩前に一覧で優先順位を整えられます。`
+              : "今日は優先タスクがひと区切りです。一覧で次の候補を見直せます。";
+          setCompletedSession(null);
+          setSettingsOpen(false);
+          setTaskDrawerResumeContext({
+            label: "セッション完了後のつづき",
+            title: resumeTitle,
+            detail: resumeDetail,
+            taskId: resumeTask?.id ?? null,
+            actionLabel: "候補を開く"
+          });
+          setTasksOpen(true);
+        }}
+        onClose={closeCompletedSession}
       />
     </main>
   );

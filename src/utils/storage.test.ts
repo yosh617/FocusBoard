@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defaultSettings } from "../types/settings";
-import { SETTINGS_KEY, TIMER_KEY, clearAppLocalData, loadSettings, loadTimerState, migrateSettings } from "./storage";
+import { BACKGROUND_DB_NAME } from "./backgroundStorage";
+import { PRODUCTIVITY_DB_NAME } from "./productivityStorage";
+import { SETTINGS_KEY, TIMER_KEY, clearAppIndexedDb, clearAppLocalData, loadSettings, loadTimerState, migrateSettings } from "./storage";
 
 describe("settings storage", () => {
   beforeEach(() => localStorage.clear());
@@ -17,6 +19,7 @@ describe("settings storage", () => {
     expect(result.clockColor).toBe(defaultSettings.clockColor);
     expect(result.timerColor).toBe(defaultSettings.timerColor);
     expect(result.colorPreset).toBe(defaultSettings.colorPreset);
+    expect(result.taskTheme).toBe(defaultSettings.taskTheme);
     expect(result.timerBackgroundOpacity).toBe(.6);
   });
 
@@ -30,6 +33,31 @@ describe("settings storage", () => {
     const legacy = { ...defaultSettings } as Record<string, unknown>;
     Reflect.deleteProperty(legacy, "fullscreen");
     expect(migrateSettings(legacy).fullscreen).toBe(false);
+  });
+
+  it("defaults an absent or invalid task launcher visibility to always and preserves background-tap", () => {
+    const legacy = { ...defaultSettings } as Record<string, unknown>;
+    Reflect.deleteProperty(legacy, "taskLauncherVisibility");
+    expect(migrateSettings(legacy).taskLauncherVisibility).toBe("always");
+    expect(migrateSettings({ ...defaultSettings, taskLauncherVisibility: "hidden" }).taskLauncherVisibility).toBe("always");
+    expect(migrateSettings({ ...defaultSettings, taskLauncherVisibility: "background-tap" }).taskLauncherVisibility).toBe("background-tap");
+  });
+
+  it("normalizes task launcher positions and preserves legacy settings without one", () => {
+    const legacy = { ...defaultSettings } as Record<string, unknown>;
+    Reflect.deleteProperty(legacy, "taskLauncherPosition");
+    expect(migrateSettings(legacy).taskLauncherPosition).toEqual(defaultSettings.taskLauncherPosition);
+    expect(migrateSettings({ ...defaultSettings, taskLauncherPosition: { x: -1, y: 2 } }).taskLauncherPosition).toEqual({ x: 0, y: 1 });
+    expect(migrateSettings({ ...defaultSettings, taskLauncherPosition: { x: "bad", y: null } }).taskLauncherPosition).toEqual(defaultSettings.taskLauncherPosition);
+  });
+
+  it("restores a valid task theme and falls back for absent or invalid values", () => {
+    const legacy = { ...defaultSettings } as Record<string, unknown>;
+    Reflect.deleteProperty(legacy, "taskTheme");
+    expect(migrateSettings(legacy).taskTheme).toBe(defaultSettings.taskTheme);
+    expect(migrateSettings({ ...defaultSettings, taskTheme: "unknown" }).taskTheme).toBe(defaultSettings.taskTheme);
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...defaultSettings, taskTheme: "violet" }));
+    expect(loadSettings().taskTheme).toBe("violet");
   });
 
   it("clamps background framing settings", () => {
@@ -169,6 +197,42 @@ describe("settings storage", () => {
     expect(localStorage.getItem(TIMER_KEY)).toBeNull();
     expect(localStorage.getItem("another-app")).toBe("keep");
   });
+
+  it("clears background and productivity indexedDB stores for this app", async () => {
+    const originalIndexedDb = window.indexedDB;
+    const deletedNames: string[] = [];
+    const databases = vi.fn().mockResolvedValue([
+      { name: BACKGROUND_DB_NAME },
+      { name: PRODUCTIVITY_DB_NAME },
+      { name: "focusboard-extra-cache" },
+      { name: "other-app-db" }
+    ]);
+    const deleteDatabase = vi.fn((name: string) => {
+      const request = {} as IDBOpenDBRequest;
+      deletedNames.push(name);
+      queueMicrotask(() => request.onsuccess?.(new Event("success")));
+      return request;
+    });
+    Object.defineProperty(window, "indexedDB", {
+      configurable: true,
+      value: { databases, deleteDatabase }
+    });
+
+    try {
+      await clearAppIndexedDb();
+
+      expect(deletedNames).toEqual([
+        BACKGROUND_DB_NAME,
+        PRODUCTIVITY_DB_NAME,
+        "focusboard-extra-cache"
+      ]);
+    } finally {
+      Object.defineProperty(window, "indexedDB", {
+        configurable: true,
+        value: originalIndexedDb
+      });
+    }
+  });
 });
 
 describe("timer storage", () => {
@@ -198,9 +262,88 @@ describe("timer storage", () => {
     }));
 
     const timer = loadTimerState(25);
-    expect(timer.version).toBe(4);
+    expect(timer.version).toBe(5);
     expect(timer.program).toBe("countup");
     expect(timer.remainingMs).toBe(45_000);
     expect(timer.status).toBe("paused");
+  });
+
+  it("moves the legacy floating timer default to the current safe position", () => {
+    localStorage.setItem(TIMER_KEY, JSON.stringify({
+      version: 2,
+      mode: "work",
+      status: "paused",
+      remainingMs: 5_000,
+      endAt: null,
+      completedWorkSessions: 0,
+      floatingPosition: { x: 0.84, y: 0.22 }
+    }));
+
+    const timer = loadTimerState(25);
+    expect(timer.version).toBe(5);
+    expect(timer.floatingPositions).toEqual({
+      portrait: { x: 0.18, y: 0.38 },
+      landscape: { x: 0.18, y: 0.38 }
+    });
+    expect(timer.floatingPosition).toEqual({ x: 0.18, y: 0.38 });
+  });
+
+  it("restores validated task-aware timer fields from the current format", () => {
+    localStorage.setItem(TIMER_KEY, JSON.stringify({
+      version: 5,
+      program: "pomodoro",
+      mode: "work",
+      category: "focus",
+      status: "paused",
+      durationMs: 1_500_000,
+      customDurationMs: 1_800_000,
+      remainingMs: 900_000,
+      endAt: null,
+      completedWorkSessions: 2,
+      floatingPosition: { x: .18, y: .38 },
+      floatingPositions: {
+        portrait: { x: .2, y: .7 },
+        landscape: { x: .78, y: .28 }
+      },
+      activeTaskId: "task_1",
+      activeSessionId: "session-1",
+      sessionStartedAt: 1234
+    }));
+
+    const timer = loadTimerState(25, "landscape");
+    expect(timer.version).toBe(5);
+    expect(timer.activeTaskId).toBe("task_1");
+    expect(timer.activeSessionId).toBe("session-1");
+    expect(timer.sessionStartedAt).toBe(1234);
+    expect(timer.floatingPosition).toEqual({ x: .78, y: .28 });
+  });
+
+  it("drops invalid task-aware timer fields while keeping the saved timer", () => {
+    localStorage.setItem(TIMER_KEY, JSON.stringify({
+      version: 5,
+      program: "countdown",
+      mode: "work",
+      category: "focus",
+      status: "paused",
+      durationMs: 1_500_000,
+      customDurationMs: 1_800_000,
+      remainingMs: 900_000,
+      endAt: null,
+      completedWorkSessions: 2,
+      floatingPosition: { x: .18, y: .38 },
+      floatingPositions: {
+        portrait: { x: .2, y: .7 },
+        landscape: { x: .78, y: .28 }
+      },
+      activeTaskId: "bad id",
+      activeSessionId: "",
+      sessionStartedAt: "later"
+    }));
+
+    const timer = loadTimerState(25);
+    expect(timer.program).toBe("countdown");
+    expect(timer.activeTaskId).toBeNull();
+    expect(timer.activeSessionId).toBeNull();
+    expect(timer.sessionStartedAt).toBeNull();
   });
 });
