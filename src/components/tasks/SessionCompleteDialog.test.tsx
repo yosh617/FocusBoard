@@ -13,8 +13,7 @@ describe("SessionCompleteDialog", () => {
     expect(screen.getByLabelText("完了した集中の概要").textContent).toContain("25:00");
     expect(screen.getByLabelText("完了した集中の概要").textContent).toContain("短い休憩");
     expect(screen.getByLabelText("完了した集中の概要").textContent).toContain("2件");
-    expect(screen.getByRole("region", { name: "短い休憩のあとに長文読解" }).textContent).toContain("今日の未完了はあと2件です。");
-    expect(screen.getByText("長文読解")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "長文読解を開始" }).textContent).toContain("長文読解");
     fireEvent.click(screen.getByRole("button", { name: "休憩を開始" }));
     fireEvent.click(screen.getByRole("button", { name: "長文読解を開始" }));
     expect(onStartBreak).toHaveBeenCalledTimes(1);
@@ -27,11 +26,12 @@ describe("SessionCompleteDialog", () => {
     const onCompleteTask = vi.fn();
     const onOpenTaskList = vi.fn();
     render(<SessionCompleteDialog open taskTitle="数学" focusedDurationLabel="50:00" nextModeLabel="長い休憩" remainingTodayCount={0} nextTaskTitle={null} nextTaskDetail={null} onStartBreak={vi.fn()} onStartNextTask={vi.fn()} onContinueTask={onContinueTask} onCompleteTask={onCompleteTask} onOpenTaskList={onOpenTaskList} onClose={vi.fn()} />);
+    expect(document.querySelector<HTMLDetailsElement>(".session-complete__more")?.open).toBe(false);
+    fireEvent.click(screen.getByText("ほかの操作"));
+    expect(document.querySelector<HTMLDetailsElement>(".session-complete__more")?.open).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "同じタスクを続ける" }));
     fireEvent.click(screen.getByRole("button", { name: "タスクを完了" }));
     fireEvent.click(screen.getByRole("button", { name: "タスク一覧を開く" }));
-    expect(screen.getByRole("region", { name: "長い休憩のあとに一覧から次を選ぶ" }).textContent).toContain("今日は優先タスクがひと区切りです。");
-    expect(screen.getByText("休憩後は一覧から次を選べます。必要なら今ここで完了や継続も選べます。")).toBeTruthy();
     expect(onContinueTask).toHaveBeenCalledTimes(1);
     expect(onCompleteTask).toHaveBeenCalledTimes(1);
     expect(onOpenTaskList).toHaveBeenCalledTimes(1);

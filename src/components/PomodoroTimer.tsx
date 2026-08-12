@@ -45,7 +45,6 @@ export function PomodoroTimer({
   const displayMs = timer.program === "countup" ? elapsedMs : timer.status === "overtime" ? Math.max(0, elapsedMs - timer.durationMs) : timer.remainingMs;
   const countupLap = getCountupLap(elapsedMs, timer.durationMs);
   const statusLabel = timer.status === "running" ? "進行中" : timer.status === "paused" ? "一時停止中" : timer.status === "overtime" ? "延長中" : "完了";
-  const statusDetail = timer.status === "running" ? "タイマーは動作中" : timer.status === "paused" ? "タイマーは一時停止中" : timer.status === "overtime" ? "設定時間を過ぎています。終了ボタンでタイマーを終えられます。" : "タイマーは終了済み";
 
   return (
     <section className={`timer-card timer-setup${isActive ? " timer-setup--active" : ""}`} aria-label={isActive ? "進行中タイマーの設定" : "タイマー設定"}>
@@ -62,7 +61,7 @@ export function PomodoroTimer({
         </div>
       </div>
 
-      {isActive ? <div className="timer-setup__live-note" role="status"><strong>{statusLabel}・{statusDetail}</strong><span>{timer.program === "countup" ? `${countupLap}周目。目安 ${formatDuration(timer.durationMs)}ごとに進捗が一周します。` : "設定を確認できます。タイマー表示へ戻って操作を続けられます。"}</span></div> : null}
+      {isActive ? <div className="timer-setup__live-note" role="status"><span className="timer-setup__status-dot" aria-hidden="true" /><strong>{statusLabel}</strong>{timer.program === "countup" && <span>{countupLap}周目</span>}</div> : null}
 
       <div className="timer-setup__step">
         <div className="timer-setup__step-heading"><strong>方式</strong></div>

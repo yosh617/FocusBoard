@@ -26,14 +26,15 @@ const previousDaySession: FocusSessionRecord = {
 };
 
 describe("ProductivityReport", () => {
-  it("shows a flow-oriented overview with today progress, streak, and project focus", () => {
+  it("shows one flat summary followed by trend, project, task, and history sections", () => {
     render(<ProductivityReport tasks={[completedTask]} sessions={[todaySession, previousDaySession]} workMinutes={25} now={now} />);
     expect(screen.getAllByText("50分").length).toBeGreaterThan(0);
     expect(screen.getAllByText("25分").length).toBeGreaterThan(0);
-    expect(screen.getByText("いまのペース")).toBeTruthy();
-    expect(screen.getByText("100%")).toBeTruthy();
-    expect(screen.getByText("2日")).toBeTruthy();
-    expect(screen.getByText("1 / 1件が完了")).toBeTruthy();
+    expect(screen.getAllByText("集中時間").length).toBeGreaterThan(0);
+    expect(screen.getByText("完了セッション")).toBeTruthy();
+    expect(screen.getByText("中断")).toBeTruthy();
+    expect(screen.getByText("1 / 1")).toBeTruthy();
+    expect(screen.getByRole("progressbar", { name: "今日のタスク進捗 100%" })).toBeTruthy();
     expect(screen.getAllByText("勉強").length).toBeGreaterThan(0);
     expect(screen.getAllByText("数学").length).toBeGreaterThan(0);
     expect(screen.getAllByText("完了").length).toBeGreaterThan(0);
@@ -43,8 +44,8 @@ describe("ProductivityReport", () => {
 
   it("shows empty-state guidance when there is no task progress yet", () => {
     render(<ProductivityReport tasks={[]} sessions={[]} workMinutes={25} now={now} />);
-    expect(screen.getByText("まだ今日のタスクはありません")).toBeTruthy();
-    expect(screen.getByText("主なプロジェクト")).toBeTruthy();
-    expect(screen.getByText("まだありません")).toBeTruthy();
+    expect(screen.getByText("今日のタスク")).toBeTruthy();
+    expect(screen.getByText("—")).toBeTruthy();
+    expect(screen.getByText("この期間の集中記録はまだありません。")).toBeTruthy();
   });
 });
