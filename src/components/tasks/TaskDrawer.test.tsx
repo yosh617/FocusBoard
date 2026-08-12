@@ -440,6 +440,9 @@ describe("TaskDrawer", () => {
     const detailsToggle = screen.getByRole("button", { name: "詳細" });
     expect(detailsToggle.getAttribute("aria-expanded")).toBe("false");
     fireEvent.click(detailsToggle);
+    const dueDatePresets = screen.getByRole("group", { name: "追加するタスクの期限" });
+    expect(within(dueDatePresets).getByRole("button", { name: "なし" })).toBeTruthy();
+    expect(within(dueDatePresets).queryByRole("button", { name: "期限なし" })).toBeNull();
     const tomorrowButton = screen.getByRole("button", { name: "明日" });
     fireEvent.click(tomorrowButton);
     expect(tomorrowButton.getAttribute("aria-pressed")).toBe("true");

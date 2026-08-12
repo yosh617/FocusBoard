@@ -1327,7 +1327,7 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .task-quick-add__option-group { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; }
 .task-quick-add__option-group > span { color: #5f6670; font-size: 12px; font-weight: 700; letter-spacing: 0; text-transform: none; }
 .task-quick-add__presets { flex-wrap: nowrap; gap: 0; min-width: 0; }
-.task-quick-add__presets button { min-width: 44px; min-height: 44px; padding: 0 8px; color: #5f6670; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; box-shadow: none; font-size: 12px; }
+.task-quick-add__presets button { min-width: 44px; min-height: 44px; padding: 0 8px; color: #5f6670; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; box-shadow: none; font-size: 12px; white-space: nowrap; }
 .task-quick-add__presets button.is-active, .task-drawer .task-quick-add__presets button.is-active { color: var(--task-primary-text); border-color: var(--task-primary); background: transparent; box-shadow: none; }
 .task-quick-add__details label { display: flex; align-items: center; gap: 6px; min-width: 0; color: #5f6670; font-size: 12px; font-weight: 700; white-space: nowrap; }
 .task-quick-add__details input[type="date"] { width: 100%; min-width: 0; min-height: 44px; padding: 0 4px; border: 0; border-bottom: 1px solid #cdd2d8; border-radius: 0; background: transparent; }
