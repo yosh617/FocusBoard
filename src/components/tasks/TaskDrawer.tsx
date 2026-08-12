@@ -315,8 +315,11 @@ function TaskEditor({ task, projects, availableTags, subtasks, timerStatus, acti
   return (
     <form className="task-editor" onSubmit={submit} aria-label={`${task.title}の詳細`}>
       <div className="task-editor__heading">
-        <h3>タスクの設定</h3>
-        <div className="task-editor__heading-actions"><button className="task-editor__save primary-button" type="submit" disabled={saving} aria-label="保存">{saving ? "保存中" : "変更を保存"}</button>{onClose && <button className="task-editor__close" type="button" onClick={onClose} aria-label="詳細を閉じる"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg></button>}</div>
+        <div className="task-editor__heading-title">
+          {onClose && <button className="task-editor__back" type="button" onClick={onClose} aria-label="タスク一覧へ戻る"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7" /></svg></button>}
+          <h3>タスクの設定</h3>
+        </div>
+        <div className="task-editor__heading-actions"><button className="task-editor__save primary-button" type="submit" disabled={saving} aria-label="保存">{saving ? "保存中" : "変更を保存"}</button></div>
       </div>
       <section className="task-editor__summary" aria-label="タスクの要点">
         <label className="task-editor__title-field">タスク名<span aria-hidden="true">必須</span><input aria-label="タスク名" value={title} maxLength={200} required onChange={(event) => setTitle(event.target.value)} /></label>
@@ -526,6 +529,7 @@ export function TaskDrawer({
   const quickAddInputRef = useRef<HTMLInputElement>(null);
   const taskRowRefs = useRef(new Map<string, HTMLDivElement>());
   const taskContentButtonRefs = useRef(new Map<string, HTMLButtonElement>());
+  const pendingTaskFocusIdRef = useRef<string | null>(null);
   const appliedResumeTaskIdRef = useRef<string | null>(null);
   const selectedTaskScrollModeRef = useRef<"nearest" | "start">("nearest");
   const now = new Date();
@@ -709,11 +713,18 @@ export function TaskDrawer({
   }, [filteredTasks, scopedTasks, selectedTaskId]);
 
   useEffect(() => {
+    const taskId = pendingTaskFocusIdRef.current;
+    if (selectedTaskId !== null || taskId === null) return;
+    pendingTaskFocusIdRef.current = null;
+    window.setTimeout(() => taskContentButtonRefs.current.get(taskId)?.focus(), 0);
+  }, [selectedTaskId]);
+
+  useEffect(() => {
     setShowResumeBanner(open && toolbarContext !== null);
   }, [open, toolbarContext]);
 
-  const addTask = async (event: FormEvent) => {
-    event.preventDefault();
+  const addTask = async (event?: FormEvent) => {
+    event?.preventDefault();
     if (!title.trim()) return;
     const defaultDueDate = view === "today" ? today : view === "tomorrow" ? addLocalDays(today, 1) : null;
     const addedTaskId = await onAddTask({
@@ -777,12 +788,9 @@ export function TaskDrawer({
     setProjectId(null);
     setView(getViewForTask(task, today, tomorrow));
   }, [activeProjects, collapseNavigationIfCompact, today, tomorrow]);
-  const focusTaskTrigger = (taskId: string) => {
-    window.setTimeout(() => taskContentButtonRefs.current.get(taskId)?.focus(), 0);
-  };
   const closeTaskDetails = (taskId: string) => {
+    pendingTaskFocusIdRef.current = taskId;
     setSelectedTaskId(null);
-    focusTaskTrigger(taskId);
   };
   const selectedTaskNextCandidate = selectedTask
     ? sortTasksForFocus(tasks, today, activeTaskId).find((task) => task.id !== selectedTask.id) ?? null
@@ -904,31 +912,13 @@ export function TaskDrawer({
           </nav>}
 
           <section className={`task-workspace${workspaceMode !== "tasks" ? " task-workspace--standalone" : ""}`} id="task-workspace-main" tabIndex={-1} aria-label={workspaceMode === "report" ? "集中レポート" : workspaceMode === "backup" ? "バックアップと復元" : currentListLabel}>
-            {workspaceMode === "report" ? <ProductivityReport tasks={tasks} sessions={sessions} workMinutes={workMinutes} /> : workspaceMode === "backup" ? <ProductivityBackupPanel tasks={tasks} projects={projects} sessions={sessions} storageAvailable={storageAvailable} onImport={onImportBackup} /> : <>
+            {workspaceMode === "report" ? <ProductivityReport tasks={tasks} sessions={sessions} workMinutes={workMinutes} /> : workspaceMode === "backup" ? <ProductivityBackupPanel tasks={tasks} projects={projects} sessions={sessions} storageAvailable={storageAvailable} onImport={onImportBackup} /> : selectedTask && selectedTask.status !== "archived" ? <div className="task-editor-screen"><TaskEditor key={`${selectedTask.id}-${selectedTask.updatedAt}`} task={selectedTask} projects={activeProjects} availableTags={availableTags} subtasks={tasks.filter((item) => item.parentTaskId === selectedTask.id && item.status !== "archived").sort((a, b) => a.order - b.order)} timerStatus={timerStatus} activeTaskId={activeTaskId} nextTask={selectedTaskNextCandidate} nextTaskDetail={selectedTaskNextCandidateDetail} onStartTask={onStartTask} onOpenNextTask={selectedTaskNextCandidate ? () => openTaskDetails(selectedTaskNextCandidate, { revealInList: true }) : undefined} onReturnToTimer={() => { setSelectedTaskId(null); onClose(); }} onSave={(patch) => onUpdateTask(selectedTask.id, patch)} onArchive={async () => { const archived = await onArchiveTask(selectedTask.id); if (archived) setSelectedTaskId(null); return archived; }} onToggleStatus={async () => { const toggled = await onToggleTask(selectedTask.id); if (toggled) closeTaskDetails(selectedTask.id); return toggled; }} onCompleteAndStartNextTask={selectedTaskNextCandidate ? async () => { const toggled = await onToggleTask(selectedTask.id); if (!toggled) return false; onStartTask(selectedTaskNextCandidate.id); return true; } : undefined} onAddSubtask={async (subtaskTitle) => (await onAddTask({ title: subtaskTitle, parentTaskId: selectedTask.id, projectId: selectedTask.projectId, bucket: selectedTask.bucket })) !== null} onToggleSubtask={onToggleTask} canMoveUp={scopedTasks.findIndex((item) => item.id === selectedTask.id) > 0} canMoveDown={scopedTasks.findIndex((item) => item.id === selectedTask.id) >= 0 && scopedTasks.findIndex((item) => item.id === selectedTask.id) < scopedTasks.length - 1} onMove={(direction) => onMoveTask(selectedTask.id, scopedTasks.map((item) => item.id), direction)} onClose={() => closeTaskDetails(selectedTask.id)} /></div> : <>
             <div className="task-workspace__toolbar">
               <div className="task-workspace__heading">
                 <div><h3>{currentListLabel}</h3><span>{filteredTasks.length}件のタスク</span></div>
               </div>
-              {view !== "completed" && <form className="task-quick-add task-capture" onSubmit={addTask}>
+              {view !== "completed" && <form className="task-quick-add task-capture" id="task-quick-add-form" onSubmit={addTask}>
                 <div className="task-capture__title"><span aria-hidden="true">＋</span><label className="visually-hidden" htmlFor="task-title">新しいタスク</label><input id="task-title" ref={quickAddInputRef} placeholder="タスクを追加…" maxLength={200} value={title} onChange={(event) => setTitle(event.target.value)} disabled={!storageAvailable} /></div>
-                <div className="task-capture__settings">
-                <div className="task-capture__estimate" aria-label="ポモドーロの予定数">
-                  <span>ポモドーロの予定数</span>
-                  <div role="group" aria-label="追加するタスクの集中回数">{quickFocusOptions.map((value) => <button className={quickEstimatedPomodoros === value ? "is-active" : ""} type="button" aria-pressed={quickEstimatedPomodoros === value} aria-label={`${value}回`} onClick={() => { setQuickEstimatedPomodoros(value); setQuickPanel(null); }} key={value}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="7" /><path d="M9 3h6M12 9v4l3 2" /></svg><strong>{value}</strong></button>)}<button className={quickPanel === "estimate" || quickEstimatedPomodoros >= 5 ? "is-active" : ""} type="button" aria-expanded={quickPanel === "estimate"} aria-label="5回以上を設定" onClick={() => setQuickPanel((current) => current === "estimate" ? null : "estimate")}><QuickAddIcon type="more" /></button></div>
-                </div>
-                {quickPanel === "estimate" && <div className="task-capture__estimate-slider"><label htmlFor="quick-estimate-range">予定数 <output>{Math.max(5, quickEstimatedPomodoros)}回</output></label><input id="quick-estimate-range" type="range" min="5" max="20" step="1" value={Math.max(5, quickEstimatedPomodoros)} onChange={(event) => setQuickEstimatedPomodoros(Number(event.target.value))} /></div>}
-                <div className="task-capture__toolbar">
-                  <button className={dueDate ? "is-active" : ""} type="button" aria-label={dueDate ? `期限 ${dueDate}。もう一度押して変更` : "期限を今日に設定"} aria-expanded={quickPanel === "date"} onClick={() => { if (!dueDate) { setDueDate(today); setQuickPanel(null); } else setQuickPanel((current) => current === "date" ? null : "date"); }}><QuickAddIcon type="date" /><span>{dueDate === today ? "今日" : dueDate ? dueDate.slice(5).replace("-", "/") : "期限"}</span></button>
-                  <button className={quickPriority !== "none" ? "is-active" : ""} type="button" aria-label={`優先度 ${priorityOptions.find((option) => option.value === quickPriority)?.label}`} aria-expanded={quickPanel === "priority"} onClick={() => setQuickPanel((current) => current === "priority" ? null : "priority")} style={{ color: priorityOptions.find((option) => option.value === quickPriority)?.color }}><QuickAddIcon type="priority" /><span>優先度</span></button>
-                  <button className={quickTags.length > 0 ? "is-active" : ""} type="button" aria-label={quickTags.length > 0 ? `タグ ${quickTags.join("、")}` : "タグを設定"} aria-expanded={quickPanel === "tag"} onClick={() => setQuickPanel((current) => current === "tag" ? null : "tag")}><QuickAddIcon type="tag" /><span>{quickTags.length > 0 ? `${quickTags.length}件` : "タグ"}</span></button>
-                  <button className={quickAddProjectId ? "is-active" : ""} type="button" aria-label="プロジェクトを設定" aria-expanded={quickPanel === "project"} onClick={() => setQuickPanel((current) => current === "project" ? null : "project")}><QuickAddIcon type="project" /><span>{activeProjects.find((item) => item.id === quickAddProjectId)?.name ?? "Inbox"}</span></button>
-                  <button className="task-capture__submit" type="submit" disabled={!storageAvailable || !title.trim()}>完了</button>
-                </div>
-                </div>
-                {quickPanel === "date" && <QuickCalendar value={dueDate} today={today} onSelect={setDueDate} onClose={() => setQuickPanel(null)} />}
-                {quickPanel === "priority" && <section className="quick-add-popover quick-add-priority" role="dialog" aria-label="優先度を設定"><div className="quick-add-popover__header"><strong>優先度</strong><button type="button" aria-label="優先度設定を閉じる" onClick={() => setQuickPanel(null)}>×</button></div><div>{priorityOptions.map((option) => <button className={quickPriority === option.value ? "is-selected" : ""} type="button" aria-pressed={quickPriority === option.value} onClick={() => { setQuickPriority(option.value); setQuickPanel(null); }} key={option.value}><span style={{ color: option.color }}><QuickAddIcon type="priority" /></span><strong>{option.label}</strong></button>)}</div></section>}
-                {quickPanel === "tag" && <section className="quick-add-popover quick-add-tags" role="dialog" aria-label="タグを設定"><div className="quick-add-popover__header"><strong>タグ</strong><button type="button" aria-label="タグ設定を閉じる" onClick={() => setQuickPanel(null)}>×</button></div><TagPicker selected={quickTags} suggestions={availableTags} onChange={setQuickTags} /></section>}
-                {quickPanel === "project" && <section className="quick-add-popover quick-add-project" role="dialog" aria-label="プロジェクトを設定"><div className="quick-add-popover__header"><strong>プロジェクト</strong><button type="button" aria-label="プロジェクト設定を閉じる" onClick={() => setQuickPanel(null)}>×</button></div><div><button className={!quickAddProjectId ? "is-selected" : ""} type="button" onClick={() => { setQuickProjectId(""); setQuickPanel(null); }}><i /><span>Inbox</span></button>{activeProjects.map((item) => <button className={quickAddProjectId === item.id ? "is-selected" : ""} type="button" onClick={() => { setQuickProjectId(item.id); setQuickPanel(null); }} key={item.id}><i style={{ background: item.color }} /><span>{item.name}</span></button>)}</div></section>}
               </form>}
               {showResumeBanner && toolbarContext && (
                 <section className="task-inline-context" aria-label="一覧へ戻ったあとの案内">
@@ -1021,20 +1011,15 @@ export function TaskDrawer({
                             <button
                               className="task-row__content"
                               type="button"
-                              aria-expanded={selectedTaskId === task.id}
-                              aria-controls={`task-editor-${task.id}`}
+                              aria-expanded="false"
                               ref={(node) => {
                                 if (node) taskContentButtonRefs.current.set(task.id, node);
                                 else taskContentButtonRefs.current.delete(task.id);
                               }}
-                              onClick={() => setSelectedTaskId((current) => {
-                                if (current === task.id) {
-                                  focusTaskTrigger(task.id);
-                                  return null;
-                                }
+                              onClick={() => {
                                 selectedTaskScrollModeRef.current = "nearest";
-                                return task.id;
-                              })}
+                                openTaskDetails(task);
+                              }}
                             >
                               {rowStateLabel && <span className="task-row__eyebrow"><em className={`task-chip task-chip--state task-chip--${rowStateTone}`}>{rowStateLabel}</em></span>}
                               <strong>{task.priority && task.priority !== "none" && <span className="task-row__priority" style={{ color: priorityOptions.find((option) => option.value === task.priority)?.color }} aria-label={`優先度 ${priorityOptions.find((option) => option.value === task.priority)?.label}`}><QuickAddIcon type="priority" /></span>}{task.title}</strong>
@@ -1069,13 +1054,35 @@ export function TaskDrawer({
                               <span>{activeTaskId === task.id && timerStatus !== "idle" ? "戻る" : "開始"}</span>
                             </button>
                           </article>
-                          {selectedTaskId === task.id && selectedTask && selectedTask.status !== "archived" && <div className="task-editor-wrap" id={`task-editor-${selectedTask.id}`}><TaskEditor key={`${selectedTask.id}-${selectedTask.updatedAt}`} task={selectedTask} projects={activeProjects} availableTags={availableTags} subtasks={tasks.filter((item) => item.parentTaskId === selectedTask.id && item.status !== "archived").sort((a, b) => a.order - b.order)} timerStatus={timerStatus} activeTaskId={activeTaskId} nextTask={selectedTaskNextCandidate} nextTaskDetail={selectedTaskNextCandidateDetail} onStartTask={onStartTask} onOpenNextTask={selectedTaskNextCandidate ? () => openTaskDetails(selectedTaskNextCandidate, { revealInList: true }) : undefined} onReturnToTimer={() => { setSelectedTaskId(null); onClose(); }} onSave={(patch) => onUpdateTask(selectedTask.id, patch)} onArchive={async () => { const archived = await onArchiveTask(selectedTask.id); if (archived) setSelectedTaskId(null); return archived; }} onToggleStatus={async () => { const toggled = await onToggleTask(selectedTask.id); if (toggled) closeTaskDetails(selectedTask.id); return toggled; }} onCompleteAndStartNextTask={selectedTaskNextCandidate ? async () => { const toggled = await onToggleTask(selectedTask.id); if (!toggled) return false; onStartTask(selectedTaskNextCandidate.id); return true; } : undefined} onAddSubtask={async (subtaskTitle) => (await onAddTask({ title: subtaskTitle, parentTaskId: selectedTask.id, projectId: selectedTask.projectId, bucket: selectedTask.bucket })) !== null} onToggleSubtask={onToggleTask} canMoveUp={scopedTasks.findIndex((item) => item.id === selectedTask.id) > 0} canMoveDown={scopedTasks.findIndex((item) => item.id === selectedTask.id) >= 0 && scopedTasks.findIndex((item) => item.id === selectedTask.id) < scopedTasks.length - 1} onMove={(direction) => onMoveTask(selectedTask.id, scopedTasks.map((item) => item.id), direction)} onClose={() => closeTaskDetails(selectedTask.id)} /></div>}
                         </div>);
                       })}
                     </div>
                   </section>
                 ))}
               </div>
+            )}
+            {view !== "completed" && (
+              <section className="task-capture__settings" aria-label="タスク追加設定">
+                <div className="task-capture__estimate" aria-label="ポモドーロの予定数">
+                  <span>予定数</span>
+                  <div role="group" aria-label="追加するタスクの集中回数">
+                    {quickFocusOptions.map((value) => <button className={quickEstimatedPomodoros === value ? "is-active" : ""} type="button" aria-pressed={quickEstimatedPomodoros === value} aria-label={`${value}回`} onClick={() => { setQuickEstimatedPomodoros(value); setQuickPanel(null); }} key={value}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="7" /><path d="M9 3h6M12 9v4l3 2" /></svg><strong>{value}</strong></button>)}
+                    <button className={quickPanel === "estimate" || quickEstimatedPomodoros >= 5 ? "is-active" : ""} type="button" aria-expanded={quickPanel === "estimate"} aria-label="5回以上を設定" onClick={() => setQuickPanel((current) => current === "estimate" ? null : "estimate")}><QuickAddIcon type="more" /></button>
+                  </div>
+                </div>
+                {quickPanel === "estimate" && <div className="task-capture__estimate-slider"><label htmlFor="quick-estimate-range">予定数 <output>{Math.max(5, quickEstimatedPomodoros)}回</output></label><input id="quick-estimate-range" type="range" min="5" max="20" step="1" value={Math.max(5, quickEstimatedPomodoros)} onChange={(event) => setQuickEstimatedPomodoros(Number(event.target.value))} /></div>}
+                <div className="task-capture__toolbar">
+                  <button className={dueDate ? "is-active" : ""} type="button" aria-label={dueDate ? `期限 ${dueDate}。もう一度押して変更` : "期限を今日に設定"} aria-expanded={quickPanel === "date"} onClick={() => { if (!dueDate) { setDueDate(today); setQuickPanel(null); } else setQuickPanel((current) => current === "date" ? null : "date"); }}><QuickAddIcon type="date" /><span>{dueDate === today ? "今日" : dueDate ? dueDate.slice(5).replace("-", "/") : "期限"}</span></button>
+                  <button className={quickPriority !== "none" ? "is-active" : ""} type="button" aria-label={`優先度 ${priorityOptions.find((option) => option.value === quickPriority)?.label}`} aria-expanded={quickPanel === "priority"} onClick={() => setQuickPanel((current) => current === "priority" ? null : "priority")} style={{ color: priorityOptions.find((option) => option.value === quickPriority)?.color }}><QuickAddIcon type="priority" /><span>優先度</span></button>
+                  <button className={quickTags.length > 0 ? "is-active" : ""} type="button" aria-label={quickTags.length > 0 ? `タグ ${quickTags.join("、")}` : "タグを設定"} aria-expanded={quickPanel === "tag"} onClick={() => setQuickPanel((current) => current === "tag" ? null : "tag")}><QuickAddIcon type="tag" /><span>{quickTags.length > 0 ? `${quickTags.length}件` : "タグ"}</span></button>
+                  <button className={quickAddProjectId ? "is-active" : ""} type="button" aria-label="プロジェクトを設定" aria-expanded={quickPanel === "project"} onClick={() => setQuickPanel((current) => current === "project" ? null : "project")}><QuickAddIcon type="project" /><span>{activeProjects.find((item) => item.id === quickAddProjectId)?.name ?? "Inbox"}</span></button>
+                  <button className="task-capture__submit" type="button" onClick={() => void addTask()} disabled={!storageAvailable || !title.trim()}>完了</button>
+                </div>
+                {quickPanel === "date" && <QuickCalendar value={dueDate} today={today} onSelect={setDueDate} onClose={() => setQuickPanel(null)} />}
+                {quickPanel === "priority" && <section className="quick-add-popover quick-add-priority" role="dialog" aria-label="優先度を設定"><div className="quick-add-popover__header"><strong>優先度</strong><button type="button" aria-label="優先度設定を閉じる" onClick={() => setQuickPanel(null)}>×</button></div><div>{priorityOptions.map((option) => <button className={quickPriority === option.value ? "is-selected" : ""} type="button" aria-pressed={quickPriority === option.value} onClick={() => { setQuickPriority(option.value); setQuickPanel(null); }} key={option.value}><span style={{ color: option.color }}><QuickAddIcon type="priority" /></span><strong>{option.label}</strong></button>)}</div></section>}
+                {quickPanel === "tag" && <section className="quick-add-popover quick-add-tags" role="dialog" aria-label="タグを設定"><div className="quick-add-popover__header"><strong>タグ</strong><button type="button" aria-label="タグ設定を閉じる" onClick={() => setQuickPanel(null)}>×</button></div><TagPicker selected={quickTags} suggestions={availableTags} onChange={setQuickTags} /></section>}
+                {quickPanel === "project" && <section className="quick-add-popover quick-add-project" role="dialog" aria-label="プロジェクトを設定"><div className="quick-add-popover__header"><strong>プロジェクト</strong><button type="button" aria-label="プロジェクト設定を閉じる" onClick={() => setQuickPanel(null)}>×</button></div><div><button className={!quickAddProjectId ? "is-selected" : ""} type="button" onClick={() => { setQuickProjectId(""); setQuickPanel(null); }}><i /><span>Inbox</span></button>{activeProjects.map((item) => <button className={quickAddProjectId === item.id ? "is-selected" : ""} type="button" onClick={() => { setQuickProjectId(item.id); setQuickPanel(null); }} key={item.id}><i style={{ background: item.color }} /><span>{item.name}</span></button>)}</div></section>}
+              </section>
             )}
             </>}
           </section>

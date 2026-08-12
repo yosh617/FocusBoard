@@ -115,7 +115,7 @@ describe("App", () => {
     mockTasksState.projects = [focusProject];
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: `タスクを開く。次のおすすめは数学の復習。今日の未完了は${tasks.length}件` }));
-    fireEvent.click(screen.getByRole("button", { name: "数学の復習のタイマーを開始" }));
+    fireEvent.click(screen.getByRole("button", { name: "数学の復習を詳細から開始" }));
   };
 
   it("keeps only tasks in the home dock and never renders a direct settings button", () => {
@@ -362,8 +362,9 @@ describe("App", () => {
       expect(launcher.textContent).toContain("短い休憩");
       expect(launcher.textContent).toContain("次は 英語の宿題");
       fireEvent.click(launcher);
-      expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("休憩のあと");
       expect(screen.getByRole("form", { name: "英語の宿題の詳細" })).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "タスク一覧へ戻る" }));
+      expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("休憩後");
     } finally {
       vi.useRealTimers();
     }
@@ -423,10 +424,11 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "タスクを開く。集中中のタスクは数学の復習。今日の未完了は2件" }));
     expect(screen.getByRole("dialog", { name: "タスク管理" })).toBeTruthy();
-    expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("いまの集中");
-    expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("数学の復習へ戻れます");
     expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "数学の復習の詳細からタイマーへ戻る" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "タスク一覧へ戻る" }));
+    expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("いまの集中");
+    expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("数学の復習へ戻れます");
   });
 
   it("closes the task drawer on browser back and restores focus to the launcher", async () => {
@@ -455,8 +457,9 @@ describe("App", () => {
       fireEvent.click(screen.getByRole("button", { name: "タスク一覧を開く" }));
       expect(screen.queryByRole("dialog", { name: "集中セッション完了" })).toBeNull();
       expect(screen.getByRole("dialog", { name: "タスク管理" })).toBeTruthy();
-      expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("英語の宿題を次の候補として開いています");
       expect(screen.getByRole("form", { name: "英語の宿題の詳細" })).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "タスク一覧へ戻る" }));
+      expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("英語の宿題を次の候補として開いています");
       expect(screen.getByLabelText("新しいタスク")).toBeTruthy();
       expect(screen.queryByText("集中中")).toBeNull();
     } finally {
@@ -951,8 +954,9 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "タスクを開く。次のおすすめは数学の復習。今日の未完了は2件" }));
     expect(screen.getByRole("dialog", { name: "タスク管理" })).toBeTruthy();
-    expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("今日のおすすめ");
     await waitFor(() => expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "タスク一覧へ戻る" }));
+    expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("今日のおすすめ");
     expect(screen.getByRole("button", { name: "おすすめを開く" })).toBeTruthy();
   });
 });

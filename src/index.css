@@ -1752,3 +1752,64 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
   .task-drawer__body--tasks.is-navigation-open .project-add { width: 100%; max-width: none; }
   .settings-tabs button { min-height: 38px; padding-block: 4px; }
 }
+
+/* Task flow: heading, capture field, then the list. Keep the capture surface quiet. */
+.task-workspace__toolbar { display: grid; gap: 8px; margin-bottom: 12px; }
+.task-workspace__heading { order: 0; margin-bottom: 0; }
+.task-quick-add.task-capture { order: 1; }
+.task-inline-context { order: 2; }
+.task-list-filters { order: 3; }
+.task-callout { order: 4; }
+.task-capture { max-width: 100%; border-bottom: 1px solid #e6e8eb; background: transparent; }
+.task-capture__title { grid-template-columns: 22px minmax(0, 1fr); min-height: 48px; padding: 0 2px; }
+.task-capture__title > span { width: 18px; color: var(--task-primary); font-size: 21px; font-weight: 300; line-height: 1; }
+.task-capture .task-capture__title input { min-height: 46px; color: #202124; background: transparent; font-size: 15px; font-weight: 600; }
+.task-capture .task-capture__title input::placeholder { color: #9aa0a6; font-weight: 500; }
+.task-capture__settings { margin-top: 8px; border-top: 1px solid #e6e8eb; }
+.task-capture__estimate { gap: 4px; padding: 8px 2px; }
+.task-capture__estimate > span { color: #767c85; font-size: 10px; font-weight: 700; }
+.task-capture__estimate > div { gap: 3px; }
+.task-capture__estimate button { flex-basis: 36px; width: 36px; min-height: 34px; }
+.task-capture__estimate button svg { width: 18px; height: 18px; }
+.task-capture__estimate-slider { width: min(360px, calc(100% - 16px)); padding: 8px 0 12px; }
+.task-capture__toolbar { min-height: 42px; gap: 2px; padding: 2px 0; border-top: 1px solid #e6e8eb; }
+.task-capture__toolbar button { flex-basis: 46px; width: 46px; min-height: 38px; color: #737982; font-size: 9px; }
+.task-capture__toolbar button svg { width: 18px; height: 18px; }
+.task-capture__toolbar .task-capture__submit { color: var(--task-primary-text); font-size: 12px; font-weight: 750; }
+
+/* Dedicated task editing is a focused document, separate from list rows. */
+.task-editor-screen { min-width: 0; padding: 0 0 max(24px, env(safe-area-inset-bottom)); }
+.task-editor-screen .task-editor { margin-top: 0; }
+.task-editor__heading { gap: 12px; }
+.task-editor__heading-title { display: flex; align-items: center; min-width: 0; gap: 8px; }
+.task-editor__heading-title h3 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-editor__back { display: grid; flex: none; place-items: center; width: 36px; height: 36px; padding: 0; color: #555d67; border: 1px solid #dfe3e7; border-radius: 9px; background: #fff; }
+.task-editor__back:hover { color: var(--task-primary-text); border-color: var(--task-primary-border); background: var(--task-primary-soft); }
+.task-editor__back svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.task-editor__heading-actions .task-editor__save { min-height: 38px; padding-inline: 12px; border-radius: 8px; box-shadow: none; }
+.task-editor-screen .task-editor__summary { padding-top: 14px; }
+.task-editor-screen .task-editor__quick-actions { padding-block: 12px; }
+
+/* Settings-style selection keeps task tabs and choices centered without heavy pills. */
+.task-mode-tabs button.is-active,
+.task-navigation__views button.is-active,
+.task-list-filters button.is-active,
+.task-quick-add__presets button.is-active,
+.task-editor__quick-group button.is-active,
+.task-editor__date-presets button.is-active {
+  color: var(--task-primary-text);
+  border-color: var(--task-primary-border);
+  background: var(--task-primary-soft);
+  box-shadow: inset 0 0 0 1px var(--task-primary-border);
+}
+.task-mode-tabs button.is-active { box-shadow: 0 0 0 2px var(--task-primary-shadow); }
+
+@media (max-width: 600px) {
+  .task-workspace__toolbar { gap: 7px; }
+  .task-capture__title { min-height: 44px; }
+  .task-capture .task-capture__title input { min-height: 42px; font-size: 14px; }
+  .task-capture__title > span { font-size: 19px; }
+  .task-editor-screen .task-editor { padding-inline: 0; }
+  .task-editor__heading { align-items: center; }
+  .task-editor__heading-actions .task-editor__save { min-height: 36px; padding-inline: 10px; font-size: 11px; }
+}
