@@ -190,7 +190,7 @@ describe("TaskDrawer", () => {
   });
 
 
-  it("collapses smart-list navigation on compact screens and closes it again after selection", () => {
+  it("switches between list selection and tasks on compact screens", () => {
     const originalMatchMedia = window.matchMedia;
     Object.defineProperty(window, "matchMedia", {
       configurable: true,
@@ -210,13 +210,16 @@ describe("TaskDrawer", () => {
       renderDrawer();
       const summary = screen.getByRole("button", { name: /表示先/ });
       expect(summary.getAttribute("aria-expanded")).toBe("false");
+      expect(document.querySelector(".task-drawer__body")?.classList.contains("is-navigation-open")).toBe(false);
       expect(screen.queryByRole("button", { name: "明日 0" })).toBeNull();
 
       fireEvent.click(summary);
       expect(summary.getAttribute("aria-expanded")).toBe("true");
+      expect(document.querySelector(".task-drawer__body")?.classList.contains("is-navigation-open")).toBe(true);
       fireEvent.click(screen.getByRole("button", { name: "明日 0" }));
 
       expect(summary.getAttribute("aria-expanded")).toBe("false");
+      expect(document.querySelector(".task-drawer__body")?.classList.contains("is-navigation-open")).toBe(false);
       expect(screen.getByRole("heading", { name: "明日" })).toBeTruthy();
     } finally {
       Object.defineProperty(window, "matchMedia", {
@@ -478,6 +481,18 @@ describe("TaskDrawer", () => {
     fireEvent.click(within(screen.getByRole("dialog", { name: "プロジェクトを設定" })).getByRole("button", { name: "勉強" }));
     fireEvent.click(screen.getByRole("button", { name: "完了" }));
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ priority: "high", projectId: project.id })));
+  });
+
+  it("creates and saves tags from the bottom toolbar", async () => {
+    const props = renderDrawer();
+    fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "タグ付き課題" } });
+    fireEvent.click(screen.getByRole("button", { name: "タグを設定" }));
+    const tagDialog = screen.getByRole("dialog", { name: "タグを設定" });
+    fireEvent.change(within(tagDialog).getByLabelText("新しいタグ名"), { target: { value: "試験" } });
+    fireEvent.click(within(tagDialog).getByRole("button", { name: "タグを追加" }));
+    expect(within(tagDialog).getByRole("button", { name: "#試験" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "完了" }));
+    await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ tags: ["試験"] })));
   });
 
   it("shows filters only in Inbox and puts overdue work last in Today", () => {
@@ -780,6 +795,16 @@ describe("TaskDrawer", () => {
       priority: "high",
       reminderAt: new Date(`${addLocalDays(today, 1)}T09:00:00`).getTime()
     })));
+  });
+
+  it("edits tags from task details", async () => {
+    const props = renderDrawer({ tasks: [{ ...task, tags: ["復習"] }] });
+    fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
+    const details = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
+    fireEvent.change(details.getByLabelText("新しいタグ名"), { target: { value: "重要" } });
+    fireEvent.click(details.getByRole("button", { name: "タグを追加" }));
+    fireEvent.click(details.getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({ tags: ["復習", "重要"] })));
   });
 
   it("exposes a storage failure without hiding the existing timer application", () => {

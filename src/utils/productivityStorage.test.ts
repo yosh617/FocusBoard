@@ -241,6 +241,7 @@ const task: TaskRecord = {
   repeatSeriesId: null,
   estimatedPomodoros: 2,
   priority: "none",
+  tags: [],
   order: 0,
   createdAt: 1,
   updatedAt: 1,

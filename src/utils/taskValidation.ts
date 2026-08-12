@@ -84,6 +84,10 @@ export function validateTaskRecord(value: unknown): TaskRecord | null {
   if (!isBoundedInteger(value.estimatedPomodoros, 0, 99)) return null;
   const priority = value.priority === undefined ? "none" : value.priority;
   if (!taskPriorities.includes(priority as TaskPriority)) return null;
+  const tags = value.tags === undefined ? [] : value.tags;
+  if (!Array.isArray(tags) || tags.length > 10 || tags.some((tag) => typeof tag !== "string" || tag.trim().length === 0 || tag.length > 24)) return null;
+  const normalizedTags = tags.map((tag) => (tag as string).trim());
+  if (new Set(normalizedTags).size !== normalizedTags.length) return null;
   if (typeof value.order !== "number" || !Number.isFinite(value.order)) return null;
   if (!isTimestamp(value.createdAt) || !isTimestamp(value.updatedAt) || !isOptionalTimestamp(value.completedAt)) return null;
   return {
@@ -101,6 +105,7 @@ export function validateTaskRecord(value: unknown): TaskRecord | null {
     repeatSeriesId: value.repeatSeriesId,
     estimatedPomodoros: value.estimatedPomodoros,
     priority: priority as TaskPriority,
+    tags: normalizedTags,
     order: value.order,
     createdAt: value.createdAt,
     updatedAt: value.updatedAt,

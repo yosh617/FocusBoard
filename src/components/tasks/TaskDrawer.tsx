@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import type { ProjectRecord } from "../../types/project";
 import type { FocusSessionRecord } from "../../types/focusSession";
 import type { RepeatRule, TaskDraft, TaskPriority, TaskRecord, TaskView } from "../../types/task";
@@ -125,6 +125,27 @@ function QuickCalendar({ value, today, onSelect, onClose }: { value: string; tod
   </section>;
 }
 
+function TagPicker({ selected, suggestions, onChange }: { selected: string[]; suggestions: string[]; onChange: (tags: string[]) => void }) {
+  const inputId = useId();
+  const [tagName, setTagName] = useState("");
+  const toggleTag = (tag: string) => onChange(selected.includes(tag) ? selected.filter((item) => item !== tag) : selected.length < 10 ? [...selected, tag] : selected);
+  const addTag = () => {
+    const tag = tagName.trim().slice(0, 24);
+    if (!tag) return;
+    if (!selected.includes(tag) && selected.length < 10) onChange([...selected, tag]);
+    setTagName("");
+  };
+  const options = [...new Set([...selected, ...suggestions])];
+  return <div className="task-tag-picker">
+    <div className="task-tag-picker__input">
+      <label className="visually-hidden" htmlFor={inputId}>新しいタグ名</label>
+      <input id={inputId} value={tagName} maxLength={24} placeholder="タグを入力" onChange={(event) => setTagName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addTag(); } }} />
+      <button type="button" aria-label="タグを追加" disabled={!tagName.trim() || selected.length >= 10} onClick={addTag}>追加</button>
+    </div>
+    {options.length > 0 && <div className="task-tag-picker__options" role="group" aria-label="タグを選択">{options.map((tag) => <button className={selected.includes(tag) ? "is-selected" : ""} type="button" aria-pressed={selected.includes(tag)} onClick={() => toggleTag(tag)} key={tag}>#{tag}</button>)}</div>}
+  </div>;
+}
+
 function isCompactTaskNavigationViewport() {
   try {
     return typeof window.matchMedia === "function" && window.matchMedia("(max-width: 820px)").matches;
@@ -211,9 +232,10 @@ function FocusMeter({
   );
 }
 
-function TaskEditor({ task, projects, subtasks, timerStatus, activeTaskId, nextTask, nextTaskDetail, onStartTask, onOpenNextTask, onReturnToTimer, onSave, onArchive, onToggleStatus, onCompleteAndStartNextTask, onAddSubtask, onToggleSubtask, canMoveUp, canMoveDown, onMove, onClose }: {
+function TaskEditor({ task, projects, availableTags, subtasks, timerStatus, activeTaskId, nextTask, nextTaskDetail, onStartTask, onOpenNextTask, onReturnToTimer, onSave, onArchive, onToggleStatus, onCompleteAndStartNextTask, onAddSubtask, onToggleSubtask, canMoveUp, canMoveDown, onMove, onClose }: {
   task: TaskRecord;
   projects: ProjectRecord[];
+  availableTags: string[];
   subtasks: TaskRecord[];
   timerStatus: TimerStatus;
   activeTaskId: string | null;
@@ -239,6 +261,7 @@ function TaskEditor({ task, projects, subtasks, timerStatus, activeTaskId, nextT
   const [bucket, setBucket] = useState(task.bucket);
   const [estimatedPomodoros, setEstimatedPomodoros] = useState(task.estimatedPomodoros);
   const [priority, setPriority] = useState<TaskPriority>(task.priority ?? "none");
+  const [tags, setTags] = useState(task.tags ?? []);
   const [note, setNote] = useState(task.note);
   const [reminder, setReminder] = useState(toDateTimeLocal(task.reminderAt));
   const savedInterval = task.repeatRule && "interval" in task.repeatRule ? task.repeatRule.interval : 1;
@@ -281,6 +304,7 @@ function TaskEditor({ task, projects, subtasks, timerStatus, activeTaskId, nextT
       bucket,
       estimatedPomodoros,
       priority,
+      tags,
       note,
       reminderAt: reminder ? new Date(reminder).getTime() : null,
       repeatRule: buildRepeatRule(repeatType, dueDate, customRepeatInterval, customRepeatUnit)
@@ -296,7 +320,7 @@ function TaskEditor({ task, projects, subtasks, timerStatus, activeTaskId, nextT
       </div>
       <section className="task-editor__summary" aria-label="タスクの要点">
         <label className="task-editor__title-field">タスク名<span aria-hidden="true">必須</span><input aria-label="タスク名" value={title} maxLength={200} required onChange={(event) => setTitle(event.target.value)} /></label>
-        <div className="task-editor__summary-meta"><em className={task.status === "completed" ? "is-completed" : "is-open"}>{task.status === "completed" ? "完了済み" : "未完了"}</em>{priority !== "none" && <em>優先度 {priorityOptions.find((option) => option.value === priority)?.label}</em>}{dueDate && <em>期限 {dueDate}</em>}{estimatedPomodoros > 0 && <em>集中 {estimatedPomodoros}回</em>}{projectId && <em>{projects.find((project) => project.id === projectId)?.name}</em>}</div>
+        <div className="task-editor__summary-meta"><em className={task.status === "completed" ? "is-completed" : "is-open"}>{task.status === "completed" ? "完了済み" : "未完了"}</em>{priority !== "none" && <em>優先度 {priorityOptions.find((option) => option.value === priority)?.label}</em>}{dueDate && <em>期限 {dueDate}</em>}{estimatedPomodoros > 0 && <em>集中 {estimatedPomodoros}回</em>}{projectId && <em>{projects.find((project) => project.id === projectId)?.name}</em>}{tags.map((tag) => <em key={tag}>#{tag}</em>)}</div>
       </section>
       <section className="task-editor__quick-actions" aria-label="よく使う設定">
         <div className="task-editor__quick-group">
@@ -393,6 +417,7 @@ function TaskEditor({ task, projects, subtasks, timerStatus, activeTaskId, nextT
           <label>期限<input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label>
         </div>
         <div className="task-editor__priority" role="radiogroup" aria-label="タスクの優先度">{priorityOptions.map((option) => <button className={priority === option.value ? "is-active" : ""} type="button" role="radio" aria-checked={priority === option.value} onClick={() => setPriority(option.value)} key={option.value}><span style={{ color: option.color }}><QuickAddIcon type="priority" /></span>{option.label}</button>)}</div>
+        <div className="task-editor__tags"><span>タグ</span><TagPicker selected={tags} suggestions={availableTags} onChange={setTags} /></div>
       </section>
       <section className="task-editor__section" aria-labelledby={`task-focus-${task.id}`}>
         <div className="task-editor__section-heading">
@@ -485,8 +510,9 @@ export function TaskDrawer({
   const [dueDate, setDueDate] = useState("");
   const [quickEstimatedPomodoros, setQuickEstimatedPomodoros] = useState(0);
   const [quickPriority, setQuickPriority] = useState<TaskPriority>("none");
+  const [quickTags, setQuickTags] = useState<string[]>([]);
   const [quickProjectId, setQuickProjectId] = useState<string | null>(null);
-  const [quickPanel, setQuickPanel] = useState<"date" | "priority" | "project" | "estimate" | null>(null);
+  const [quickPanel, setQuickPanel] = useState<"date" | "priority" | "tag" | "project" | "estimate" | null>(null);
   const [returnFocusToQuickAdd, setReturnFocusToQuickAdd] = useState(false);
   const [listFilter, setListFilter] = useState<TaskListFilter>("all");
   const [workspaceMode, setWorkspaceMode] = useState<"tasks" | "report" | "backup">("tasks");
@@ -506,6 +532,7 @@ export function TaskDrawer({
   const today = toLocalDateKey(now);
   const tomorrow = addLocalDays(today, 1);
   const activeProjects = useMemo(() => getActiveProjects(projects), [projects]);
+  const availableTags = useMemo(() => [...new Set(tasks.flatMap((task) => task.tags ?? []))].sort((left, right) => left.localeCompare(right, "ja")), [tasks]);
   const currentListLabel = projectId
     ? activeProjects.find((project) => project.id === projectId)?.name ?? "プロジェクト"
     : views.find((item) => item.value === view)?.label ?? "タスク";
@@ -695,13 +722,15 @@ export function TaskDrawer({
       projectId: quickProjectId === null ? projectId : quickProjectId || null,
       bucket: view === "someday" ? "someday" : "inbox",
       estimatedPomodoros: quickEstimatedPomodoros,
-      priority: quickPriority
+      priority: quickPriority,
+      tags: quickTags
     });
     if (addedTaskId) {
       setTitle("");
       setDueDate("");
       setQuickEstimatedPomodoros(0);
       setQuickPriority("none");
+      setQuickTags([]);
       setQuickProjectId(null);
       setQuickPanel(null);
       setReturnFocusToQuickAdd(true);
@@ -828,7 +857,7 @@ export function TaskDrawer({
           <button type="button" className={workspaceMode === "report" ? "is-active" : ""} aria-current={workspaceMode === "report" ? "page" : undefined} onClick={() => setWorkspaceMode("report")}><WorkspaceIcon type="report" /><span>レポート</span></button>
         </nav>
 
-        <div className={`task-drawer__body task-drawer__body--${workspaceMode}`}>
+        <div className={`task-drawer__body task-drawer__body--${workspaceMode}${workspaceMode === "tasks" && !navigationCollapsed ? " is-navigation-open" : ""}`}>
           {workspaceMode === "tasks" && <nav className={`task-navigation${navigationCollapsed ? " is-collapsed" : ""}`} aria-label="タスク一覧">
             <button
               className="task-navigation__summary"
@@ -838,11 +867,11 @@ export function TaskDrawer({
               onClick={() => setNavigationCollapsed((current) => !current)}
             >
               <span>表示先</span>
-              <strong>{projectId ? currentListLabel : `スマートリスト · ${currentListLabel}`}</strong>
+              <strong>{currentListLabel}</strong>
               <em>{projectId ? `未完了 ${currentListOpenCount}件` : `表示 ${activeFilterLabel}`}</em>
             </button>
             {!navigationCollapsed && <div className="task-navigation__content" id="task-navigation-content">
-              <p className="task-navigation__label">スマートリスト</p>
+              <p className="task-navigation__label">リストを選択</p>
               <div className="task-navigation__views">
                 {views.map((item) => {
                   const count = getTasksForView(tasks, item.value, today).length;
@@ -882,6 +911,7 @@ export function TaskDrawer({
               </div>
               {view !== "completed" && <form className="task-quick-add task-capture" onSubmit={addTask}>
                 <div className="task-capture__title"><span aria-hidden="true">＋</span><label className="visually-hidden" htmlFor="task-title">新しいタスク</label><input id="task-title" ref={quickAddInputRef} placeholder="タスクを追加…" maxLength={200} value={title} onChange={(event) => setTitle(event.target.value)} disabled={!storageAvailable} /></div>
+                <div className="task-capture__settings">
                 <div className="task-capture__estimate" aria-label="ポモドーロの予定数">
                   <span>ポモドーロの予定数</span>
                   <div role="group" aria-label="追加するタスクの集中回数">{quickFocusOptions.map((value) => <button className={quickEstimatedPomodoros === value ? "is-active" : ""} type="button" aria-pressed={quickEstimatedPomodoros === value} aria-label={`${value}回`} onClick={() => { setQuickEstimatedPomodoros(value); setQuickPanel(null); }} key={value}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="7" /><path d="M9 3h6M12 9v4l3 2" /></svg><strong>{value}</strong></button>)}<button className={quickPanel === "estimate" || quickEstimatedPomodoros >= 5 ? "is-active" : ""} type="button" aria-expanded={quickPanel === "estimate"} aria-label="5回以上を設定" onClick={() => setQuickPanel((current) => current === "estimate" ? null : "estimate")}><QuickAddIcon type="more" /></button></div>
@@ -890,12 +920,14 @@ export function TaskDrawer({
                 <div className="task-capture__toolbar">
                   <button className={dueDate ? "is-active" : ""} type="button" aria-label={dueDate ? `期限 ${dueDate}。もう一度押して変更` : "期限を今日に設定"} aria-expanded={quickPanel === "date"} onClick={() => { if (!dueDate) { setDueDate(today); setQuickPanel(null); } else setQuickPanel((current) => current === "date" ? null : "date"); }}><QuickAddIcon type="date" /><span>{dueDate === today ? "今日" : dueDate ? dueDate.slice(5).replace("-", "/") : "期限"}</span></button>
                   <button className={quickPriority !== "none" ? "is-active" : ""} type="button" aria-label={`優先度 ${priorityOptions.find((option) => option.value === quickPriority)?.label}`} aria-expanded={quickPanel === "priority"} onClick={() => setQuickPanel((current) => current === "priority" ? null : "priority")} style={{ color: priorityOptions.find((option) => option.value === quickPriority)?.color }}><QuickAddIcon type="priority" /><span>優先度</span></button>
-                  <button type="button" aria-label="タグ（未対応）" disabled><QuickAddIcon type="tag" /><span>タグ</span></button>
+                  <button className={quickTags.length > 0 ? "is-active" : ""} type="button" aria-label={quickTags.length > 0 ? `タグ ${quickTags.join("、")}` : "タグを設定"} aria-expanded={quickPanel === "tag"} onClick={() => setQuickPanel((current) => current === "tag" ? null : "tag")}><QuickAddIcon type="tag" /><span>{quickTags.length > 0 ? `${quickTags.length}件` : "タグ"}</span></button>
                   <button className={quickAddProjectId ? "is-active" : ""} type="button" aria-label="プロジェクトを設定" aria-expanded={quickPanel === "project"} onClick={() => setQuickPanel((current) => current === "project" ? null : "project")}><QuickAddIcon type="project" /><span>{activeProjects.find((item) => item.id === quickAddProjectId)?.name ?? "Inbox"}</span></button>
                   <button className="task-capture__submit" type="submit" disabled={!storageAvailable || !title.trim()}>完了</button>
                 </div>
+                </div>
                 {quickPanel === "date" && <QuickCalendar value={dueDate} today={today} onSelect={setDueDate} onClose={() => setQuickPanel(null)} />}
                 {quickPanel === "priority" && <section className="quick-add-popover quick-add-priority" role="dialog" aria-label="優先度を設定"><div className="quick-add-popover__header"><strong>優先度</strong><button type="button" aria-label="優先度設定を閉じる" onClick={() => setQuickPanel(null)}>×</button></div><div>{priorityOptions.map((option) => <button className={quickPriority === option.value ? "is-selected" : ""} type="button" aria-pressed={quickPriority === option.value} onClick={() => { setQuickPriority(option.value); setQuickPanel(null); }} key={option.value}><span style={{ color: option.color }}><QuickAddIcon type="priority" /></span><strong>{option.label}</strong></button>)}</div></section>}
+                {quickPanel === "tag" && <section className="quick-add-popover quick-add-tags" role="dialog" aria-label="タグを設定"><div className="quick-add-popover__header"><strong>タグ</strong><button type="button" aria-label="タグ設定を閉じる" onClick={() => setQuickPanel(null)}>×</button></div><TagPicker selected={quickTags} suggestions={availableTags} onChange={setQuickTags} /></section>}
                 {quickPanel === "project" && <section className="quick-add-popover quick-add-project" role="dialog" aria-label="プロジェクトを設定"><div className="quick-add-popover__header"><strong>プロジェクト</strong><button type="button" aria-label="プロジェクト設定を閉じる" onClick={() => setQuickPanel(null)}>×</button></div><div><button className={!quickAddProjectId ? "is-selected" : ""} type="button" onClick={() => { setQuickProjectId(""); setQuickPanel(null); }}><i /><span>Inbox</span></button>{activeProjects.map((item) => <button className={quickAddProjectId === item.id ? "is-selected" : ""} type="button" onClick={() => { setQuickProjectId(item.id); setQuickPanel(null); }} key={item.id}><i style={{ background: item.color }} /><span>{item.name}</span></button>)}</div></section>}
               </form>}
               {showResumeBanner && toolbarContext && (
@@ -1010,6 +1042,7 @@ export function TaskDrawer({
                                 {project && taskSections.length === 1 && <span className="task-chip task-chip--project"><i style={{ background: project.color }} />{project.name}</span>}
                                 {label && <em className={label.startsWith("期限切れ") ? "is-overdue" : ""}>{label}</em>}
                                 {reminder && <em>{reminder}</em>}
+                                {(task.tags ?? []).map((tag) => <em className="task-chip task-chip--tag" key={tag}>#{tag}</em>)}
                                 {(task.estimatedPomodoros > 0 || completedPomodoros > 0) && (
                                   <FocusMeter
                                     label={`${task.title}の集中目安`}
@@ -1036,7 +1069,7 @@ export function TaskDrawer({
                               <span>{activeTaskId === task.id && timerStatus !== "idle" ? "戻る" : "開始"}</span>
                             </button>
                           </article>
-                          {selectedTaskId === task.id && selectedTask && selectedTask.status !== "archived" && <div className="task-editor-wrap" id={`task-editor-${selectedTask.id}`}><TaskEditor key={`${selectedTask.id}-${selectedTask.updatedAt}`} task={selectedTask} projects={activeProjects} subtasks={tasks.filter((item) => item.parentTaskId === selectedTask.id && item.status !== "archived").sort((a, b) => a.order - b.order)} timerStatus={timerStatus} activeTaskId={activeTaskId} nextTask={selectedTaskNextCandidate} nextTaskDetail={selectedTaskNextCandidateDetail} onStartTask={onStartTask} onOpenNextTask={selectedTaskNextCandidate ? () => openTaskDetails(selectedTaskNextCandidate, { revealInList: true }) : undefined} onReturnToTimer={() => { setSelectedTaskId(null); onClose(); }} onSave={(patch) => onUpdateTask(selectedTask.id, patch)} onArchive={async () => { const archived = await onArchiveTask(selectedTask.id); if (archived) setSelectedTaskId(null); return archived; }} onToggleStatus={async () => { const toggled = await onToggleTask(selectedTask.id); if (toggled) closeTaskDetails(selectedTask.id); return toggled; }} onCompleteAndStartNextTask={selectedTaskNextCandidate ? async () => { const toggled = await onToggleTask(selectedTask.id); if (!toggled) return false; onStartTask(selectedTaskNextCandidate.id); return true; } : undefined} onAddSubtask={async (subtaskTitle) => (await onAddTask({ title: subtaskTitle, parentTaskId: selectedTask.id, projectId: selectedTask.projectId, bucket: selectedTask.bucket })) !== null} onToggleSubtask={onToggleTask} canMoveUp={scopedTasks.findIndex((item) => item.id === selectedTask.id) > 0} canMoveDown={scopedTasks.findIndex((item) => item.id === selectedTask.id) >= 0 && scopedTasks.findIndex((item) => item.id === selectedTask.id) < scopedTasks.length - 1} onMove={(direction) => onMoveTask(selectedTask.id, scopedTasks.map((item) => item.id), direction)} onClose={() => closeTaskDetails(selectedTask.id)} /></div>}
+                          {selectedTaskId === task.id && selectedTask && selectedTask.status !== "archived" && <div className="task-editor-wrap" id={`task-editor-${selectedTask.id}`}><TaskEditor key={`${selectedTask.id}-${selectedTask.updatedAt}`} task={selectedTask} projects={activeProjects} availableTags={availableTags} subtasks={tasks.filter((item) => item.parentTaskId === selectedTask.id && item.status !== "archived").sort((a, b) => a.order - b.order)} timerStatus={timerStatus} activeTaskId={activeTaskId} nextTask={selectedTaskNextCandidate} nextTaskDetail={selectedTaskNextCandidateDetail} onStartTask={onStartTask} onOpenNextTask={selectedTaskNextCandidate ? () => openTaskDetails(selectedTaskNextCandidate, { revealInList: true }) : undefined} onReturnToTimer={() => { setSelectedTaskId(null); onClose(); }} onSave={(patch) => onUpdateTask(selectedTask.id, patch)} onArchive={async () => { const archived = await onArchiveTask(selectedTask.id); if (archived) setSelectedTaskId(null); return archived; }} onToggleStatus={async () => { const toggled = await onToggleTask(selectedTask.id); if (toggled) closeTaskDetails(selectedTask.id); return toggled; }} onCompleteAndStartNextTask={selectedTaskNextCandidate ? async () => { const toggled = await onToggleTask(selectedTask.id); if (!toggled) return false; onStartTask(selectedTaskNextCandidate.id); return true; } : undefined} onAddSubtask={async (subtaskTitle) => (await onAddTask({ title: subtaskTitle, parentTaskId: selectedTask.id, projectId: selectedTask.projectId, bucket: selectedTask.bucket })) !== null} onToggleSubtask={onToggleTask} canMoveUp={scopedTasks.findIndex((item) => item.id === selectedTask.id) > 0} canMoveDown={scopedTasks.findIndex((item) => item.id === selectedTask.id) >= 0 && scopedTasks.findIndex((item) => item.id === selectedTask.id) < scopedTasks.length - 1} onMove={(direction) => onMoveTask(selectedTask.id, scopedTasks.map((item) => item.id), direction)} onClose={() => closeTaskDetails(selectedTask.id)} /></div>}
                         </div>);
                       })}
                     </div>
