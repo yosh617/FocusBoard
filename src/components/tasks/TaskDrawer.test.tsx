@@ -86,11 +86,17 @@ function renderDrawer(overrides: Partial<React.ComponentProps<typeof TaskDrawer>
 }
 
 describe("TaskDrawer", () => {
-  it("puts the list heading, capture input, and task list before any supplementary cards", () => {
+  it("puts the list heading, capture input, and task list before settings", () => {
     renderDrawer({ sessions: [session] });
     expect(screen.getByRole("heading", { name: "今日" })).toBeTruthy();
     expect(screen.getByLabelText("新しいタスク")).toBeTruthy();
-    expect(screen.getAllByLabelText("タスク一覧").length).toBeGreaterThan(1);
+    const taskList = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
+    const settingsHeading = screen.getByRole("heading", { name: "設定" });
+    const settings = screen.getByRole("region", { name: "設定" });
+    expect(taskList).toBeTruthy();
+    expect(taskList.compareDocumentPosition(settingsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(settings.contains(settingsHeading)).toBe(true);
+    expect(screen.getByLabelText("新しいタスク").compareDocumentPosition(taskList) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByText("今日の集中ハブ")).toBeNull();
     expect(screen.queryByText("今日の流れ")).toBeNull();
     expect(screen.queryByRole("region", { name: "現在の一覧" })).toBeNull();

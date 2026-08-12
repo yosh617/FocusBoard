@@ -1062,7 +1062,8 @@ export function TaskDrawer({
               </div>
             )}
             {view !== "completed" && (
-              <section className="task-capture__settings" aria-label="タスク追加設定">
+              <section className="task-capture__settings" aria-labelledby="task-capture-settings-heading">
+                <h4 id="task-capture-settings-heading" className="task-capture__settings-heading">設定</h4>
                 <div className="task-capture__estimate" aria-label="ポモドーロの予定数">
                   <span>予定数</span>
                   <div role="group" aria-label="追加するタスクの集中回数">
