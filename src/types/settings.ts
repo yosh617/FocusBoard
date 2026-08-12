@@ -110,6 +110,7 @@ export type AppSettings = {
   longBreakMinutes: number;
   soundEnabled: boolean;
   taskLauncherVisibility: TaskLauncherVisibility;
+  taskLauncherPosition: FreePosition;
   taskTheme: TaskThemePreset;
 };
 
@@ -169,6 +170,7 @@ export const defaultSettings: AppSettings = {
   longBreakMinutes: 15,
   soundEnabled: true,
   taskLauncherVisibility: "always",
+  taskLauncherPosition: { x: .2, y: .86 },
   taskTheme: "coral"
 };
 

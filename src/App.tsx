@@ -106,6 +106,7 @@ export default function App() {
   const settingsOpenRef = useRef(false);
   const sessionOverlayOpenRef = useRef(false);
   const now = useClock(settings.showSeconds);
+  const updateTaskLauncherPosition = useCallback((taskLauncherPosition: { x: number; y: number }) => updateSettings({ taskLauncherPosition }), [updateSettings]);
   const todayKey = toLocalDateKey(now);
   const activeTask = timer.activeTaskId ? tasks.find((task) => task.id === timer.activeTaskId) ?? null : null;
   const completedTask = completedSession?.taskId ? tasks.find((task) => task.id === completedSession.taskId) ?? null : null;
@@ -525,6 +526,8 @@ export default function App() {
         activeTaskTitle={timer.status !== "idle" && timer.mode === "work" ? activeTask?.title ?? null : null}
         suggestedTask={launcherSuggestedTask}
         timerSummary={taskLauncherSummary}
+        position={settings.taskLauncherPosition}
+        onPositionChange={updateTaskLauncherPosition}
         onClick={() => {
           overlayReturnTargetRef.current = taskLauncherRef.current;
           setSettingsOpen(false);

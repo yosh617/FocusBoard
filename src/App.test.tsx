@@ -272,6 +272,20 @@ describe("App", () => {
     expect(screen.getByRole("dialog", { name: "設定" })).toBeTruthy();
   });
 
+  it("gives settings ranges a progress value without affecting the background editor range", () => {
+    render(<App />);
+    openSettings();
+
+    const overlayRange = document.querySelector<HTMLInputElement>("#overlay")!;
+    expect(overlayRange.classList.contains("settings-range")).toBe(true);
+    expect(overlayRange.style.getPropertyValue("--range-progress")).not.toBe("");
+
+    fireEvent.change(overlayRange, { target: { value: "50" } });
+    expect(overlayRange.getAttribute("aria-valuenow")).toBe("50");
+    expect(overlayRange.style.getPropertyValue("--range-progress")).toBe("71.42857142857143%");
+    expect(document.querySelector("#background-editor-scale.settings-range")).toBeNull();
+  });
+
   it("closes settings on browser back", () => {
     render(<App />);
     openSettings();
@@ -888,6 +902,25 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "タスクを閉じる" }));
     expect(screen.queryByRole("dialog", { name: "タスク管理" })).toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(launcher));
+  });
+
+  it("persists a dragged task launcher position and restores it on a new render", async () => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...defaultSettings, taskLauncherPosition: { x: .5, y: .5 } }));
+    const { unmount } = render(<App />);
+    const launcher = screen.getByRole("button", { name: /タスクを開く/ });
+    fireEvent(launcher, new MouseEvent("pointerdown", { bubbles: true, clientX: 100, clientY: 100 }));
+    fireEvent(launcher, new MouseEvent("pointermove", { bubbles: true, clientX: 260, clientY: 20 }));
+    fireEvent(launcher, new MouseEvent("pointerup", { bubbles: true, clientX: 260, clientY: 20 }));
+
+    await waitFor(() => expect(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}").taskLauncherPosition).toMatchObject({ x: expect.any(Number), y: expect.any(Number) }));
+    const savedPosition = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}").taskLauncherPosition as { x: number; y: number };
+    expect(savedPosition.x).toBeGreaterThan(.5);
+    unmount();
+
+    render(<App />);
+    const restored = screen.getByRole("button", { name: /タスクを開く/ });
+    expect(restored.style.left).toBe(`${savedPosition.x * 100}%`);
+    expect(restored.style.top).toBe(`${savedPosition.y * 100}%`);
   });
 
   it("restores the transient launcher and focus when the task drawer closes or browser back is used", async () => {

@@ -43,6 +43,14 @@ describe("settings storage", () => {
     expect(migrateSettings({ ...defaultSettings, taskLauncherVisibility: "background-tap" }).taskLauncherVisibility).toBe("background-tap");
   });
 
+  it("normalizes task launcher positions and preserves legacy settings without one", () => {
+    const legacy = { ...defaultSettings } as Record<string, unknown>;
+    Reflect.deleteProperty(legacy, "taskLauncherPosition");
+    expect(migrateSettings(legacy).taskLauncherPosition).toEqual(defaultSettings.taskLauncherPosition);
+    expect(migrateSettings({ ...defaultSettings, taskLauncherPosition: { x: -1, y: 2 } }).taskLauncherPosition).toEqual({ x: 0, y: 1 });
+    expect(migrateSettings({ ...defaultSettings, taskLauncherPosition: { x: "bad", y: null } }).taskLauncherPosition).toEqual(defaultSettings.taskLauncherPosition);
+  });
+
   it("restores a valid task theme and falls back for absent or invalid values", () => {
     const legacy = { ...defaultSettings } as Record<string, unknown>;
     Reflect.deleteProperty(legacy, "taskTheme");

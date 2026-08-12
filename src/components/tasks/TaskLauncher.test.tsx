@@ -89,4 +89,33 @@ describe("TaskLauncher", () => {
     expect(button.textContent).toContain("戻る");
     expect(button.textContent).toContain("集中 25分");
   });
+
+  it("moves by pointer drag without opening the task workspace", () => {
+    const onClick = vi.fn();
+    const onPositionChange = vi.fn();
+    render(<TaskLauncher todayCount={1} activeTaskTitle={null} suggestedTask={null} timerSummary={null} position={{ x: .5, y: .5 }} onPositionChange={onPositionChange} onClick={onClick} />);
+    const button = screen.getByRole("button", { name: "タスクを開く。今日の未完了は1件" });
+
+    fireEvent(button, new MouseEvent("pointerdown", { bubbles: true, clientX: 100, clientY: 100 }));
+    fireEvent(button, new MouseEvent("pointermove", { bubbles: true, clientX: 160, clientY: 140 }));
+    fireEvent(button, new MouseEvent("pointerup", { bubbles: true, clientX: 160, clientY: 140 }));
+    fireEvent.click(button);
+
+    expect(onPositionChange).toHaveBeenCalled();
+    expect(onPositionChange.mock.calls.at(-1)?.[0]).toMatchObject({ x: expect.any(Number), y: expect.any(Number) });
+    expect(onPositionChange.mock.calls.at(-1)?.[0].x).toBeGreaterThan(.5);
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it("moves by arrow keys with a larger shift step", () => {
+    const onPositionChange = vi.fn();
+    render(<TaskLauncher todayCount={1} activeTaskTitle={null} suggestedTask={null} timerSummary={null} position={{ x: .5, y: .5 }} onPositionChange={onPositionChange} onClick={vi.fn()} />);
+    const button = screen.getByRole("button", { name: "タスクを開く。今日の未完了は1件" });
+
+    fireEvent.keyDown(button, { key: "ArrowLeft" });
+    fireEvent.keyDown(button, { key: "ArrowDown", shiftKey: true });
+
+    expect(onPositionChange).toHaveBeenNthCalledWith(1, { x: .485, y: .5 });
+    expect(onPositionChange).toHaveBeenNthCalledWith(2, { x: .5, y: .55 });
+  });
 });

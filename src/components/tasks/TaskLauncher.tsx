@@ -1,4 +1,5 @@
-import { forwardRef, useEffect, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { FreePosition } from "../../types/settings";
 
 type Props = {
   todayCount: number;
@@ -21,6 +22,8 @@ type Props = {
     accessibleLabel?: string;
   } | null;
   onClick: () => void;
+  position?: FreePosition;
+  onPositionChange?: (position: FreePosition) => void;
   transient?: boolean;
   fading?: boolean;
 };
@@ -32,7 +35,10 @@ const defaultTodaySummary = {
   overdueCount: 0
 } satisfies NonNullable<Props["todaySummary"]>;
 
-export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLauncher({ todayCount, todaySummary = defaultTodaySummary, activeTaskTitle, suggestedTask, timerSummary, onClick, transient = false, fading = false }, ref) {
+const defaultPosition: FreePosition = { x: .2, y: .86 };
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLauncher({ todayCount, todaySummary = defaultTodaySummary, activeTaskTitle, suggestedTask, timerSummary, onClick, position = defaultPosition, onPositionChange = () => undefined, transient = false, fading = false }, ref) {
   const title = timerSummary?.title ?? activeTaskTitle ?? suggestedTask?.title ?? "今日のタスク";
   const detail = timerSummary?.detail
     ?? (activeTaskTitle
@@ -68,7 +74,40 @@ export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLa
         ? `タスクを開く。次のおすすめは${suggestedTask.title}。今日の未完了は${todayCount}件`
         : `タスクを開く。今日の未完了は${todayCount}件`);
   const [isDimmed, setIsDimmed] = useState(false);
+  const launcherRef = useRef<HTMLButtonElement>(null);
   const dimTimeoutRef = useRef<number | null>(null);
+  const pointerStart = useRef<{ x: number; y: number; position: FreePosition } | null>(null);
+  const positionRef = useRef(position);
+  const moved = useRef(false);
+  positionRef.current = position;
+
+  const clampPosition = useCallback((x: number, y: number): FreePosition => {
+    const rect = launcherRef.current?.getBoundingClientRect();
+    const width = rect?.width || Math.min(430, Math.max(0, window.innerWidth - 32));
+    const height = rect?.height || 120;
+    const edgeGap = 12;
+    const minX = Math.min(.5, (width / 2 + edgeGap) / window.innerWidth);
+    const minY = Math.min(.5, (height / 2 + edgeGap) / window.innerHeight);
+    return { x: clamp(x, minX, 1 - minX), y: clamp(y, minY, 1 - minY) };
+  }, []);
+
+  const moveBy = useCallback((x: number, y: number) => onPositionChange(clampPosition(x, y)), [clampPosition, onPositionChange]);
+
+  useLayoutEffect(() => {
+    const keepInsideViewport = () => {
+      const current = positionRef.current;
+      const next = clampPosition(current.x, current.y);
+      if (next.x !== current.x || next.y !== current.y) onPositionChange(next);
+    };
+    keepInsideViewport();
+    window.addEventListener("resize", keepInsideViewport);
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(keepInsideViewport);
+    if (observer && launcherRef.current) observer.observe(launcherRef.current);
+    return () => {
+      window.removeEventListener("resize", keepInsideViewport);
+      observer?.disconnect();
+    };
+  }, [clampPosition, onPositionChange]);
 
   useEffect(() => {
     const clearDimTimeout = () => {
@@ -110,9 +149,43 @@ export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLa
     <button
       className={`task-launcher${isEmphasized ? " task-launcher--active" : ""}${isBreakFlow ? " task-launcher--break" : ""}${isDimmed ? " task-launcher--dimmed" : ""}${transient ? " task-launcher--transient" : ""}${fading ? " task-launcher--fading" : ""}`}
       type="button"
-      onClick={onClick}
+      style={{ left: `${position.x * 100}%`, top: `${position.y * 100}%` }}
+      onPointerDown={(event) => {
+        if (event.currentTarget.setPointerCapture) event.currentTarget.setPointerCapture(event.pointerId);
+        pointerStart.current = { x: event.clientX, y: event.clientY, position };
+        moved.current = false;
+      }}
+      onPointerMove={(event) => {
+        const start = pointerStart.current;
+        if (!start) return;
+        const dx = event.clientX - start.x;
+        const dy = event.clientY - start.y;
+        if (Math.abs(dx) > 4 || Math.abs(dy) > 4) moved.current = true;
+        if (moved.current) moveBy(start.position.x + dx / window.innerWidth, start.position.y + dy / window.innerHeight);
+      }}
+      onPointerUp={() => { pointerStart.current = null; }}
+      onPointerCancel={() => { pointerStart.current = null; moved.current = true; }}
+      onClick={(event) => {
+        if (moved.current) {
+          event.preventDefault();
+          moved.current = false;
+          return;
+        }
+        onClick();
+      }}
+      onKeyDown={(event) => {
+        const step = event.shiftKey ? .05 : .015;
+        if (event.key === "ArrowLeft") { event.preventDefault(); moveBy(position.x - step, position.y); }
+        if (event.key === "ArrowRight") { event.preventDefault(); moveBy(position.x + step, position.y); }
+        if (event.key === "ArrowUp") { event.preventDefault(); moveBy(position.x, position.y - step); }
+        if (event.key === "ArrowDown") { event.preventDefault(); moveBy(position.x, position.y + step); }
+      }}
       onFocus={() => setIsDimmed(false)}
-      ref={ref}
+      ref={(node) => {
+        launcherRef.current = node;
+        if (typeof ref === "function") ref(node);
+        else if (ref) ref.current = node;
+      }}
       aria-label={accessibleLabel}
     >
       <span className="task-launcher__main">

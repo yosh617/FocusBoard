@@ -1,4 +1,4 @@
-import { backgroundChoices, colorPresets, defaultSettings, fontOptions, isDateFormat, orientations, positionPresets, taskThemePresets, type AppSettings, type BackgroundChoice, type BackgroundFrames, type ClockBackgroundSettings, type ClockDateAlignment, type ColorPreset, type Orientation, type OrientationPositions, type OrientationPositionPresets, type PositionPreset, type TaskLauncherVisibility, type TaskThemePreset } from "../types/settings";
+import { backgroundChoices, colorPresets, defaultSettings, fontOptions, isDateFormat, orientations, positionPresets, taskThemePresets, type AppSettings, type BackgroundChoice, type BackgroundFrames, type ClockBackgroundSettings, type ClockDateAlignment, type ColorPreset, type FreePosition, type Orientation, type OrientationPositions, type OrientationPositionPresets, type PositionPreset, type TaskLauncherVisibility, type TaskThemePreset } from "../types/settings";
 import type { SessionCategory, TimerMode, TimerProgram, TimerState, TimerStatus } from "../types/timer";
 import { BACKGROUND_DB_NAME } from "./backgroundStorage";
 import { PRODUCTIVITY_DB_NAME } from "./productivityStorage";
@@ -89,6 +89,7 @@ export function migrateSettings(value: unknown): AppSettings {
   const isLegacyLayout = value.version === 1 || (value.uiRevision !== 4 && value.uiRevision !== 5);
   const savedClockDatePosition = isRecord(value.clockDatePosition) ? value.clockDatePosition : {};
   const savedBackgroundPosition = isRecord(value.backgroundPosition) ? value.backgroundPosition : {};
+  const savedTaskLauncherPosition = isRecord(value.taskLauncherPosition) ? value.taskLauncherPosition : {};
   const sharedColor = colorValue(value.color, colorValue(value.textColor, defaultSettings.clockColor));
   const savedClockColor = colorValue(value.clockColor, sharedColor);
   const savedTimerColor = colorValue(value.timerColor, colorValue(value.accentColor, ""));
@@ -173,6 +174,10 @@ export function migrateSettings(value: unknown): AppSettings {
     longBreakMinutes: numberValue(value.longBreakMinutes, defaultSettings.longBreakMinutes, 1, 120),
     soundEnabled: booleanValue(value.soundEnabled, defaultSettings.soundEnabled),
     taskLauncherVisibility: isTaskLauncherVisibility(value.taskLauncherVisibility) ? value.taskLauncherVisibility : defaultSettings.taskLauncherVisibility,
+    taskLauncherPosition: {
+      x: numberValue(savedTaskLauncherPosition.x, defaultSettings.taskLauncherPosition.x, 0, 1),
+      y: numberValue(savedTaskLauncherPosition.y, defaultSettings.taskLauncherPosition.y, 0, 1)
+    } satisfies FreePosition,
     taskTheme: isTaskThemePreset(value.taskTheme) ? value.taskTheme : defaultSettings.taskTheme
   };
 }

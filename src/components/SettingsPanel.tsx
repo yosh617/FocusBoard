@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { colorPresets, dateFormatPresets, defaultSettings, describeFontSize, fontOptions, orientations, settingRanges, taskThemePresets, type AppSettings, type BackgroundChoice, type BackgroundFrame, type ColorPreset, type FontOption, type Orientation, type PositionPreset, type TaskThemePreset } from "../types/settings";
 import type { CustomBackground } from "../utils/backgroundStorage";
 import { MAX_BACKGROUND_FILE_SIZE, MAX_CUSTOM_BACKGROUNDS } from "../utils/backgroundStorage";
@@ -60,7 +60,9 @@ function Range({ id, label, value, min, max, step, unit, initial, formatValue, r
     const parsed = Number(next);
     if (Number.isFinite(parsed)) onChange(Math.min(max, Math.max(min, parsed)));
   };
-  return <div className="setting-control range-control"><label htmlFor={id}>{label}<output>{formatValue ? formatValue(value) : `${value}${unit}`}</output></label><div className="range-control__inputs"><input id={id} type="range" min={min} max={max} step={step} value={value} aria-valuemin={min} aria-valuemax={max} aria-valuenow={value} onChange={(event) => input(event.target.value)} /><input className="number-input" aria-label={`${label}の数値`} type="number" min={min} max={max} step={step} value={value} onChange={(event) => input(event.target.value)} />{unit && <span>{unit}</span>}<button type="button" className="reset-value" aria-label={`${label}を初期値に戻す`} onClick={() => onChange(initial)}>戻す</button></div><small>{rangeText ?? `範囲: ${min}〜${max}${unit}`}</small></div>;
+  const progress = max === min ? 0 : ((value - min) / (max - min)) * 100;
+  const rangeStyle = { "--range-progress": `${progress}%` } as CSSProperties;
+  return <div className="setting-control range-control"><label htmlFor={id}>{label}<output>{formatValue ? formatValue(value) : `${value}${unit}`}</output></label><div className="range-control__inputs"><input id={id} className="settings-range" type="range" min={min} max={max} step={step} value={value} style={rangeStyle} aria-valuemin={min} aria-valuemax={max} aria-valuenow={value} onChange={(event) => input(event.target.value)} /><input className="number-input" aria-label={`${label}の数値`} type="number" min={min} max={max} step={step} value={value} onChange={(event) => input(event.target.value)} />{unit && <span>{unit}</span>}<button type="button" className="reset-value" aria-label={`${label}を初期値に戻す`} onClick={() => onChange(initial)}>戻す</button></div><small>{rangeText ?? `範囲: ${min}〜${max}${unit}`}</small></div>;
 }
 function ColorSetting({ id, label, value, disabled, onChange }: { id: string; label: string; value: string; disabled: boolean; onChange: (value: string) => void }) {
   return <div className={`color-setting${disabled ? " color-setting--disabled" : ""}`}><div className="color-setting__heading"><label htmlFor={id}>{label}</label><output>{value.toUpperCase()}</output></div><input id={id} type="color" value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)} /></div>;
