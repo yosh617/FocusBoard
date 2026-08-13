@@ -32,10 +32,9 @@ Thumbs.db
 /.workspace/
 /AGENTS.md
 /prompt.md
-/sample_image/
 
-# Screenshots (keep tracked UI audit evidence available)
-/screenshots/*
-!/screenshots/ui-audit/
-!/screenshots/ui-audit/**
-/sample_image/*
+# Internal planning and review artifacts
+/TASK_FEATURE_*.md
+/UI_UX_AUDIT.md
+/screenshots/
+/sample_image/
