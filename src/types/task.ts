@@ -1,5 +1,6 @@
 export type TaskStatus = "open" | "completed" | "archived";
 export type TaskBucket = "inbox" | "someday";
+export type TaskPriority = "none" | "low" | "medium" | "high";
 
 export type RepeatRule =
   | { type: "daily"; interval: number }
@@ -21,6 +22,8 @@ export type TaskRecord = {
   repeatRule: RepeatRule | null;
   repeatSeriesId: string | null;
   estimatedPomodoros: number;
+  priority?: TaskPriority;
+  tags?: string[];
   order: number;
   createdAt: number;
   updatedAt: number;
@@ -29,7 +32,7 @@ export type TaskRecord = {
 
 export type TaskDraft = Pick<TaskRecord, "title"> & Partial<Pick<
   TaskRecord,
-  "bucket" | "projectId" | "parentTaskId" | "note" | "dueDate" | "reminderAt" | "repeatRule" | "estimatedPomodoros"
+  "bucket" | "projectId" | "parentTaskId" | "note" | "dueDate" | "reminderAt" | "repeatRule" | "estimatedPomodoros" | "priority" | "tags"
 >>;
 
 export type TaskView = "inbox" | "today" | "tomorrow" | "upcoming" | "someday" | "completed";

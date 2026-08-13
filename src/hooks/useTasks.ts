@@ -98,6 +98,8 @@ export function useTasks() {
       repeatRule: draft.repeatRule ?? null,
       repeatSeriesId: null,
       estimatedPomodoros: Math.min(99, Math.max(0, Math.round(draft.estimatedPomodoros ?? 0))),
+      priority: draft.priority ?? "none",
+      tags: draft.tags ?? [],
       order: Math.max(0, ...tasksRef.current.map((item) => item.order + 1)),
       createdAt: now,
       updatedAt: now,

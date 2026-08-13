@@ -26,7 +26,9 @@ const task: TaskRecord = {
 
 describe("task data validation", () => {
   it("accepts a valid task and trims its title", () => {
-    expect(validateTaskRecord({ ...task, title: "  数学の復習  " })?.title).toBe("数学の復習");
+    expect(validateTaskRecord({ ...task, title: "  数学の復習  " })).toMatchObject({ title: "数学の復習", priority: "none", tags: [] });
+    expect(validateTaskRecord({ ...task, priority: "high" })?.priority).toBe("high");
+    expect(validateTaskRecord({ ...task, tags: ["試験", "数学"] })?.tags).toEqual(["試験", "数学"]);
   });
 
   it("rejects malformed dates, bounds, and repeat rules", () => {
@@ -35,6 +37,9 @@ describe("task data validation", () => {
     expect(validateTaskRecord({ ...task, dueDate: "2026-02-29" })).toBeNull();
     expect(validateTaskRecord({ ...task, estimatedPomodoros: 100 })).toBeNull();
     expect(validateTaskRecord({ ...task, repeatRule: { type: "weekly", interval: 1, weekdays: [] } })).toBeNull();
+    expect(validateTaskRecord({ ...task, priority: "urgent" })).toBeNull();
+    expect(validateTaskRecord({ ...task, tags: ["重複", "重複"] })).toBeNull();
+    expect(validateTaskRecord({ ...task, tags: ["a".repeat(25)] })).toBeNull();
   });
 
   it("validates projects and normalizes their colors", () => {

@@ -85,16 +85,18 @@ export function ProductivityBackupPanel({ tasks, projects, sessions, storageAvai
 
   return (
     <div className="productivity-backup">
-      <div><p className="eyebrow">LOCAL BACKUP</p><h3>バックアップと復元</h3></div>
-      <div className="backup-callout"><strong>データは外部へ送信されません</strong><span>タスク、プロジェクト、集中履歴を1つのJSONファイルとして端末内で処理します。背景画像と表示設定は含みません。</span></div>
+      <header className="backup-heading">
+        <span className="backup-heading__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h16v12H4zM7 7V4h10v3M8 12h8M8 15h5" /></svg></span>
+        <div><h3>バックアップと復元</h3><p>タスクデータを端末内のJSONで管理します。</p></div>
+        <span className="backup-heading__privacy"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>外部送信なし</span>
+      </header>
       <section aria-labelledby="backup-export-title">
         <h4 id="backup-export-title">書き出し</h4>
-        <p>タスク {tasks.length}件・プロジェクト {projects.length}件・履歴 {sessions.length}件</p>
+        <p className="backup-counts"><span>タスク {tasks.length}</span><span>プロジェクト {projects.length}</span><span>履歴 {sessions.length}</span></p>
         <button className="primary-button" type="button" onClick={exportBackup}>JSONを書き出す</button>
       </section>
       <section aria-labelledby="backup-restore-title">
         <h4 id="backup-restore-title">復元</h4>
-        <p>ファイルを検証し、変更内容と競合を表示してから反映します。</p>
         <label className={`secondary-button backup-file${!storageAvailable || busy ? " is-disabled" : ""}`} htmlFor="productivity-backup-file">JSONを選択</label>
         <input className="visually-hidden" id="productivity-backup-file" type="file" accept="application/json,.json" disabled={!storageAvailable || busy} onChange={(event) => void selectFile(event)} />
         {preview && importPlan && importCounts && <div className="backup-preview" role="region" aria-labelledby="backup-preview-title">

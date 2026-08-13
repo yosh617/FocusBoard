@@ -43,10 +43,8 @@ describe("TaskLauncher", () => {
     expect(button.textContent).toContain("次のおすすめ");
     expect(button.textContent).toContain("英単語の復習");
     expect(button.textContent).toContain("勉強 · 今日の予定 · 未完了 2件");
-    expect(button.textContent).toContain("おすすめ");
-    expect(button.textContent).toContain("完了 1 / 3");
-    expect(button.textContent).toContain("集中 25分");
-    expect(button.textContent).toContain("期限切れ 1件");
+    expect(button.textContent).not.toContain("完了 1 / 3");
+    expect(button.textContent).not.toContain("集中 25分");
   });
 
   it("shows a timer-aware summary while a focus session is in progress", () => {
@@ -63,8 +61,7 @@ describe("TaskLauncher", () => {
     const button = screen.getByRole("button", { name: "タスクを開く。集中中のタスクは英単語の復習。今日の未完了は1件" });
     expect(button.textContent).toContain("集中中");
     expect(button.textContent).toContain("12:30");
-    expect(button.textContent).toContain("戻る");
-    expect(button.textContent).toContain("完了 1 / 2");
+    expect(button.textContent).not.toContain("完了 1 / 2");
   });
 
   it("shows the next recommended task while a break is running", () => {
@@ -86,8 +83,7 @@ describe("TaskLauncher", () => {
     const button = screen.getByRole("button", { name: "タスクを開く。短い休憩中。次のおすすめは英語の宿題。今日の未完了は2件" });
     expect(button.textContent).toContain("短い休憩");
     expect(button.textContent).toContain("次は 英語の宿題");
-    expect(button.textContent).toContain("戻る");
-    expect(button.textContent).toContain("集中 25分");
+    expect(button.textContent).not.toContain("集中 25分");
   });
 
   it("moves by pointer drag without opening the task workspace", () => {

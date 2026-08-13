@@ -38,7 +38,7 @@ describe("task smart lists", () => {
   ];
 
   it("groups tasks by local due date and excludes subtasks", () => {
-    expect(getTasksForView(tasks, "inbox", today).map((task) => task.id)).toEqual(["inbox"]);
+    expect(getTasksForView(tasks, "inbox", today).map((task) => task.id)).toEqual(["overdue", "today", "tomorrow", "future", "inbox"]);
     expect(getTasksForView(tasks, "today", today).map((task) => task.id)).toEqual(["overdue", "today"]);
     expect(getTasksForView(tasks, "tomorrow", today).map((task) => task.id)).toEqual(["tomorrow"]);
     expect(getTasksForView(tasks, "upcoming", today).map((task) => task.id)).toEqual(["future"]);

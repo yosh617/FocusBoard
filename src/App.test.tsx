@@ -115,7 +115,7 @@ describe("App", () => {
     mockTasksState.projects = [focusProject];
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: `タスクを開く。次のおすすめは数学の復習。今日の未完了は${tasks.length}件` }));
-    fireEvent.click(screen.getByRole("button", { name: "数学の復習のタイマーを開始" }));
+    fireEvent.click(screen.getByRole("button", { name: "数学の復習を詳細から開始" }));
   };
 
   it("keeps only tasks in the home dock and never renders a direct settings button", () => {
@@ -232,6 +232,7 @@ describe("App", () => {
     const view = render(<App />);
     openSettings();
     fireEvent.click(screen.getByRole("tab", { name: "表示" }));
+    fireEvent.click(screen.getByText("タスク画面"));
     const taskCardVisibility = screen.getByRole("radiogroup", { name: "メイン画面のタスクカード" });
     expect(taskCardVisibility.getAttribute("aria-describedby")).toBe("task-card-visibility-description");
     fireEvent.click(screen.getByRole("radio", { name: "背景タップ時のみ" }));
@@ -249,7 +250,8 @@ describe("App", () => {
     render(<App />);
     openSettings();
     fireEvent.click(screen.getByRole("tab", { name: "表示" }));
-    const taskThemes = screen.getByRole("radiogroup", { name: "タスク画面のテーマ" });
+    fireEvent.click(screen.getByText("タスク画面"));
+    const taskThemes = screen.getByRole("radiogroup", { name: "テーマ" });
     const violet = within(taskThemes).getByRole("radio", { name: /バイオレット/ });
     expect(violet.getAttribute("aria-checked")).toBe("false");
     fireEvent.click(violet);
@@ -323,7 +325,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "タイマーセット（タイマーは継続）" }));
 
     expect(screen.getByLabelText("進行中タイマーの設定")).toBeTruthy();
-    expect(screen.getByText("進行中・タイマーは動作中")).toBeTruthy();
+    expect(document.querySelector(".timer-setup__live-note")?.textContent).toBe("進行中");
     expect(screen.queryByLabelText("集中タイマー")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "タイマー表示へ戻る" }));
@@ -360,8 +362,9 @@ describe("App", () => {
       expect(launcher.textContent).toContain("短い休憩");
       expect(launcher.textContent).toContain("次は 英語の宿題");
       fireEvent.click(launcher);
-      expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("休憩のあと");
       expect(screen.getByRole("form", { name: "英語の宿題の詳細" })).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "タスク一覧へ戻る" }));
+      expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("休憩後");
     } finally {
       vi.useRealTimers();
     }
@@ -374,6 +377,7 @@ describe("App", () => {
       prepareTaskFlow();
       await act(async () => { await vi.advanceTimersByTimeAsync(25 * 60_000 + 250); });
 
+      fireEvent.click(screen.getByText("ほかの操作"));
       fireEvent.click(screen.getByRole("button", { name: "タスクを完了" }));
       expect(mockTasksState.toggleTask).toHaveBeenCalledWith("task-1");
       expect(screen.queryByRole("dialog", { name: "集中セッション完了" })).toBeNull();
@@ -389,6 +393,7 @@ describe("App", () => {
       prepareTaskFlow();
       await act(async () => { await vi.advanceTimersByTimeAsync(25 * 60_000 + 250); });
 
+      fireEvent.click(screen.getByText("ほかの操作"));
       fireEvent.click(screen.getByRole("button", { name: "同じタスクを続ける" }));
       expect(screen.queryByRole("dialog", { name: "集中セッション完了" })).toBeNull();
       expect(screen.getByRole("button", { name: "タスクを開く。集中中のタスクは数学の復習。今日の未完了は1件" })).toBeTruthy();
@@ -405,7 +410,7 @@ describe("App", () => {
       prepareTaskFlow([focusTask, nextFocusTask]);
       await act(async () => { await vi.advanceTimersByTimeAsync(25 * 60_000 + 250); });
 
-      expect(screen.getByText("英語の宿題")).toBeTruthy();
+      expect(screen.getByRole("button", { name: "英語の宿題を開始" }).textContent).toContain("英語の宿題");
       fireEvent.click(screen.getByRole("button", { name: "英語の宿題を開始" }));
       expect(screen.queryByRole("dialog", { name: "集中セッション完了" })).toBeNull();
       expect(screen.getByRole("button", { name: "タスクを開く。集中中のタスクは英語の宿題。今日の未完了は2件" })).toBeTruthy();
@@ -419,10 +424,11 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "タスクを開く。集中中のタスクは数学の復習。今日の未完了は2件" }));
     expect(screen.getByRole("dialog", { name: "タスク管理" })).toBeTruthy();
-    expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("いまの集中");
-    expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("数学の復習へ戻れます");
     expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "数学の復習の詳細からタイマーへ戻る" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "タスク一覧へ戻る" }));
+    expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("いまの集中");
+    expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("数学の復習へ戻れます");
   });
 
   it("closes the task drawer on browser back and restores focus to the launcher", async () => {
@@ -447,12 +453,14 @@ describe("App", () => {
       prepareTaskFlow([focusTask, nextFocusTask]);
       await act(async () => { await vi.advanceTimersByTimeAsync(25 * 60_000 + 250); });
 
+      fireEvent.click(screen.getByText("ほかの操作"));
       fireEvent.click(screen.getByRole("button", { name: "タスク一覧を開く" }));
       expect(screen.queryByRole("dialog", { name: "集中セッション完了" })).toBeNull();
       expect(screen.getByRole("dialog", { name: "タスク管理" })).toBeTruthy();
-      expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("英語の宿題を次の候補として開いています");
       expect(screen.getByRole("form", { name: "英語の宿題の詳細" })).toBeTruthy();
-      expect(screen.getByText("今日の集中ハブ")).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "タスク一覧へ戻る" }));
+      expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("英語の宿題を次の候補として開いています");
+      expect(screen.getByLabelText("新しいタスク")).toBeTruthy();
       expect(screen.queryByText("集中中")).toBeNull();
     } finally {
       vi.useRealTimers();
@@ -512,18 +520,19 @@ describe("App", () => {
     expect(screen.queryByText(/px/)).toBeNull();
   });
 
-  it("places the font setting after the higher-priority appearance settings", () => {
+  it("keeps advanced appearance settings in ordered disclosures", () => {
     render(<App />);
     openSettings();
     fireEvent.click(screen.getByRole("tab", { name: "表示" }));
     const section = document.querySelector<HTMLElement>(".settings-section");
-    const fontControl = screen.getByText("フォント").closest(".setting-control");
+    const fontDisclosure = screen.getByText("フォント").closest("details");
     const clockVisibility = screen.getByText("時計・日付の見やすさ").closest("details");
 
     expect(section).toBeTruthy();
-    expect(fontControl).toBeTruthy();
+    expect(fontDisclosure).toBeTruthy();
     expect(clockVisibility).toBeTruthy();
-    expect(Array.from(section!.children).indexOf(fontControl!)).toBeGreaterThan(Array.from(section!.children).indexOf(clockVisibility!));
+    expect(fontDisclosure?.open).toBe(false);
+    expect(Array.from(section!.children).indexOf(fontDisclosure!)).toBeGreaterThan(Array.from(section!.children).indexOf(clockVisibility!));
   });
 
   it("does not show an empty accessibility settings tab", () => {
@@ -537,7 +546,8 @@ describe("App", () => {
     openSettings();
     fireEvent.click(screen.getByRole("tab", { name: "表示" }));
     fireEvent.click(screen.getByText("時計・日付の見やすさ"));
-    fireEvent.change(screen.getByLabelText("日付の形式"), { target: { value: "mm/dd weekday" } });
+    fireEvent.click(screen.getByRole("button", { name: "日付の形式" }));
+    fireEvent.click(screen.getByRole("option", { name: "mm/dd 曜日" }));
     expect(document.querySelector(".date")?.textContent).toMatch(/^\d{2}\/\d{2} /);
   });
 
@@ -802,7 +812,8 @@ describe("App", () => {
     const autoToggle = screen.getByLabelText("自動調整") as HTMLInputElement;
     expect(autoToggle.checked).toBe(false);
     fireEvent.click(screen.getByText("背景ごとの設定"));
-    fireEvent.change(screen.getByLabelText("設定する背景"), { target: { value: "bg2" } });
+    fireEvent.click(screen.getByRole("button", { name: "設定する背景" }));
+    fireEvent.click(screen.getByRole("option", { name: "ラベンダー" }));
     expect(autoToggle.checked).toBe(true);
     fireEvent.click(autoToggle);
     expect(autoToggle.checked).toBe(false);
@@ -945,8 +956,9 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "タスクを開く。次のおすすめは数学の復習。今日の未完了は2件" }));
     expect(screen.getByRole("dialog", { name: "タスク管理" })).toBeTruthy();
-    expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("今日のおすすめ");
     await waitFor(() => expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "タスク一覧へ戻る" }));
+    expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("今日のおすすめ");
     expect(screen.getByRole("button", { name: "おすすめを開く" })).toBeTruthy();
   });
 });
