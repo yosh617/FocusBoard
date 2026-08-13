@@ -91,20 +91,30 @@ function chooseSelect(container: ReturnType<typeof within>, label: string, optio
 }
 
 describe("TaskDrawer", () => {
-  it("puts the list heading, capture input, and task list before settings", () => {
+  it("keeps settings below an independently scrolling task list", () => {
     renderDrawer({ sessions: [session] });
     expect(screen.getByRole("heading", { name: "今日" })).toBeTruthy();
     expect(screen.getByLabelText("新しいタスク")).toBeTruthy();
     const taskList = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
     const settingsHeading = screen.getByRole("heading", { name: "設定" });
     const settings = screen.getByRole("region", { name: "設定" });
+    const workspace = settings.closest(".task-workspace--list");
+    const scrollArea = workspace?.querySelector(".task-workspace__scroll");
     expect(taskList).toBeTruthy();
     expect(taskList.compareDocumentPosition(settingsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(settings.contains(settingsHeading)).toBe(true);
+    expect(scrollArea?.contains(taskList)).toBe(true);
+    expect(scrollArea?.nextElementSibling).toBe(settings);
     expect(screen.getByLabelText("新しいタスク").compareDocumentPosition(taskList) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByText("今日の集中ハブ")).toBeNull();
     expect(screen.queryByText("今日の流れ")).toBeNull();
     expect(screen.queryByRole("region", { name: "現在の一覧" })).toBeNull();
+  });
+
+  it("shows estimated focus time instead of task counts in navigation", () => {
+    renderDrawer();
+    expect(screen.getByRole("button", { name: "今日 0h 50m" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "勉強 0h 50m" })).toBeTruthy();
   });
 
   it("shows a focus-ready label and a visible start action in the task row", () => {
@@ -115,7 +125,7 @@ describe("TaskDrawer", () => {
 
   it("keeps task capture concise when switching to a project", () => {
     renderDrawer();
-    fireEvent.click(screen.getByRole("button", { name: /勉強 1/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^勉強 / }));
     expect(screen.getByRole("heading", { name: "勉強" })).toBeTruthy();
     expect(screen.getByLabelText("新しいタスク").getAttribute("placeholder")).toBe("タスクを追加…");
   });
@@ -218,19 +228,17 @@ describe("TaskDrawer", () => {
 
     try {
       renderDrawer();
-      const summary = screen.getByRole("button", { name: /表示先/ });
-      expect(summary.getAttribute("aria-expanded")).toBe("false");
-      expect(document.querySelector(".task-drawer__body")?.classList.contains("is-navigation-open")).toBe(false);
-      expect(screen.queryByRole("button", { name: "明日 0" })).toBeNull();
-
-      fireEvent.click(summary);
-      expect(summary.getAttribute("aria-expanded")).toBe("true");
+      expect(screen.queryByRole("button", { name: /^表示先 今日/ })).toBeNull();
+      expect(screen.getByRole("heading", { name: "表示先を選ぶ" })).toBeTruthy();
       expect(document.querySelector(".task-drawer__body")?.classList.contains("is-navigation-open")).toBe(true);
-      fireEvent.click(screen.getByRole("button", { name: "明日 0" }));
+      fireEvent.click(screen.getByRole("button", { name: /^明日 / }));
 
-      expect(summary.getAttribute("aria-expanded")).toBe("false");
       expect(document.querySelector(".task-drawer__body")?.classList.contains("is-navigation-open")).toBe(false);
       expect(screen.getByRole("heading", { name: "明日" })).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "表示先を選ぶ" }));
+
+      expect(document.querySelector(".task-drawer__body")?.classList.contains("is-navigation-open")).toBe(true);
+      expect(screen.getByRole("heading", { name: "表示先を選ぶ" })).toBeTruthy();
     } finally {
       Object.defineProperty(window, "matchMedia", {
         configurable: true,
@@ -248,7 +256,7 @@ describe("TaskDrawer", () => {
 
   it("opens the active task in the dedicated editor even after filter narrowing", async () => {
     renderDrawer({ timerStatus: "running", activeTaskId: task.id });
-    fireEvent.click(screen.getByRole("button", { name: "Inbox 1" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Inbox / }));
     fireEvent.click(screen.getByRole("button", { name: "期限切れ 0" }));
 
     fireEvent.click(screen.getByRole("button", { name: "すべて 1" }));
@@ -284,7 +292,7 @@ describe("TaskDrawer", () => {
       activeTaskId: task.id
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Inbox 3" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Inbox / }));
     fireEvent.click(screen.getByRole("button", { name: "期限切れ 1" }));
     const list = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
     await waitFor(() => expect(within(list).getByText("英語の宿題")).toBeTruthy());
@@ -355,7 +363,7 @@ describe("TaskDrawer", () => {
     renderDrawer({ tasks: [task, completedTask] });
 
     expect(document.querySelector(".task-quick-add")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "完了済み 1" }));
+    fireEvent.click(screen.getByRole("button", { name: /^完了済み / }));
 
     expect(screen.getByRole("heading", { name: "完了済み" })).toBeTruthy();
     expect(document.querySelector(".task-quick-add")).toBeNull();
@@ -499,7 +507,7 @@ describe("TaskDrawer", () => {
     const sectionHeadings = [...document.querySelectorAll(".task-list__section-header h4")].map((heading) => heading.textContent);
     expect(sectionHeadings.at(-1)).toBe("期限切れ");
 
-    fireEvent.click(screen.getByRole("button", { name: "Inbox 2" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Inbox / }));
     expect(screen.getByRole("group", { name: "表示するタスクを絞り込む" })).toBeTruthy();
   });
 
@@ -684,7 +692,7 @@ describe("TaskDrawer", () => {
       tasks: [task, overdueTask, reminderTask, plainTask]
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Inbox 4" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Inbox / }));
     const list = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
     fireEvent.click(screen.getByRole("button", { name: "期限切れ 1" }));
     expect(within(list).getByText("英語の宿題")).toBeTruthy();

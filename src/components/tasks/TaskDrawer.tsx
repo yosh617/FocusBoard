@@ -176,6 +176,11 @@ function getViewForTask(task: TaskRecord, today: string, tomorrow: string): Task
   return "inbox";
 }
 
+function estimatedFocusTimeLabel(tasks: TaskRecord[], workMinutes: number) {
+  const totalMinutes = tasks.reduce((sum, task) => sum + task.estimatedPomodoros * workMinutes, 0);
+  return `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
+}
+
 function FocusMeter({
   label,
   completedPomodoros,
@@ -517,6 +522,8 @@ export function TaskDrawer({
   const [showResumeBanner, setShowResumeBanner] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
+  const navigationHeadingRef = useRef<HTMLHeadingElement>(null);
+  const workspaceRef = useRef<HTMLElement>(null);
   const quickAddInputRef = useRef<HTMLInputElement>(null);
   const taskRowRefs = useRef(new Map<string, HTMLDivElement>());
   const taskContentButtonRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -685,7 +692,7 @@ export function TaskDrawer({
 
   useEffect(() => {
     if (!open || workspaceMode !== "tasks") return;
-    setNavigationCollapsed(isCompactTaskNavigationViewport());
+    setNavigationCollapsed(false);
   }, [open, workspaceMode]);
 
   useEffect(() => {
@@ -749,19 +756,19 @@ export function TaskDrawer({
   };
 
   const collapseNavigationIfCompact = useCallback(() => {
-    if (isCompactTaskNavigationViewport()) setNavigationCollapsed(true);
+    if (!isCompactTaskNavigationViewport()) return;
+    setNavigationCollapsed(true);
+    window.setTimeout(() => workspaceRef.current?.focus(), 0);
   }, []);
 
-  const currentListRootTasks = scopedTasks.filter((task) => task.parentTaskId === null);
+  const openTaskNavigation = () => {
+    setSelectedTaskId(null);
+    setQuickPanel(null);
+    setNavigationCollapsed(false);
+    window.setTimeout(() => navigationHeadingRef.current?.focus(), 0);
+  };
+
   const quickAddProjectId = quickProjectId === null ? projectId : quickProjectId || null;
-  const currentListOpenCount = currentListRootTasks.filter((task) => task.status === "open").length;
-  const activeFilterLabel = listFilter === "all"
-    ? "すべて"
-    : listFilter === "overdue"
-      ? "期限切れ"
-      : listFilter === "reminders"
-        ? "通知"
-        : "集中目安";
   const openTaskDetails = useCallback((task: TaskRecord, options?: { revealInList?: boolean }) => {
     if (options?.revealInList) {
       setListFilter("all");
@@ -858,30 +865,24 @@ export function TaskDrawer({
 
         <div className={`task-drawer__body task-drawer__body--${workspaceMode}${workspaceMode === "tasks" && !navigationCollapsed ? " is-navigation-open" : ""}`}>
           {workspaceMode === "tasks" && <nav className={`task-navigation${navigationCollapsed ? " is-collapsed" : ""}`} aria-label="タスク一覧">
-            <button
-              className="task-navigation__summary"
-              type="button"
-              aria-expanded={!navigationCollapsed}
-              aria-controls="task-navigation-content"
-              onClick={() => setNavigationCollapsed((current) => !current)}
-            >
-              <span>表示先</span>
-              <strong>{currentListLabel}</strong>
-              <em>{projectId ? `未完了 ${currentListOpenCount}件` : `表示 ${activeFilterLabel}`}</em>
-            </button>
             {!navigationCollapsed && <div className="task-navigation__content" id="task-navigation-content">
+              <header className="task-navigation__screen-heading">
+                <span>タスク</span>
+                <h3 ref={navigationHeadingRef} tabIndex={-1}>表示先を選ぶ</h3>
+                <p>リストまたはプロジェクトを選択してください。</p>
+              </header>
               <p className="task-navigation__label">リストを選択</p>
               <div className="task-navigation__views">
                 {views.map((item) => {
-                  const count = getTasksForView(tasks, item.value, today).length;
-                  return <button type="button" className={!projectId && view === item.value ? "is-active" : ""} aria-current={!projectId && view === item.value ? "page" : undefined} onClick={() => { setProjectId(null); setView(item.value); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); }} key={item.value}><span>{item.label}</span><strong>{count}</strong></button>;
+                  const estimatedTime = estimatedFocusTimeLabel(getTasksForView(tasks, item.value, today), workMinutes);
+                  return <button type="button" className={!projectId && view === item.value ? "is-active" : ""} aria-current={!projectId && view === item.value ? "page" : undefined} onClick={() => { setProjectId(null); setView(item.value); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); }} key={item.value}><span>{item.label}</span><strong>{estimatedTime}</strong></button>;
                 })}
               </div>
               <div className="task-navigation__projects">
                 <div className="task-navigation__projects-heading"><h3>プロジェクト</h3><button type="button" aria-expanded={showProjectForm} onClick={() => setShowProjectForm((current) => !current)}>{showProjectForm ? "閉じる" : "新規"}</button></div>
                 {activeProjects.map((project) => (
                   <div className={projectId === project.id ? "project-link is-active" : "project-link"} key={project.id}>
-                    <button type="button" onClick={() => { setProjectId(project.id); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); }}><i style={{ background: project.color }} /><span>{project.name}</span><strong>{getTasksForProject(tasks, project.id).length}</strong></button>
+                    <button type="button" onClick={() => { setProjectId(project.id); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); }}><i style={{ background: project.color }} /><span>{project.name}</span><strong>{estimatedFocusTimeLabel(getTasksForProject(tasks, project.id), workMinutes)}</strong></button>
                     <button type="button" aria-label={`${project.name}をアーカイブ`} onClick={() => { if (window.confirm(`${project.name}をアーカイブし、タスクをInboxへ移しますか？`)) void onArchiveProject(project.id); }}>×</button>
                   </div>
                 ))}
@@ -902,11 +903,12 @@ export function TaskDrawer({
             </div>}
           </nav>}
 
-          <section className={`task-workspace${workspaceMode !== "tasks" ? " task-workspace--standalone" : ""}`} id="task-workspace-main" tabIndex={-1} aria-label={workspaceMode === "report" ? "集中レポート" : workspaceMode === "backup" ? "バックアップと復元" : currentListLabel}>
+          <section ref={workspaceRef} className={`task-workspace${workspaceMode !== "tasks" ? " task-workspace--standalone" : ""}${workspaceMode === "tasks" && (!selectedTask || selectedTask.status === "archived") ? " task-workspace--list" : ""}`} id="task-workspace-main" tabIndex={-1} aria-label={workspaceMode === "report" ? "集中レポート" : workspaceMode === "backup" ? "バックアップと復元" : currentListLabel}>
             {workspaceMode === "report" ? <ProductivityReport tasks={tasks} sessions={sessions} workMinutes={workMinutes} /> : workspaceMode === "backup" ? <ProductivityBackupPanel tasks={tasks} projects={projects} sessions={sessions} storageAvailable={storageAvailable} onImport={onImportBackup} /> : selectedTask && selectedTask.status !== "archived" ? <div className="task-editor-screen"><TaskEditor key={`${selectedTask.id}-${selectedTask.updatedAt}`} task={selectedTask} projects={activeProjects} availableTags={availableTags} subtasks={tasks.filter((item) => item.parentTaskId === selectedTask.id && item.status !== "archived").sort((a, b) => a.order - b.order)} timerStatus={timerStatus} activeTaskId={activeTaskId} nextTask={selectedTaskNextCandidate} nextTaskDetail={selectedTaskNextCandidateDetail} onStartTask={onStartTask} onOpenNextTask={selectedTaskNextCandidate ? () => openTaskDetails(selectedTaskNextCandidate, { revealInList: true }) : undefined} onReturnToTimer={() => { setSelectedTaskId(null); onClose(); }} onSave={(patch) => onUpdateTask(selectedTask.id, patch)} onArchive={async () => { const archived = await onArchiveTask(selectedTask.id); if (archived) setSelectedTaskId(null); return archived; }} onToggleStatus={async () => { const toggled = await onToggleTask(selectedTask.id); if (toggled) closeTaskDetails(selectedTask.id); return toggled; }} onCompleteAndStartNextTask={selectedTaskNextCandidate ? async () => { const toggled = await onToggleTask(selectedTask.id); if (!toggled) return false; onStartTask(selectedTaskNextCandidate.id); return true; } : undefined} onAddSubtask={async (subtaskTitle) => (await onAddTask({ title: subtaskTitle, parentTaskId: selectedTask.id, projectId: selectedTask.projectId, bucket: selectedTask.bucket })) !== null} onToggleSubtask={onToggleTask} canMoveUp={scopedTasks.findIndex((item) => item.id === selectedTask.id) > 0} canMoveDown={scopedTasks.findIndex((item) => item.id === selectedTask.id) >= 0 && scopedTasks.findIndex((item) => item.id === selectedTask.id) < scopedTasks.length - 1} onMove={(direction) => onMoveTask(selectedTask.id, scopedTasks.map((item) => item.id), direction)} onClose={() => closeTaskDetails(selectedTask.id)} /></div> : <>
+            <div className="task-workspace__scroll">
             <div className="task-workspace__toolbar">
               <div className="task-workspace__heading">
-                <div><h3>{currentListLabel}</h3><span>{filteredTasks.length}件のタスク</span></div>
+                <div><button className="task-workspace__destination-button" type="button" onClick={openTaskNavigation}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5-7 7 7 7" /></svg><span>表示先を選ぶ</span></button><h3>{currentListLabel}</h3><span>{filteredTasks.length}件のタスク</span></div>
               </div>
               {view !== "completed" && <form className="task-quick-add task-capture" id="task-quick-add-form" onSubmit={addTask}>
                 <div className="task-capture__title"><span aria-hidden="true">＋</span><label className="visually-hidden" htmlFor="task-title">新しいタスク</label><input id="task-title" ref={quickAddInputRef} placeholder="タスクを追加…" maxLength={200} value={title} onChange={(event) => setTitle(event.target.value)} disabled={!storageAvailable} /></div>
@@ -1052,6 +1054,7 @@ export function TaskDrawer({
                 ))}
               </div>
             )}
+            </div>
             {view !== "completed" && (
               <section className="task-capture__settings" aria-labelledby="task-capture-settings-heading">
                 <h4 id="task-capture-settings-heading" className="task-capture__settings-heading">設定</h4>
