@@ -925,6 +925,47 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
   .report-overview__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
+/* Shared controls for dates, times, and select menus. */
+.app-ui-field { position: relative; display: grid; gap: 7px; min-width: 0; color: var(--ink, #17345f); }
+.app-ui-field > label { color: var(--ink-muted, #4d688a); font-size: 12px; font-weight: 750; }
+.app-select__trigger, .app-date-field__trigger { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 44px; gap: 10px; padding: 0 12px; color: var(--ink, #17345f); border: 1px solid var(--line, rgba(73,112,163,.24)); border-radius: 12px; background: rgba(255,255,255,.82); font-size: 13px; font-weight: 700; text-align: left; }
+.app-select__trigger:hover:not(:disabled), .app-date-field__trigger:hover:not(:disabled) { border-color: var(--blue, #3f6fab); background: #fff; }
+.app-select__chevron { flex: none; width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.app-select__menu { position: absolute; z-index: 20; top: calc(100% + 5px); right: 0; left: 0; display: grid; max-height: min(320px, 45dvh); padding: 5px; overflow-y: auto; border: 1px solid var(--line, rgba(73,112,163,.24)); border-radius: 13px; background: rgba(252,254,255,.98); box-shadow: 0 14px 34px rgba(31,63,103,.2); }
+.app-select__menu button { min-height: 40px; padding: 0 10px; color: var(--ink, #17345f); border: 0; border-radius: 9px; background: transparent; font-size: 13px; font-weight: 650; text-align: left; }
+.app-select__menu button:hover, .app-select__menu button.is-active, .app-select__menu button[aria-selected="true"] { color: var(--blue-deep, #274f88); background: var(--blue-soft, #dcecff); }
+.app-date-field, .app-date-time-field { width: min(100%, 360px); }
+.app-date-field__trigger { min-height: 46px; }
+.app-date-field__icon { flex: none; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.app-calendar { position: fixed; z-index: 20; top: 50%; left: 50%; width: min(390px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); overflow-y: auto; padding: 14px; color: var(--ink, #17345f); border: 1px solid var(--line, rgba(73,112,163,.24)); border-radius: 17px; background: rgba(252,254,255,.98); box-shadow: 0 18px 46px rgba(31,63,103,.22); transform: translate(-50%, -50%); }
+.app-calendar__header, .app-calendar__month { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.app-calendar__header { min-height: 38px; margin-bottom: 10px; }
+.app-calendar__header strong, .app-calendar__month strong { font-size: 14px; }
+.app-calendar__header button, .app-calendar__month button { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; color: var(--ink-muted, #4d688a); border: 0; border-radius: 10px; background: transparent; font-size: 25px; line-height: 1; }
+.app-calendar__header button:hover, .app-calendar__month button:hover { color: var(--blue-deep, #274f88); background: var(--blue-soft, #dcecff); }
+.app-calendar__header button svg, .app-calendar__month button svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.app-calendar__shortcuts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.app-calendar__shortcuts button { min-height: 42px; padding: 0 4px; color: var(--ink, #17345f); border: 1px solid var(--line, rgba(73,112,163,.24)); border-radius: 10px; background: rgba(255,255,255,.7); font-size: 12px; font-weight: 750; }
+.app-calendar__shortcuts button:hover, .app-calendar__shortcuts button.is-selected { color: var(--blue-deep, #274f88); border-color: rgba(63,111,171,.35); background: var(--blue-soft, #dcecff); }
+.app-calendar__month { min-height: 52px; }
+.app-calendar__month > span { display: flex; gap: 3px; }
+.app-calendar__week, .app-calendar__grid { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; }
+.app-calendar__week span { padding: 5px 0; color: var(--ink-muted, #4d688a); font-size: 11px; font-weight: 750; }
+.app-calendar__grid button, .app-calendar__grid > span { display: grid; place-items: center; min-width: 0; min-height: 42px; color: var(--ink, #17345f); border: 0; border-radius: 50%; background: transparent; font-size: 13px; font-variant-numeric: tabular-nums; }
+.app-calendar__grid button:hover, .app-calendar__grid button.is-today { color: var(--blue-deep, #274f88); background: var(--blue-soft, #dcecff); }
+.app-calendar__grid button.is-selected { color: #fff; background: var(--blue-deep, #274f88); }
+.app-date-time-field__controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 9px; }
+.app-date-time-field__date { position: relative; min-width: 0; }
+.app-date-time-field__time { display: grid; grid-template-columns: auto 42px auto auto 42px; align-items: center; gap: 4px; min-height: 46px; color: var(--ink-muted, #4d688a); font-size: 12px; font-weight: 750; }
+.app-date-time-field__time input { width: 42px; min-height: 40px; padding: 0 4px; color: var(--ink, #17345f); border: 1px solid var(--line, rgba(73,112,163,.24)); border-radius: 10px; background: rgba(255,255,255,.82); font-size: 14px; font-variant-numeric: tabular-nums; text-align: center; }
+.app-date-time-field__time input:hover:not(:disabled), .app-date-time-field__time input:focus { border-color: var(--blue, #3f6fab); background: #fff; }
+
+@media (max-width: 520px) {
+  .app-calendar { top: auto; right: 0; bottom: 0; left: 0; width: 100%; max-height: min(78dvh, 680px); padding: 18px max(18px, env(safe-area-inset-right)) max(22px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left)); border-width: 1px 0 0; border-radius: 18px 18px 0 0; transform: none; }
+  .app-date-time-field__controls { grid-template-columns: 1fr; }
+  .app-date-time-field__time { justify-content: end; }
+}
+
 @media (max-width: 600px) {
   .task-launcher { width: calc(100vw - 32px); min-height: 84px; padding: 13px 14px; gap: 12px; }
   .home-dock { top: max(16px, env(safe-area-inset-top)); right: max(16px, env(safe-area-inset-right)); bottom: auto; }

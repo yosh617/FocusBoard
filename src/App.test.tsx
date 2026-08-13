@@ -546,7 +546,8 @@ describe("App", () => {
     openSettings();
     fireEvent.click(screen.getByRole("tab", { name: "表示" }));
     fireEvent.click(screen.getByText("時計・日付の見やすさ"));
-    fireEvent.change(screen.getByLabelText("日付の形式"), { target: { value: "mm/dd weekday" } });
+    fireEvent.click(screen.getByRole("button", { name: "日付の形式" }));
+    fireEvent.click(screen.getByRole("option", { name: "mm/dd 曜日" }));
     expect(document.querySelector(".date")?.textContent).toMatch(/^\d{2}\/\d{2} /);
   });
 
@@ -811,7 +812,8 @@ describe("App", () => {
     const autoToggle = screen.getByLabelText("自動調整") as HTMLInputElement;
     expect(autoToggle.checked).toBe(false);
     fireEvent.click(screen.getByText("背景ごとの設定"));
-    fireEvent.change(screen.getByLabelText("設定する背景"), { target: { value: "bg2" } });
+    fireEvent.click(screen.getByRole("button", { name: "設定する背景" }));
+    fireEvent.click(screen.getByRole("option", { name: "ラベンダー" }));
     expect(autoToggle.checked).toBe(true);
     fireEvent.click(autoToggle);
     expect(autoToggle.checked).toBe(false);

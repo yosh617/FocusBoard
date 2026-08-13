@@ -8,6 +8,10 @@ import type { ConflictPreference, ImportStrategy } from "../../utils/productivit
 import { getActiveProjects, getTasksForProject, getTasksForView, sortTasksForFocus, toLocalDateKey, addLocalDays } from "../../utils/taskQueries";
 import { ProductivityReport } from "./ProductivityReport";
 import { ProductivityBackupPanel } from "./ProductivityBackupPanel";
+import { AppCalendar } from "../ui/AppCalendar";
+import { AppDateField } from "../ui/AppDateField";
+import { AppDateTimeField } from "../ui/AppDateTimeField";
+import { AppSelect } from "../ui/AppSelect";
 
 type Props = {
   open: boolean;
@@ -91,38 +95,6 @@ function QuickAddIcon({ type }: { type: "date" | "priority" | "tag" | "project" 
   if (type === "tag") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h8l8 8-7 7-9-9V5Z" /><circle cx="9" cy="10" r="1" /></svg>;
   if (type === "project") return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16v12H4zM7 7V4h10v3" /></svg>;
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>;
-}
-
-function parseDateKey(dateKey: string) {
-  const [year, month, day] = dateKey.split("-").map(Number);
-  return new Date(year, month - 1, day);
-}
-
-function QuickCalendar({ value, today, onSelect, onClose }: { value: string; today: string; onSelect: (value: string) => void; onClose: () => void }) {
-  const initialDate = parseDateKey(value || today);
-  const [visibleMonth, setVisibleMonth] = useState(() => new Date(initialDate.getFullYear(), initialDate.getMonth(), 1));
-  const year = visibleMonth.getFullYear();
-  const month = visibleMonth.getMonth();
-  const leadingDays = new Date(year, month, 1).getDay();
-  const monthDays = new Date(year, month + 1, 0).getDate();
-  const cells = Array.from({ length: leadingDays + monthDays }, (_, index) => index < leadingDays ? null : index - leadingDays + 1);
-  const selectDate = (dateKey: string) => { onSelect(dateKey); onClose(); };
-  return <section className="quick-add-popover quick-add-calendar" role="dialog" aria-label="期限を設定">
-    <div className="quick-add-popover__header"><strong>期限</strong><button type="button" aria-label="期限設定を閉じる" onClick={onClose}>×</button></div>
-    <div className="quick-add-calendar__shortcuts">
-      <button type="button" onClick={() => selectDate(today)}>今日</button>
-      <button type="button" onClick={() => selectDate(addLocalDays(today, 1))}>明日</button>
-      <button type="button" onClick={() => selectDate(addLocalDays(today, 7))}>7日後</button>
-      <button type="button" onClick={() => selectDate("")}>なし</button>
-    </div>
-    <div className="quick-add-calendar__month"><strong>{year}年{month + 1}月</strong><span><button type="button" aria-label="前の月" onClick={() => setVisibleMonth(new Date(year, month - 1, 1))}>‹</button><button type="button" aria-label="次の月" onClick={() => setVisibleMonth(new Date(year, month + 1, 1))}>›</button></span></div>
-    <div className="quick-add-calendar__week" aria-hidden="true">{["日", "月", "火", "水", "木", "金", "土"].map((day) => <span key={day}>{day}</span>)}</div>
-    <div className="quick-add-calendar__grid">{cells.map((day, index) => {
-      if (day === null) return <span key={`empty-${index}`} />;
-      const dateKey = toLocalDateKey(new Date(year, month, day));
-      return <button className={value === dateKey ? "is-selected" : dateKey === today ? "is-today" : ""} type="button" aria-pressed={value === dateKey} aria-label={`${year}年${month + 1}月${day}日`} onClick={() => selectDate(dateKey)} key={dateKey}>{day}</button>;
-    })}</div>
-  </section>;
 }
 
 function TagPicker({ selected, suggestions, onChange }: { selected: string[]; suggestions: string[]; onChange: (tags: string[]) => void }) {
@@ -416,8 +388,14 @@ function TaskEditor({ task, projects, availableTags, subtasks, timerStatus, acti
           </div>
         </div>
         <div className="task-editor__row">
-          <label>プロジェクト<select value={projectId} onChange={(event) => setProjectId(event.target.value)}><option value="">なし</option>{projects.map((project) => <option value={project.id} key={project.id}>{project.name}</option>)}</select></label>
-          <label>期限<input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label>
+          <AppSelect
+            id={`task-${task.id}-project`}
+            label="プロジェクト"
+            value={projectId}
+            options={[{ value: "", label: "なし" }, ...projects.map((project) => ({ value: project.id, label: project.name }))]}
+            onChange={setProjectId}
+          />
+          <AppDateField id={`task-${task.id}-due-date`} label="期限" value={dueDate} today={today} onChange={setDueDate} />
         </div>
         <div className="task-editor__priority" role="radiogroup" aria-label="タスクの優先度">{priorityOptions.map((option) => <button className={priority === option.value ? "is-active" : ""} type="button" role="radio" aria-checked={priority === option.value} onClick={() => setPriority(option.value)} key={option.value}><span style={{ color: option.color }}><QuickAddIcon type="priority" /></span>{option.label}</button>)}</div>
         <div className="task-editor__tags"><span>タグ</span><TagPicker selected={tags} suggestions={availableTags} onChange={setTags} /></div>
@@ -429,21 +407,34 @@ function TaskEditor({ task, projects, availableTags, subtasks, timerStatus, acti
           </div>
         </div>
         <div className="task-editor__row">
-          <label>分類<select value={bucket} onChange={(event) => setBucket(event.target.value as TaskRecord["bucket"])}><option value="inbox">Inbox</option><option value="someday">いつか</option></select></label>
+          <AppSelect
+            id={`task-${task.id}-bucket`}
+            label="分類"
+            value={bucket}
+            options={[{ value: "inbox", label: "Inbox" }, { value: "someday", label: "いつか" }]}
+            onChange={(value) => setBucket(value as TaskRecord["bucket"])}
+          />
           <label>見積もり<input type="number" min="0" max="99" inputMode="numeric" value={estimatedPomodoros} onChange={(event) => setEstimatedPomodoros(Number(event.target.value))} /></label>
         </div>
       </section>
-      <details className="task-editor__details" open={scheduleExpanded} onToggle={(event) => setScheduleExpanded((event.currentTarget as HTMLDetailsElement).open)}>
+      <details className="task-editor__details" style={{ overflow: "visible" }} open={scheduleExpanded} onToggle={(event) => setScheduleExpanded((event.currentTarget as HTMLDetailsElement).open)}>
         <summary>
           <span>通知と繰り返し</span>
           <strong>{repeatType === "none" ? reminderSummary : `${reminderSummary} ・ ${repeatType === "custom" ? `${customRepeatInterval}${customRepeatUnit === "daily" ? "日" : customRepeatUnit === "weekly" ? "週" : "か月"}ごと` : repeatType === "daily" ? "毎日" : repeatType === "weekdays" ? "平日" : repeatType === "weekly" ? "毎週" : "毎月"}`}</strong>
         </summary>
         <div className="task-editor__details-body">
           <div className="task-editor__row">
-            <label>リマインダー<input type="datetime-local" value={reminder} onChange={(event) => setReminder(event.target.value)} /></label>
-            <label>繰り返し<select value={repeatType} disabled={!dueDate} onChange={(event) => setRepeatType(event.target.value)}><option value="none">なし</option><option value="daily">毎日</option><option value="weekdays">平日</option><option value="weekly">毎週</option><option value="monthly">毎月</option><option value="custom">カスタム</option></select></label>
+            <AppDateTimeField id={`task-${task.id}-reminder`} label="リマインダー" value={reminder} today={today} onChange={setReminder} />
+            <AppSelect
+              id={`task-${task.id}-repeat`}
+              label="繰り返し"
+              value={repeatType}
+              disabled={!dueDate}
+              options={[{ value: "none", label: "なし" }, { value: "daily", label: "毎日" }, { value: "weekdays", label: "平日" }, { value: "weekly", label: "毎週" }, { value: "monthly", label: "毎月" }, { value: "custom", label: "カスタム" }]}
+              onChange={setRepeatType}
+            />
           </div>
-          {repeatType === "custom" && <div className="task-editor__row"><label>繰り返し間隔<input type="number" min="1" max={customRepeatUnit === "daily" ? 365 : customRepeatUnit === "weekly" ? 52 : 24} value={customRepeatInterval} onChange={(event) => setCustomRepeatInterval(Number(event.target.value))} /></label><label>繰り返し単位<select value={customRepeatUnit} onChange={(event) => setCustomRepeatUnit(event.target.value as typeof customRepeatUnit)}><option value="daily">日ごと</option><option value="weekly">週ごと</option><option value="monthly">月ごと</option></select></label></div>}
+          {repeatType === "custom" && <div className="task-editor__row"><label>繰り返し間隔<input type="number" min="1" max={customRepeatUnit === "daily" ? 365 : customRepeatUnit === "weekly" ? 52 : 24} value={customRepeatInterval} onChange={(event) => setCustomRepeatInterval(Number(event.target.value))} /></label><AppSelect id={`task-${task.id}-repeat-unit`} label="繰り返し単位" value={customRepeatUnit} options={[{ value: "daily", label: "日ごと" }, { value: "weekly", label: "週ごと" }, { value: "monthly", label: "月ごと" }]} onChange={(value) => setCustomRepeatUnit(value as typeof customRepeatUnit)} /></div>}
         </div>
       </details>
       <details className="task-editor__details" open={noteExpanded} onToggle={(event) => setNoteExpanded((event.currentTarget as HTMLDetailsElement).open)}>
@@ -1079,7 +1070,7 @@ export function TaskDrawer({
                   <button className={quickAddProjectId ? "is-active" : ""} type="button" aria-label="プロジェクトを設定" aria-expanded={quickPanel === "project"} onClick={() => setQuickPanel((current) => current === "project" ? null : "project")}><QuickAddIcon type="project" /><span>{activeProjects.find((item) => item.id === quickAddProjectId)?.name ?? "Inbox"}</span></button>
                   <button className="task-capture__submit" type="button" onClick={() => void addTask()} disabled={!storageAvailable || !title.trim()}>完了</button>
                 </div>
-                {quickPanel === "date" && <QuickCalendar value={dueDate} today={today} onSelect={setDueDate} onClose={() => setQuickPanel(null)} />}
+                {quickPanel === "date" && <AppCalendar title="期限を設定" value={dueDate} today={today} onSelect={(value) => { setDueDate(value); setQuickPanel(null); }} onClose={() => setQuickPanel(null)} />}
                 {quickPanel === "priority" && <section className="quick-add-popover quick-add-priority" role="dialog" aria-label="優先度を設定"><div className="quick-add-popover__header"><strong>優先度</strong><button type="button" aria-label="優先度設定を閉じる" onClick={() => setQuickPanel(null)}>×</button></div><div>{priorityOptions.map((option) => <button className={quickPriority === option.value ? "is-selected" : ""} type="button" aria-pressed={quickPriority === option.value} onClick={() => { setQuickPriority(option.value); setQuickPanel(null); }} key={option.value}><span style={{ color: option.color }}><QuickAddIcon type="priority" /></span><strong>{option.label}</strong></button>)}</div></section>}
                 {quickPanel === "tag" && <section className="quick-add-popover quick-add-tags" role="dialog" aria-label="タグを設定"><div className="quick-add-popover__header"><strong>タグ</strong><button type="button" aria-label="タグ設定を閉じる" onClick={() => setQuickPanel(null)}>×</button></div><TagPicker selected={quickTags} suggestions={availableTags} onChange={setQuickTags} /></section>}
                 {quickPanel === "project" && <section className="quick-add-popover quick-add-project" role="dialog" aria-label="プロジェクトを設定"><div className="quick-add-popover__header"><strong>プロジェクト</strong><button type="button" aria-label="プロジェクト設定を閉じる" onClick={() => setQuickPanel(null)}>×</button></div><div><button className={!quickAddProjectId ? "is-selected" : ""} type="button" onClick={() => { setQuickProjectId(""); setQuickPanel(null); }}><i /><span>Inbox</span></button>{activeProjects.map((item) => <button className={quickAddProjectId === item.id ? "is-selected" : ""} type="button" onClick={() => { setQuickProjectId(item.id); setQuickPanel(null); }} key={item.id}><i style={{ background: item.color }} /><span>{item.name}</span></button>)}</div></section>}
