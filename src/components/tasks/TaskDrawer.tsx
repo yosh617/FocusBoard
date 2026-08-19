@@ -968,33 +968,10 @@ export function TaskDrawer({
                       </div>
                     )}
                     <div className="task-list__section-items">
-                    {section.tasks.map((task, taskIndex) => {
-                        const project = activeProjects.find((item) => item.id === task.projectId);
-                        const label = dueLabel(task, today);
-                        const reminder = reminderLabel(task.reminderAt, now);
+                    {section.tasks.map((task) => {
                         const completedPomodoros = completedPomodorosByTask.get(task.id) ?? 0;
                         const isResumeTarget = showResumeBanner && resumeContext?.taskId === task.id;
                         const isActiveFocusTarget = activeTaskId === task.id && timerStatus !== "idle";
-                        const rowStateLabel: string | null = isActiveFocusTarget
-                          ? "進行中"
-                          : isResumeTarget
-                            ? "戻る先"
-                            : task.status === "completed"
-                              ? "完了済み"
-                              : label.startsWith("期限切れ")
-                                ? "先に片づける"
-                                : taskIndex === 0
-                                  ? "次に集中"
-                                  : reminder
-                                    ? "通知あり"
-                                    : null;
-                        const rowStateTone = isActiveFocusTarget
-                          ? "active"
-                          : label.startsWith("期限切れ")
-                            ? "alert"
-                            : taskIndex === 0 || isResumeTarget
-                              ? "focus"
-                              : "default";
                         return (<div className={`task-list__item${isResumeTarget || isActiveFocusTarget ? " task-list__item--attention" : ""}`} key={task.id} ref={(node) => {
                           if (node) taskRowRefs.current.set(task.id, node);
                           else taskRowRefs.current.delete(task.id);
@@ -1014,37 +991,29 @@ export function TaskDrawer({
                                 openTaskDetails(task);
                               }}
                             >
-                              {rowStateLabel && <span className="task-row__eyebrow"><em className={`task-chip task-chip--state task-chip--${rowStateTone}`}>{rowStateLabel}</em></span>}
-                              <strong>{task.priority && task.priority !== "none" && <span className="task-row__priority" style={{ color: priorityOptions.find((option) => option.value === task.priority)?.color }} aria-label={`優先度 ${priorityOptions.find((option) => option.value === task.priority)?.label}`}><QuickAddIcon type="priority" /></span>}{task.title}</strong>
-                              <span className="task-row__meta">
-                                {project && taskSections.length === 1 && <span className="task-chip task-chip--project"><i style={{ background: project.color }} />{project.name}</span>}
-                                {label && <em className={label.startsWith("期限切れ") ? "is-overdue" : ""}>{label}</em>}
-                                {reminder && <em>{reminder}</em>}
-                                {(task.tags ?? []).map((tag) => <em className="task-chip task-chip--tag" key={tag}>#{tag}</em>)}
-                                {(task.estimatedPomodoros > 0 || completedPomodoros > 0) && (
-                                  <FocusMeter
-                                    label={`${task.title}の集中目安`}
-                                    completedPomodoros={completedPomodoros}
-                                    estimatedPomodoros={task.estimatedPomodoros}
-                                  />
-                                )}
+                              <span className="task-row__summary">
+                                <strong>{task.title}</strong>
+                                <span className="task-row__focus-count" aria-label={`集中回数 ${completedPomodoros}/${task.estimatedPomodoros}`}>
+                                  {completedPomodoros}/{task.estimatedPomodoros}
+                                </span>
                               </span>
                             </button>
                             <button
-                              className={`task-row__start${activeTaskId === task.id ? " is-active" : ""}`}
+                              className={`task-row__start${isActiveFocusTarget ? " is-active" : ""}`}
                               type="button"
-                              aria-label={activeTaskId === task.id && timerStatus !== "idle" ? "タイマーへ戻る" : `${task.title}のタイマーを開始`}
+                              aria-label={isActiveFocusTarget ? "タイマーへ戻る" : `${task.title}のタイマーを開始`}
                               disabled={activeTaskId !== task.id && (timerStatus !== "idle" || task.status !== "open")}
                               onClick={() => {
-                                if (activeTaskId === task.id && timerStatus !== "idle") {
+                                if (isActiveFocusTarget) {
                                   onClose();
                                   return;
                                 }
                                 onStartTask(task.id);
                               }}
                             >
-                              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6V6Z" /></svg>
-                              <span>{activeTaskId === task.id && timerStatus !== "idle" ? "戻る" : "開始"}</span>
+                              {isActiveFocusTarget
+                                ? <svg className="task-row__timer-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="7" /><path d="M9 3h6M12 6v7l3 2" /></svg>
+                                : <svg className="task-row__play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6V6Z" /></svg>}
                             </button>
                           </article>
                         </div>);

@@ -117,6 +117,15 @@ export default function App() {
     ? timerTaskCandidates.find((task) => task.id === selectedTimerTaskId) ?? null
     : null;
   const timerAcceptsTask = timer.program === "pomodoro" ? timer.mode === "work" : timer.category === "focus";
+  const activeTaskProgress = useMemo(() => {
+    if (!activeTask || !timerAcceptsTask || timer.status === "idle" || timer.status === "completed") return null;
+    const completedCount = sessions.filter((session) => (
+      session.taskId === activeTask.id
+      && session.mode === "work"
+      && session.result === "completed"
+    )).length;
+    return { current: completedCount + 1, planned: activeTask.estimatedPomodoros };
+  }, [activeTask, sessions, timer.status, timerAcceptsTask]);
   const completedTask = completedSession?.taskId ? tasks.find((task) => task.id === completedSession.taskId) ?? null : null;
   const todayOpenTaskCount = useMemo(() => getTasksForView(tasks, "today", todayKey).length, [tasks, todayKey]);
   const todayCompletedTaskCount = useMemo(
@@ -529,6 +538,7 @@ export default function App() {
         <FloatingTimer
           timer={timer}
           taskTitle={activeTask?.title ?? null}
+          taskProgress={activeTaskProgress}
           onStart={startTimer}
           onPause={pause}
           onEnd={endTimer}

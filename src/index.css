@@ -225,11 +225,7 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .floating-timer--completed .progress-ring__value { stroke: var(--timer-accent, #22b7ff); }
 .floating-timer__content { position: absolute; inset: 25px 26px 22px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #f6f9fc; text-align: center; }
 .floating-timer__program { color: #b8c8d8; font-size: 9px; font-weight: 800; letter-spacing: .12em; }
-.floating-timer__task { max-width: 138px; margin-top: 5px; overflow: hidden; color: #fff; font-size: 11px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
 .floating-timer__content strong { margin: 5px 0 7px; font-size: 38px; font-weight: 430; line-height: 1; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
-.floating-timer__session { display: flex; align-items: center; gap: 5px; margin-top: 6px; color: #eef6ff; font-size: 11px; font-weight: 700; }
-.floating-timer__session svg { width: 14px; height: 14px; fill: none; stroke: #d9e7f5; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.floating-timer__status { margin-top: 5px; color: #ffdce3; font-size: 11px; font-weight: 850; }
 .floating-timer__controls { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; }
 .floating-timer__controls button { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; color: #e8f2fb; border: 1px solid rgba(255,255,255,.24); border-radius: 50%; background: rgba(255,255,255,.08); transition: color .2s, background-color .2s, border-color .2s; }
 .floating-timer__controls .floating-timer__primary { width: 48px; height: 48px; color: #fff; border-color: rgba(255,255,255,.72); background: rgba(255,255,255,.08); }
@@ -1903,6 +1899,25 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
   border-color: var(--task-primary);
   transform: translateY(-50%) rotate(-45deg);
 }
+
+/* Compact task cards keep the title and focus count scannable at a glance. */
+.task-list__section-items { gap: 6px; }
+.task-row { grid-template-columns: 44px minmax(0, 1fr) 48px; overflow: hidden; border: 1px solid #e6e8eb; border-radius: 10px; background: #fff; }
+.task-row:hover, .task-row.is-selected, .task-list__item--attention .task-row { border-color: var(--task-primary-border); border-radius: 10px; background: var(--task-primary-soft); box-shadow: none; }
+.task-row__check, .task-row__content, .task-row__start { min-height: 48px; }
+.task-row__check { min-width: 44px; }
+.task-row__check svg { width: 20px; height: 20px; }
+.task-row__content { display: flex; align-items: center; min-width: 0; padding: 0 10px; }
+.task-row__content::after { display: none; }
+.task-row__summary { display: flex; align-items: center; justify-content: space-between; width: 100%; min-width: 0; gap: 10px; }
+.task-row__summary > strong { overflow: hidden; color: #202124; font-size: 14px; font-weight: 720; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+.task-row__focus-count { flex: none; color: #6b6f76; font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.task-row__start { min-width: 48px; border-left: 1px solid #eef0f2; background: transparent; }
+.task-row__start:hover:not(:disabled) { color: var(--task-primary-text); background: var(--task-primary-soft); }
+.task-row__start.is-active { color: var(--task-primary-text); background: var(--task-primary); }
+.task-row__start svg { width: 20px; height: 20px; }
+.task-row__start .task-row__play-icon { fill: currentColor; stroke: currentColor; }
+.task-row__start .task-row__timer-icon { fill: none; stroke: currentColor; stroke-width: 1.9; }
 
 /* The capture settings remain fixed below the independently scrolling task list. */
 .task-capture__settings {

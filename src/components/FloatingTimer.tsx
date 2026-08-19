@@ -7,6 +7,7 @@ import { formatDuration, getCountupLap, getTimerElapsedMs, getTimerOvertimeMs, g
 type Props = {
   timer: TimerState;
   taskTitle?: string | null;
+  taskProgress?: { current: number; planned: number } | null;
   onStart: () => void;
   onPause: () => void;
   onEnd: () => void;
@@ -15,9 +16,9 @@ type Props = {
   orientation: Orientation;
 };
 
-const programLabels = { pomodoro: "ポモドーロ", countdown: "カウントダウン", countup: "カウントアップ" } as const;
+const programLabels = { countdown: "カウントダウン", countup: "カウントアップ" } as const;
 
-export function FloatingTimer({ timer, taskTitle, onStart, onPause, onEnd, onShowSetup, onPositionChange, orientation }: Props) {
+export function FloatingTimer({ timer, taskTitle, taskProgress, onStart, onPause, onEnd, onShowSetup, onPositionChange, orientation }: Props) {
   const [isCompact, setIsCompact] = useState(false);
   const [position, setPosition] = useState(timer.floatingPosition);
   const positionRef = useRef(timer.floatingPosition);
@@ -35,6 +36,13 @@ export function FloatingTimer({ timer, taskTitle, onStart, onPause, onEnd, onSho
   const sessionLabel = timer.program === "pomodoro"
     ? modeLabels[timer.mode]
     : timer.category === "focus" ? "実施中" : "休憩";
+  const programText = taskProgress
+    ? `${taskProgress.current}/${taskProgress.planned}`
+    : timer.program === "pomodoro"
+      ? null
+      : timer.program === "countup"
+        ? `${countupLap}周目 · 目安 ${formatDuration(timer.durationMs)}`
+        : programLabels[timer.program];
   const returnToSetupLabel = timer.status === "idle" ? "タイマーセット" : "タイマーセット（タイマーは継続）";
 
   useEffect(() => {
@@ -176,17 +184,7 @@ export function FloatingTimer({ timer, taskTitle, onStart, onPause, onEnd, onSho
           </div>
         ) : (
             <div className="floating-timer__content">
-              <span className="floating-timer__program">
-                {timer.program === "pomodoro"
-                  ? `SESSION ${(timer.completedWorkSessions % 4) + 1} / 4`
-                  : timer.program === "countup" ? `${countupLap}周目 · 目安 ${formatDuration(timer.durationMs)}` : programLabels[timer.program]}
-              </span>
-              {taskTitle && <span className="floating-timer__task">{taskTitle}</span>}
-              <span className="floating-timer__session">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 8v4l3 2" /></svg>
-                {sessionLabel}
-              </span>
-              {statusText && <span className="floating-timer__status">{statusText}</span>}
+              {programText && <span className="floating-timer__program">{programText}</span>}
               <strong>{formatDuration(displayMs)}</strong>
               <div className="floating-timer__controls" onPointerDown={(event) => event.stopPropagation()}>
                 {timer.status === "overtime" ? (

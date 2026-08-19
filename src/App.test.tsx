@@ -289,7 +289,9 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "数学の復習を開始" }));
 
     expect(screen.queryByRole("dialog", { name: "取り組むタスクを選ぶ" })).toBeNull();
-    expect(screen.getByLabelText("数学の復習の集中タイマー").textContent).toContain("数学の復習");
+    const linkedTimer = screen.getByLabelText("数学の復習の集中タイマー");
+    expect(linkedTimer.textContent).not.toContain("数学の復習");
+    expect(linkedTimer.textContent).toContain("1/1");
   });
 
   it("asks for a task when starting and can start the selected task directly", () => {
@@ -302,7 +304,29 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "数学の復習を開始" }));
 
     expect(screen.queryByRole("dialog", { name: "どのタスクを始めますか？" })).toBeNull();
-    expect(screen.getByLabelText("数学の復習の集中タイマー").textContent).toContain("数学の復習");
+    expect(screen.getByLabelText("数学の復習の集中タイマー").textContent).toContain("1/1");
+  });
+
+  it("shows the current task session beyond its planned count", () => {
+    mockTasksState.sessions = [1, 2].map((index) => ({
+      version: 1,
+      id: `session-${index}`,
+      taskId: focusTask.id,
+      taskTitleSnapshot: focusTask.title,
+      projectIdSnapshot: focusProject.id,
+      projectNameSnapshot: focusProject.name,
+      program: "pomodoro",
+      mode: "work",
+      result: "completed",
+      startedAt: index,
+      endedAt: index + 1,
+      plannedDurationMs: 25 * 60_000,
+      focusedDurationMs: 25 * 60_000
+    }));
+
+    prepareTaskFlow();
+
+    expect(screen.getByLabelText("数学の復習の集中タイマー").textContent).toContain("3/1");
   });
 
   it("adds a new task from the start dialog and begins it immediately", async () => {
@@ -465,6 +489,7 @@ describe("App", () => {
   it("opens the task drawer around the active task while focus is in progress", () => {
     prepareTaskFlow([focusTask, nextFocusTask]);
 
+    expect(document.querySelector(".floating-timer__task")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "タスクを開く。取り組んでいるタスクは数学の復習。今日の未完了は2件" }));
     expect(screen.getByRole("dialog", { name: "タスク管理" })).toBeTruthy();
     expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy();
