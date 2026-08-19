@@ -546,7 +546,7 @@ export default function App() {
         projects={projects}
         selectedTaskId={selectedTimerTask?.id ?? null}
         storageAvailable={taskStorageAvailable}
-        onAddTask={(title) => addTask({ title })}
+        onAddTask={(title) => addTask({ title, dueDate: todayKey })}
         onSelect={(taskId) => {
           setSelectedTimerTaskId(taskId);
           setTimerTaskPickerIntent(null);

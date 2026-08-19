@@ -312,7 +312,7 @@ describe("App", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "新しいタスク" }), { target: { value: "理科のレポート" } });
     fireEvent.click(screen.getByRole("button", { name: "追加して開始" }));
 
-    await waitFor(() => expect(mockTasksState.addTask).toHaveBeenCalledWith({ title: "理科のレポート" }));
+    await waitFor(() => expect(mockTasksState.addTask).toHaveBeenCalledWith({ title: "理科のレポート", dueDate: toLocalDateKey(new Date()) }));
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "どのタスクを始めますか？" })).toBeNull());
     expect(screen.getByLabelText("集中タイマー")).toBeTruthy();
   });
