@@ -439,8 +439,8 @@ describe("App", () => {
       fireEvent.click(screen.getByText("ほかの操作"));
       fireEvent.click(screen.getByRole("button", { name: "同じタスクを続ける" }));
       expect(screen.queryByRole("dialog", { name: "集中セッション完了" })).toBeNull();
-      expect(screen.getByRole("button", { name: "タスクを開く。集中中のタスクは数学の復習。今日の未完了は1件" })).toBeTruthy();
-      expect(screen.getByText("集中中")).toBeTruthy();
+      expect(screen.getByRole("button", { name: "タスクを開く。取り組んでいるタスクは数学の復習。今日の未完了は1件" })).toBeTruthy();
+      expect(screen.getByText("FOCUS")).toBeTruthy();
     } finally {
       vi.useRealTimers();
     }
@@ -456,7 +456,7 @@ describe("App", () => {
       expect(screen.getByRole("button", { name: "英語の宿題を開始" }).textContent).toContain("英語の宿題");
       fireEvent.click(screen.getByRole("button", { name: "英語の宿題を開始" }));
       expect(screen.queryByRole("dialog", { name: "集中セッション完了" })).toBeNull();
-      expect(screen.getByRole("button", { name: "タスクを開く。集中中のタスクは英語の宿題。今日の未完了は2件" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "タスクを開く。取り組んでいるタスクは英語の宿題。今日の未完了は2件" })).toBeTruthy();
     } finally {
       vi.useRealTimers();
     }
@@ -465,7 +465,7 @@ describe("App", () => {
   it("opens the task drawer around the active task while focus is in progress", () => {
     prepareTaskFlow([focusTask, nextFocusTask]);
 
-    fireEvent.click(screen.getByRole("button", { name: "タスクを開く。集中中のタスクは数学の復習。今日の未完了は2件" }));
+    fireEvent.click(screen.getByRole("button", { name: "タスクを開く。取り組んでいるタスクは数学の復習。今日の未完了は2件" }));
     expect(screen.getByRole("dialog", { name: "タスク管理" })).toBeTruthy();
     expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "数学の復習の詳細からタイマーへ戻る" })).toBeTruthy();
@@ -476,7 +476,7 @@ describe("App", () => {
 
   it("closes the task drawer on browser back and restores focus to the launcher", async () => {
     prepareTaskFlow([focusTask, nextFocusTask]);
-    const launcher = screen.getByRole("button", { name: "タスクを開く。集中中のタスクは数学の復習。今日の未完了は2件" });
+    const launcher = screen.getByRole("button", { name: "タスクを開く。取り組んでいるタスクは数学の復習。今日の未完了は2件" });
 
     fireEvent.click(launcher);
     expect(screen.getByRole("dialog", { name: "タスク管理" })).toBeTruthy();
@@ -504,7 +504,7 @@ describe("App", () => {
       fireEvent.click(screen.getByRole("button", { name: "タスク一覧へ戻る" }));
       expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("英語の宿題を次の候補として開いています");
       expect(screen.getByLabelText("新しいタスク")).toBeTruthy();
-      expect(screen.queryByText("集中中")).toBeNull();
+      expect(screen.queryByText("FOCUS")).toBeNull();
     } finally {
       vi.useRealTimers();
     }

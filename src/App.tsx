@@ -187,7 +187,7 @@ export default function App() {
     if (timer.status === "idle") return null;
     const isBreakFlow = timer.mode !== "work";
     const statusText = timer.status === "running"
-      ? timer.mode === "work" ? "集中中" : "休憩中"
+      ? timer.mode === "work" ? "FOCUS" : "休憩中"
       : timer.status === "paused"
         ? "一時停止中"
         : "延長中";
@@ -211,7 +211,7 @@ export default function App() {
     const accessibleLabel = isBreakFlow
       ? `タスクを開く。${defaultTitle}中。${launcherSuggestedTask?.title ? `次のおすすめは${launcherSuggestedTask.title}。` : ""}今日の未完了は${todayOpenTaskCount}件`
       : activeTask?.title
-        ? `タスクを開く。集中中のタスクは${activeTask.title}。今日の未完了は${todayOpenTaskCount}件`
+        ? `タスクを開く。取り組んでいるタスクは${activeTask.title}。今日の未完了は${todayOpenTaskCount}件`
         : `タスクを開く。${statusText}。今日の未完了は${todayOpenTaskCount}件`;
     return { statusText, title, detail, accessibleLabel };
   }, [activeTask?.title, launcherSuggestedTask?.title, timer, todayOpenTaskCount]);

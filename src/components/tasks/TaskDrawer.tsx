@@ -650,7 +650,7 @@ export function TaskDrawer({
     if (activeDueLabel) detailParts.push(activeDueLabel);
     return {
       label: "いまの集中",
-      title: `${activeFocusTask.title}に集中中です`,
+      title: `${activeFocusTask.title}に取り組んでいます`,
       detail: `${detailParts.join(" ・ ")}${detailParts.length > 0 ? " ・ " : ""}集中を止めずに、詳細や一覧を見直せます。`,
       taskId: activeFocusTask.id,
       actionLabel: "進行中を開く"

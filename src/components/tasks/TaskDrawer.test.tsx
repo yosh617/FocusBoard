@@ -203,7 +203,7 @@ describe("TaskDrawer", () => {
   it("surfaces the active focus context at the top of the drawer", async () => {
     renderDrawer({ timerStatus: "running", activeTaskId: task.id });
     expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("いまの集中");
-    expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("数学の復習に集中中です");
+    expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("数学の復習に取り組んでいます");
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
     await waitFor(() => expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy());
     expect(screen.getByRole("button", { name: "数学の復習の詳細からタイマーへ戻る" })).toBeTruthy();

@@ -38,13 +38,13 @@ export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLa
       ? `今日の未完了 ${todayCount}件`
       : suggestedTask?.detail
         ?? (todayCount === 0 ? "今日の予定はありません" : `${todayCount}件を整理`));
-  const status = timerSummary?.statusText ?? (activeTaskTitle ? "集中中" : suggestedTask ? "次のおすすめ" : "今日のタスク");
+  const status = timerSummary?.statusText ?? (activeTaskTitle ? "FOCUS" : suggestedTask ? "次のおすすめ" : "今日のタスク");
   const isEmphasized = activeTaskTitle !== null || timerSummary !== null;
-  const isBreakFlow = timerSummary !== null && timerSummary.statusText !== "集中中";
+  const isBreakFlow = timerSummary !== null && timerSummary.statusText !== "FOCUS";
   const queueLabel = todayCount === 0 ? "今日の未完了なし" : `未完了 ${todayCount}件`;
   const accessibleLabel = timerSummary?.accessibleLabel
     ?? (activeTaskTitle
-      ? `タスクを開く。集中中のタスクは${activeTaskTitle}。今日の未完了は${todayCount}件`
+      ? `タスクを開く。取り組んでいるタスクは${activeTaskTitle}。今日の未完了は${todayCount}件`
       : suggestedTask
         ? `タスクを開く。次のおすすめは${suggestedTask.title}。今日の未完了は${todayCount}件`
         : `タスクを開く。今日の未完了は${todayCount}件`);
