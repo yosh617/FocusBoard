@@ -347,7 +347,7 @@ describe("TaskDrawer", () => {
   it("adds a task to today's list with a single title", async () => {
     const props = renderDrawer();
     fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "英単語を覚える" } });
-    fireEvent.click(screen.getByRole("button", { name: "完了" }));
+    fireEvent.click(screen.getByRole("button", { name: "追加" }));
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "英単語を覚える", dueDate: today })));
   });
 
@@ -407,7 +407,7 @@ describe("TaskDrawer", () => {
     );
 
     fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: createdTask.title } });
-    fireEvent.click(screen.getByRole("button", { name: "完了" }));
+    fireEvent.click(screen.getByRole("button", { name: "追加" }));
     await waitFor(() => expect(onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: createdTask.title })));
     await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("新しいタスク")));
 
@@ -451,7 +451,7 @@ describe("TaskDrawer", () => {
     fireEvent.click(screen.getByRole("button", { name: new RegExp(`期限 ${today}`) }));
     const calendar = screen.getByRole("dialog", { name: "期限を設定" });
     fireEvent.click(within(calendar).getByRole("button", { name: "明日" }));
-    fireEvent.click(screen.getByRole("button", { name: "完了" }));
+    fireEvent.click(screen.getByRole("button", { name: "追加" }));
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "理科の暗記", dueDate: addLocalDays(today, 1) })));
   });
 
@@ -461,7 +461,7 @@ describe("TaskDrawer", () => {
     const estimateButton = screen.getByRole("button", { name: "2回" });
     fireEvent.click(estimateButton);
     expect(estimateButton.getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(screen.getByRole("button", { name: "完了" }));
+    fireEvent.click(screen.getByRole("button", { name: "追加" }));
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "理科の暗記", estimatedPomodoros: 2 })));
   });
 
@@ -472,7 +472,7 @@ describe("TaskDrawer", () => {
     const slider = screen.getByRole("slider", { name: "予定数 5回" });
     fireEvent.change(slider, { target: { value: "8" } });
     expect((slider as HTMLInputElement).value).toBe("8");
-    fireEvent.click(screen.getByRole("button", { name: "完了" }));
+    fireEvent.click(screen.getByRole("button", { name: "追加" }));
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ estimatedPomodoros: 8 })));
   });
 
@@ -483,7 +483,7 @@ describe("TaskDrawer", () => {
     fireEvent.click(within(screen.getByRole("dialog", { name: "優先度を設定" })).getByRole("button", { name: "高" }));
     fireEvent.click(screen.getByRole("button", { name: "プロジェクトを設定" }));
     fireEvent.click(within(screen.getByRole("dialog", { name: "プロジェクトを設定" })).getByRole("button", { name: "勉強" }));
-    fireEvent.click(screen.getByRole("button", { name: "完了" }));
+    fireEvent.click(screen.getByRole("button", { name: "追加" }));
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ priority: "high", projectId: project.id })));
   });
 
@@ -495,7 +495,7 @@ describe("TaskDrawer", () => {
     fireEvent.change(within(tagDialog).getByLabelText("新しいタグ名"), { target: { value: "試験" } });
     fireEvent.click(within(tagDialog).getByRole("button", { name: "タグを追加" }));
     expect(within(tagDialog).getByRole("button", { name: "#試験" }).getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(screen.getByRole("button", { name: "完了" }));
+    fireEvent.click(screen.getByRole("button", { name: "追加" }));
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ tags: ["試験"] })));
   });
 

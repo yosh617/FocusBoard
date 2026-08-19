@@ -164,6 +164,41 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .timer-start-button { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-width: 190px; min-height: 58px; padding: 10px 22px; color: #fff; border: 1px solid var(--timer-accent, #20a9ee); border-radius: 16px; background: var(--timer-accent-strong, #137db8); box-shadow: 0 9px 20px rgba(0,0,0,.2); font-size: 15px; font-weight: 800; transition: filter .2s, box-shadow .2s; }
 .timer-start-button:hover { filter: brightness(1.12); box-shadow: 0 11px 25px rgba(0,0,0,.26); }
 .timer-start-button svg { width: 21px; height: 21px; fill: currentColor; stroke: currentColor; }
+.timer-task-select { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; width: 100%; min-height: 58px; gap: 11px; padding: 9px 12px; color: #d7e7f6; text-align: left; border: 1px dashed rgba(166,197,220,.28); border-radius: 14px; background: rgba(1,8,16,.2); transition: border-color .2s, background-color .2s; }
+.timer-task-select:hover { border-color: var(--timer-accent, #32bcff); background: rgba(255,255,255,.08); }
+.timer-task-select.has-task { border-style: solid; border-color: color-mix(in srgb, var(--timer-accent, #32bcff) 58%, transparent); background: color-mix(in srgb, var(--timer-accent, #32bcff) 12%, transparent); }
+.timer-task-select__icon { display: grid; place-items: center; width: 38px; height: 38px; color: var(--timer-accent, #32bcff); border-radius: 11px; background: rgba(255,255,255,.08); }
+.timer-task-select__icon svg, .timer-task-select__arrow { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.timer-task-select > span:nth-child(2) { min-width: 0; }
+.timer-task-select small, .timer-task-select strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.timer-task-select small { margin-bottom: 3px; color: #91a7bd; font-size: 10px; font-weight: 750; }
+.timer-task-select strong { color: #f5f9ff; font-size: 13px; }
+.timer-task-select__arrow { color: #91a7bd; }
+.timer-task-picker-backdrop { position: fixed; z-index: 14; inset: 0; display: grid; place-items: center; padding: max(18px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left)); background: rgba(4,12,22,.58); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.timer-task-picker { display: grid; width: min(520px, 100%); max-height: min(720px, calc(100dvh - 36px)); padding: 20px; overflow: hidden; color: var(--ink); text-align: left; border: 1px solid rgba(255,255,255,.9); border-radius: 24px; background: rgba(248,252,255,.97); box-shadow: 0 24px 70px rgba(7,24,45,.34); }
+.timer-task-picker__heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 17px; }
+.timer-task-picker__heading span { color: var(--task-primary-text); font-size: 10px; font-weight: 850; letter-spacing: .16em; }
+.timer-task-picker__heading h2 { margin: 3px 0 0; color: var(--ink); font-size: 22px; letter-spacing: -.025em; }
+.timer-task-picker__heading > button { display: grid; flex: none; place-items: center; width: 44px; height: 44px; padding: 0; color: var(--ink); border: 0; border-radius: 13px; background: #e8f0f9; font-size: 24px; line-height: 1; }
+.timer-task-picker__add { padding: 13px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+.timer-task-picker__add label { display: block; margin-bottom: 7px; color: var(--ink-muted); font-size: 12px; font-weight: 800; }
+.timer-task-picker__add > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.timer-task-picker__add input { min-width: 0; height: 46px; padding: 0 12px; color: var(--ink); border: 1px solid rgba(69,106,154,.25); border-radius: 12px; background: #f8fbff; cursor: text; }
+.timer-task-picker__add button { min-height: 46px; padding: 8px 14px; color: #fff; border: 1px solid var(--task-primary-hover); border-radius: 12px; background: var(--task-primary-hover); font-size: 13px; font-weight: 800; }
+.timer-task-picker__list { display: grid; gap: 7px; min-height: 0; padding: 13px 2px 2px; overflow-y: auto; }
+.timer-task-picker__task { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; width: 100%; min-height: 60px; gap: 11px; padding: 9px 11px; color: var(--ink); text-align: left; border: 1px solid var(--line); border-radius: 14px; background: #fff; transition: border-color .2s, background-color .2s; }
+.timer-task-picker__task:hover, .timer-task-picker__task.is-selected { border-color: var(--task-primary-border); background: var(--task-primary-soft); }
+.timer-task-picker__radio { display: grid; place-items: center; width: 26px; height: 26px; color: #fff; border: 2px solid var(--task-primary-border); border-radius: 50%; background: #fff; font-size: 14px; font-weight: 900; }
+.timer-task-picker__task.is-selected .timer-task-picker__radio { background: var(--task-primary-hover); }
+.timer-task-picker__task > span:nth-child(2) { min-width: 0; }
+.timer-task-picker__task strong, .timer-task-picker__task small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.timer-task-picker__task strong { font-size: 14px; }
+.timer-task-picker__task small { margin-top: 3px; color: var(--ink-muted); font-size: 11px; }
+.timer-task-picker__task > svg { width: 20px; height: 20px; fill: none; stroke: var(--task-primary-text); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.timer-task-picker__task > svg path[d^="m9 6"] { fill: currentColor; stroke: currentColor; }
+.timer-task-picker__empty { margin: 13px 0 0; padding: 18px 14px; color: var(--ink-muted); text-align: center; border: 1px dashed var(--line); border-radius: 14px; font-size: 13px; line-height: 1.6; }
+.timer-task-picker__skip { min-height: 44px; padding: 8px; margin-top: 12px; color: var(--ink-muted); border: 0; background: transparent; font-size: 13px; font-weight: 750; }
+.timer-task-picker__skip:hover { color: var(--ink); text-decoration: underline; }
 .timer-return-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 190px; min-height: 50px; padding: 10px 17px; color: #fff; border: 1px solid var(--timer-accent, #20a9ee); border-radius: 16px; background: color-mix(in srgb, var(--timer-accent, #20a9ee) 25%, #071421); box-shadow: 0 9px 20px rgba(0,0,0,.16); font-weight: 800; transition: filter .2s, box-shadow .2s, background-color .2s; }
 .timer-return-button:hover { filter: brightness(1.12); box-shadow: 0 11px 25px rgba(0,0,0,.24); }
 .timer-return-button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -555,6 +590,10 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
   .timer-setup__actions { flex-direction: column; align-items: stretch; width: 100%; }
   .timer-return-button { width: 100%; }
   .timer-reset-button { width: 100%; }
+  .timer-task-picker { padding: 17px; border-radius: 21px; }
+  .timer-task-picker__heading h2 { font-size: 20px; }
+  .timer-task-picker__add > div { grid-template-columns: 1fr; }
+  .timer-task-picker__add button { width: 100%; }
   .floating-timer__drag { width: 190px; height: 190px; }
   .floating-timer--compact .floating-timer__drag { width: 80px; height: 80px; }
   .floating-timer__content { inset: 23px; }

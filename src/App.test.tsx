@@ -70,6 +70,10 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "タスク" }));
     fireEvent.click(screen.getByRole("button", { name: "設定を開く" }));
   };
+  const startWithoutTask = () => {
+    fireEvent.click(screen.getByRole("button", { name: "開始" }));
+    fireEvent.click(screen.getByRole("button", { name: "タスクなしで開始" }));
+  };
   const today = toLocalDateKey(new Date("2026-07-29T09:00:00+09:00"));
   const focusTask: TaskRecord = {
     version: 1,
@@ -266,12 +270,51 @@ describe("App", () => {
     render(<App />);
     expect(screen.getByLabelText("タイマー設定")).toBeTruthy();
     expect(document.querySelector(".dashboard")?.classList.contains("dashboard--timer-setup")).toBe(true);
-    fireEvent.click(screen.getByRole("button", { name: "開始" }));
+    startWithoutTask();
     expect(screen.getByLabelText("集中タイマー")).toBeTruthy();
     expect(screen.queryByLabelText("タイマー設定")).toBeNull();
     expect(document.querySelector(".dashboard")?.classList.contains("dashboard--timer-setup")).toBe(false);
     openSettings();
     expect(screen.getByRole("dialog", { name: "設定" })).toBeTruthy();
+  });
+
+  it("selects a task from the timer setup and starts a linked focus session", () => {
+    mockTasksState.tasks = [focusTask];
+    mockTasksState.projects = [focusProject];
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: /タスクを選ぶ・追加する/ }));
+    expect(screen.getByRole("dialog", { name: "取り組むタスクを選ぶ" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "数学の復習を選択" }));
+    fireEvent.click(screen.getByRole("button", { name: "数学の復習を開始" }));
+
+    expect(screen.queryByRole("dialog", { name: "取り組むタスクを選ぶ" })).toBeNull();
+    expect(screen.getByLabelText("数学の復習の集中タイマー").textContent).toContain("数学の復習");
+  });
+
+  it("asks for a task when starting and can start the selected task directly", () => {
+    mockTasksState.tasks = [focusTask];
+    mockTasksState.projects = [focusProject];
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "開始" }));
+    expect(screen.getByRole("dialog", { name: "どのタスクを始めますか？" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "数学の復習を開始" }));
+
+    expect(screen.queryByRole("dialog", { name: "どのタスクを始めますか？" })).toBeNull();
+    expect(screen.getByLabelText("数学の復習の集中タイマー").textContent).toContain("数学の復習");
+  });
+
+  it("adds a new task from the start dialog and begins it immediately", async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "開始" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "新しいタスク" }), { target: { value: "理科のレポート" } });
+    fireEvent.click(screen.getByRole("button", { name: "追加して開始" }));
+
+    await waitFor(() => expect(mockTasksState.addTask).toHaveBeenCalledWith({ title: "理科のレポート" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "どのタスクを始めますか？" })).toBeNull());
+    expect(screen.getByLabelText("集中タイマー")).toBeTruthy();
   });
 
   it("gives settings ranges a progress value without affecting the background editor range", () => {
@@ -321,7 +364,7 @@ describe("App", () => {
 
   it("returns to setup without stopping an active timer", () => {
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: "開始" }));
+    startWithoutTask();
     fireEvent.click(screen.getByRole("button", { name: "タイマーセット（タイマーは継続）" }));
 
     expect(screen.getByLabelText("進行中タイマーの設定")).toBeTruthy();
@@ -627,7 +670,7 @@ describe("App", () => {
 
   it("can minimize the floating timer without losing its main controls", () => {
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: "開始" }));
+    startWithoutTask();
     const timer = screen.getByLabelText(/クリックでミニ表示にする/);
     fireEvent.click(timer);
     expect(document.querySelector(".floating-timer--compact")).not.toBeNull();
@@ -648,7 +691,7 @@ describe("App", () => {
     Object.defineProperty(window, "innerHeight", { configurable: true, value: 568 });
     try {
       render(<App />);
-      fireEvent.click(screen.getByRole("button", { name: "開始" }));
+      startWithoutTask();
       const timer = screen.getByLabelText(/クリックでミニ表示にする/);
       Object.defineProperty(timer, "getBoundingClientRect", {
         configurable: true,

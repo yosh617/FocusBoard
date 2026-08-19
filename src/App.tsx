@@ -7,6 +7,7 @@ import { SettingsPanel } from "./components/SettingsPanel";
 import { TaskDrawer } from "./components/tasks/TaskDrawer";
 import { TaskLauncher } from "./components/tasks/TaskLauncher";
 import { SessionCompleteDialog } from "./components/tasks/SessionCompleteDialog";
+import { TimerTaskPicker } from "./components/tasks/TimerTaskPicker";
 import { useClock } from "./hooks/useClock";
 import { useLocalStorageSettings } from "./hooks/useLocalStorageSettings";
 import { usePomodoroTimer } from "./hooks/usePomodoroTimer";
@@ -91,6 +92,8 @@ export default function App() {
   } | null>(null);
   const [breakResumeTaskId, setBreakResumeTaskId] = useState<string | null>(null);
   const [timerSetupVisible, setTimerSetupVisible] = useState(false);
+  const [selectedTimerTaskId, setSelectedTimerTaskId] = useState<string | null>(null);
+  const [timerTaskPickerIntent, setTimerTaskPickerIntent] = useState<"select" | "start" | null>(null);
   const [taskDetailCardVisible, setTaskDetailCardVisible] = useState(false);
   const [taskDetailCardFading, setTaskDetailCardFading] = useState(false);
   const [backgroundEditing, setBackgroundEditing] = useState(false);
@@ -109,6 +112,11 @@ export default function App() {
   const updateTaskLauncherPosition = useCallback((taskLauncherPosition: { x: number; y: number }) => updateSettings({ taskLauncherPosition }), [updateSettings]);
   const todayKey = toLocalDateKey(now);
   const activeTask = timer.activeTaskId ? tasks.find((task) => task.id === timer.activeTaskId) ?? null : null;
+  const timerTaskCandidates = useMemo(() => sortTasksForFocus(tasks, todayKey), [tasks, todayKey]);
+  const selectedTimerTask = selectedTimerTaskId
+    ? timerTaskCandidates.find((task) => task.id === selectedTimerTaskId) ?? null
+    : null;
+  const timerAcceptsTask = timer.program === "pomodoro" ? timer.mode === "work" : timer.category === "focus";
   const completedTask = completedSession?.taskId ? tasks.find((task) => task.id === completedSession.taskId) ?? null : null;
   const todayOpenTaskCount = useMemo(() => getTasksForView(tasks, "today", todayKey).length, [tasks, todayKey]);
   const todayCompletedTaskCount = useMemo(
@@ -250,6 +258,7 @@ export default function App() {
     setTaskMessage("");
     setTaskDrawerResumeContext(null);
     setBreakResumeTaskId(null);
+    setSelectedTimerTaskId(taskId);
     start(taskId);
     setTasksOpen(false);
   }, [setTaskMessage, start]);
@@ -325,11 +334,28 @@ export default function App() {
     if (settings.fullscreen !== isFullscreen) updateSettings({ fullscreen: isFullscreen });
   }, [isFullscreen, settings.fullscreen, updateSettings]);
 
-  const startTimer = useCallback(() => {
+  const beginTimer = useCallback((taskId?: string | null) => {
+    setTimerTaskPickerIntent(null);
+    if (taskId !== undefined) setSelectedTimerTaskId(taskId);
     setTimerSetupVisible(false);
     updateSettings({ timerSetupCollapsed: true });
-    start();
+    start(taskId);
   }, [start, updateSettings]);
+  const startTimer = useCallback(() => {
+    if (timer.status !== "idle") {
+      beginTimer();
+      return;
+    }
+    if (!timerAcceptsTask) {
+      beginTimer(null);
+      return;
+    }
+    if (selectedTimerTask) {
+      beginTimer(selectedTimerTask.id);
+      return;
+    }
+    setTimerTaskPickerIntent("start");
+  }, [beginTimer, selectedTimerTask, timer.status, timerAcceptsTask]);
   const showTimerSetup = useCallback(() => {
     setTimerSetupVisible(true);
     updateSettings({ timerSetupCollapsed: false });
@@ -360,11 +386,14 @@ export default function App() {
         onSetDuration={setCustomDurationMinutes}
         onCollapse={() => { setTimerSetupVisible(false); updateSettings({ timerSetupCollapsed: true }); }}
         onShowFloating={showFloatingTimer}
+        taskSelectionEnabled={timerAcceptsTask}
+        selectedTaskTitle={selectedTimerTask?.title ?? null}
+        onOpenTaskPicker={() => setTimerTaskPickerIntent("select")}
         key="timer"
       />
     );
     return slots;
-  }, [orientation, settings, timer, timerSetupVisible, startTimer, resetTimer, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, showFloatingTimer, updateSettings]);
+  }, [orientation, settings, timer, timerSetupVisible, startTimer, resetTimer, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, showFloatingTimer, timerAcceptsTask, selectedTimerTask?.title, updateSettings]);
 
   const liveMessage = reminderMessage || taskMessage || backgroundMessage || announcement || storageMessage;
   const activeOverlay = completedSession !== null && completedTask !== null
@@ -510,6 +539,21 @@ export default function App() {
       )}
 
       {liveMessage && <div className="toast" role="status" aria-live="polite">{liveMessage}</div>}
+      <TimerTaskPicker
+        open={timerTaskPickerIntent !== null}
+        intent={timerTaskPickerIntent ?? "select"}
+        tasks={timerTaskCandidates}
+        projects={projects}
+        selectedTaskId={selectedTimerTask?.id ?? null}
+        storageAvailable={taskStorageAvailable}
+        onAddTask={(title) => addTask({ title })}
+        onSelect={(taskId) => {
+          setSelectedTimerTaskId(taskId);
+          setTimerTaskPickerIntent(null);
+        }}
+        onStart={(taskId) => beginTimer(taskId)}
+        onClose={() => setTimerTaskPickerIntent(null)}
+      />
       <nav className="home-dock" aria-label="ホーム操作">
         <button className="home-dock__button home-dock__button--tasks" type="button" aria-label="タスク" aria-pressed={tasksOpen} onClick={() => openTasks(homeTasksRef.current)} ref={homeTasksRef}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h10M9 12h10M9 18h10M4 6h.01M4 12h.01M4 18h.01" /></svg><span>タスク</span>

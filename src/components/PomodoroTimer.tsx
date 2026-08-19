@@ -12,6 +12,9 @@ type Props = {
   onReset: () => void;
   onCollapse: () => void;
   onShowFloating: () => void;
+  taskSelectionEnabled: boolean;
+  selectedTaskTitle: string | null;
+  onOpenTaskPicker: () => void;
 };
 
 const modes: TimerMode[] = ["work", "shortBreak", "longBreak"];
@@ -38,7 +41,10 @@ export function PomodoroTimer({
   onSetDuration,
   onReset,
   onCollapse,
-  onShowFloating
+  onShowFloating,
+  taskSelectionEnabled,
+  selectedTaskTitle,
+  onOpenTaskPicker
 }: Props) {
   const isActive = timer.status !== "idle";
   const elapsedMs = getTimerElapsedMs(timer);
@@ -138,6 +144,17 @@ export function PomodoroTimer({
         </div>
       )}
 
+      {!isActive && taskSelectionEnabled && (
+        <div className="timer-setup__step timer-setup__task-step">
+          <div className="timer-setup__step-heading"><strong>取り組むタスク</strong></div>
+          <button className={`timer-task-select${selectedTaskTitle ? " has-task" : ""}`} type="button" onClick={onOpenTaskPicker} aria-haspopup="dialog">
+            <span className="timer-task-select__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 6h11M8 12h11M8 18h7M4 6h.01M4 12h.01M4 18h.01" /></svg></span>
+            <span><small>{selectedTaskTitle ? "選択中" : "集中する内容を決める"}</small><strong>{selectedTaskTitle ?? "タスクを選ぶ・追加する"}</strong></span>
+            <svg className="timer-task-select__arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
+          </button>
+        </div>
+      )}
+
       <div className={`timer-setup__footer${isActive ? " timer-setup__footer--active" : ""}`}>
         <div className="timer-setup__preview">
           {!isActive && <span>セット時間</span>}
@@ -153,7 +170,7 @@ export function PomodoroTimer({
           リセット
         </button></div> : <button className="timer-start-button" type="button" onClick={onStart}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6V6Z" /></svg>
-          開始
+          {selectedTaskTitle && taskSelectionEnabled ? `${selectedTaskTitle}を開始` : "開始"}
         </button>}
       </div>
     </section>

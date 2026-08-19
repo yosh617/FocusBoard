@@ -182,7 +182,7 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
     setAnnouncement(`${categoryLabel[timer.category]}の${direction}が終了しました。延長中です。`);
   }, [timer.status, timer.program, timer.mode, timer.category]);
 
-  const start = useCallback((taskId?: string) => {
+  const start = useCallback((taskId?: string | null) => {
     if (settingsRef.current.soundEnabled) prepareAudio();
     setAnnouncement("");
     setTimer((current) => {
@@ -334,7 +334,7 @@ function createTimerApi(api: {
   timer: TimerState;
   announcement: string;
   setAnnouncement: Dispatch<SetStateAction<string>>;
-  start: (taskId?: string) => void;
+  start: (taskId?: string | null) => void;
   pause: () => void;
   reset: () => void;
   selectMode: (mode: TimerMode) => void;
