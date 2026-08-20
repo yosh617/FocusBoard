@@ -12,6 +12,7 @@ import { AppCalendar } from "../ui/AppCalendar";
 import { AppDateField } from "../ui/AppDateField";
 import { AppDateTimeField } from "../ui/AppDateTimeField";
 import { AppSelect } from "../ui/AppSelect";
+import { ColorPickerDisclosure } from "../ui/ColorPicker";
 
 type Props = {
   open: boolean;
@@ -893,7 +894,7 @@ export function TaskDrawer({
         <a className="task-skip-link" href="#task-workspace-main">現在の一覧へ移動</a>
         <div className="task-drawer__sheet-handle" aria-hidden="true" />
         <header className="task-drawer__header">
-          <div><h2 id="task-drawer-title">タスク管理</h2></div>
+          <div><h2 id="task-drawer-title">Tasks</h2></div>
           <div className="task-drawer__header-actions">
             {notificationPermission === "default" && <button className="task-header-action" type="button" onClick={() => void onRequestNotification()}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 7h18s-3 0-3-7M10 20h4" /></svg><span>通知を許可</span></button>}
             {canUndo && <button className="task-header-action" type="button" onClick={() => void onUndo()}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7-5 5 5 5M5 12h8a6 6 0 0 1 6 6" /></svg><span>元に戻す</span></button>}
@@ -937,13 +938,14 @@ export function TaskDrawer({
                   <input aria-label="新しいプロジェクト名" placeholder="プロジェクトを追加" maxLength={80} value={newProjectName} onChange={(event) => setNewProjectName(event.target.value)} disabled={!storageAvailable} />
                   <button className="project-add__submit" type="submit" aria-label="プロジェクトを追加" disabled={!storageAvailable || !newProjectName.trim()}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg></button>
                   <div className="project-add__palette" role="group" aria-label="プロジェクトの色を選択">
-                    {projectColorOptions.map((color) => {
-                      const selected = newProjectColor === color.value;
-                      return <button className={selected ? "is-selected" : ""} type="button" aria-label={color.name} aria-pressed={selected} disabled={!storageAvailable} onClick={() => setNewProjectColor(color.value)} key={color.value}>
-                        <span style={{ backgroundColor: color.value }} />
-                        {selected && <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>}
-                      </button>;
-                    })}
+                    <ColorPickerDisclosure
+                      value={newProjectColor}
+                      label="プロジェクトの色"
+                      modes={["grid", "spectrum", "sliders"]}
+                      savedColors={projectColorOptions.map(({ name, value }) => ({ label: name, color: value }))}
+                      onChange={(color) => setNewProjectColor(projectColorOptions.find((option) => option.value.toLowerCase() === color.toLowerCase())?.value ?? color)}
+                      disabled={!storageAvailable}
+                    />
                   </div>
                 </form>}
               </div>
@@ -997,7 +999,7 @@ export function TaskDrawer({
               {!storageAvailable && <div className="task-callout" role="status"><strong>タスク保存を利用できません</strong><span>時計とタイマーはそのまま使えます。ブラウザのサイトデータ設定を確認してください。</span></div>}
             </div>
 
-            {loading ? <p className="task-empty">読み込み中...</p> : filteredTasks.length === 0 && (!(!projectId && view === "today") || todayCompletedTasks.length === 0) ? <div className="task-empty"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14v14H5zM8 3.5h8M8 10h8M8 14h5" /></svg><strong>{listFilter === "all" ? "タスクはありません" : "該当するタスクはありません"}</strong><span>{listFilter === "all" ? "上の入力欄から追加できます。" : "絞り込みを変更してください。"}</span></div> : (
+            {loading ? <p className="task-empty">読み込み中...</p> : filteredTasks.length === 0 && (!(!projectId && view === "today") || todayCompletedTasks.length === 0) ? <div className="task-empty"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14v14H5zM8 3.5h8M8 10h8M8 14h5" /></svg><strong>{listFilter === "all" ? "タスクはありません" : "該当するタスクはありません"}</strong></div> : (
               <div className="task-list" aria-label="タスク一覧">
                 {taskSections.map((section) => (
                   <section className="task-list__section" aria-labelledby={`task-section-${section.key}`} key={section.key}>
@@ -1039,19 +1041,20 @@ export function TaskDrawer({
             {view !== "completed" && (
               <section className="task-capture__settings" aria-labelledby="task-capture-settings-heading">
                 <h4 id="task-capture-settings-heading" className="task-capture__settings-heading">設定</h4>
-                <div className="task-capture__estimate" aria-label="ポモドーロの予定数">
-                  <span>予定数</span>
-                  <div role="group" aria-label="追加するタスクの集中回数">
-                    {quickFocusOptions.map((value) => <button className={quickEstimatedPomodoros === value ? "is-active" : ""} type="button" aria-pressed={quickEstimatedPomodoros === value} aria-label={`${value}回`} onClick={() => { setQuickEstimatedPomodoros(value); setQuickPanel(null); }} key={value}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="7" /><path d="M9 3h6M12 9v4l3 2" /></svg><strong>{value}</strong></button>)}
-                    <button className={quickPanel === "estimate" || quickEstimatedPomodoros >= 5 ? "is-active" : ""} type="button" aria-expanded={quickPanel === "estimate"} aria-label="5回以上を設定" onClick={() => setQuickPanel((current) => current === "estimate" ? null : "estimate")}><QuickAddIcon type="more" /></button>
-                  </div>
+                <div className="task-capture__estimate">
+                  <span className="task-capture__estimate-label"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="7" /><path d="M9 3h6M12 6v7l3 2" /></svg><strong>予定ポモドーロ</strong></span>
+                  {quickPanel === "estimate"
+                    ? <div className="task-capture__estimate-slider"><input type="range" min="1" max="20" step="1" aria-label="予定ポモドーロのスライダー" value={Math.min(20, Math.max(1, quickEstimatedPomodoros))} onChange={(event) => setQuickEstimatedPomodoros(Number(event.target.value))} /><input className="task-capture__estimate-number" type="number" min="1" max="99" inputMode="numeric" aria-label="予定ポモドーロの回数" value={quickEstimatedPomodoros} onChange={(event) => setQuickEstimatedPomodoros(Math.min(99, Math.max(1, Number(event.target.value))))} /><button className="task-capture__estimate-back" type="button" aria-label="予定ポモドーロのプリセットへ戻る" onClick={() => setQuickPanel(null)}>×</button></div>
+                    : <div className="task-capture__estimate-options" role="group" aria-label="追加するタスクの予定ポモドーロ">
+                      {quickFocusOptions.map((value) => <button className={quickEstimatedPomodoros === value ? "is-active" : ""} type="button" aria-pressed={quickEstimatedPomodoros === value} aria-label={`${value}回`} onClick={() => setQuickEstimatedPomodoros(value)} key={value}>{value}</button>)}
+                      <button className={quickEstimatedPomodoros >= 5 ? "is-active" : ""} type="button" aria-expanded="false" aria-label="5回以上を設定" onClick={() => { setQuickPanel("estimate"); if (quickEstimatedPomodoros < 5) setQuickEstimatedPomodoros(5); }}>5+</button>
+                    </div>}
                 </div>
-                {quickPanel === "estimate" && <div className="task-capture__estimate-slider"><label htmlFor="quick-estimate-range">予定数 <output>{Math.max(5, quickEstimatedPomodoros)}回</output></label><input id="quick-estimate-range" type="range" min="5" max="20" step="1" value={Math.max(5, quickEstimatedPomodoros)} onChange={(event) => setQuickEstimatedPomodoros(Number(event.target.value))} /></div>}
                 <div className="task-capture__toolbar">
-                  <button className={dueDate ? "is-active" : ""} type="button" aria-label={dueDate ? `期限 ${dueDate}。もう一度押して変更` : "期限を今日に設定"} aria-expanded={quickPanel === "date"} onClick={() => { if (!dueDate) { setDueDate(today); setQuickPanel(null); } else setQuickPanel((current) => current === "date" ? null : "date"); }}><QuickAddIcon type="date" /><span>{dueDate === today ? "今日" : dueDate ? dueDate.slice(5).replace("-", "/") : "期限"}</span></button>
-                  <button className={quickPriority !== "none" ? "is-active" : ""} type="button" aria-label={`優先度 ${priorityOptions.find((option) => option.value === quickPriority)?.label}`} aria-expanded={quickPanel === "priority"} onClick={() => setQuickPanel((current) => current === "priority" ? null : "priority")} style={{ color: priorityOptions.find((option) => option.value === quickPriority)?.color }}><QuickAddIcon type="priority" /><span>優先度</span></button>
-                  <button className={quickTags.length > 0 ? "is-active" : ""} type="button" aria-label={quickTags.length > 0 ? `タグ ${quickTags.join("、")}` : "タグを設定"} aria-expanded={quickPanel === "tag"} onClick={() => setQuickPanel((current) => current === "tag" ? null : "tag")}><QuickAddIcon type="tag" /><span>{quickTags.length > 0 ? `${quickTags.length}件` : "タグ"}</span></button>
-                  <button className={quickAddProjectId ? "is-active" : ""} type="button" aria-label="プロジェクトを設定" aria-expanded={quickPanel === "project"} onClick={() => setQuickPanel((current) => current === "project" ? null : "project")}><QuickAddIcon type="project" /><span>{activeProjects.find((item) => item.id === quickAddProjectId)?.name ?? "Inbox"}</span></button>
+                  <button className={dueDate ? "is-active" : ""} type="button" aria-label={dueDate ? `期限 ${dueDate}。もう一度押して変更` : "期限を今日に設定"} aria-expanded={quickPanel === "date"} onClick={() => { if (!dueDate) { setDueDate(today); setQuickPanel(null); } else setQuickPanel((current) => current === "date" ? null : "date"); }}><QuickAddIcon type="date" /><span className="task-capture__toolbar-copy"><strong>期限</strong><small>{dueDate === today || (!dueDate && view === "today") ? "今日" : dueDate ? dueDate.slice(5).replace("-", "/") : "なし"}</small></span></button>
+                  <button className={quickPriority !== "none" ? "is-active" : ""} type="button" aria-label={`優先度 ${priorityOptions.find((option) => option.value === quickPriority)?.label}`} aria-expanded={quickPanel === "priority"} onClick={() => setQuickPanel((current) => current === "priority" ? null : "priority")} style={{ color: priorityOptions.find((option) => option.value === quickPriority)?.color }}><QuickAddIcon type="priority" /><span className="task-capture__toolbar-copy"><strong>優先度</strong><small>{priorityOptions.find((option) => option.value === quickPriority)?.label}</small></span></button>
+                  <button className={quickTags.length > 0 ? "is-active" : ""} type="button" aria-label={quickTags.length > 0 ? `タグ ${quickTags.join("、")}` : "タグを設定"} aria-expanded={quickPanel === "tag"} onClick={() => setQuickPanel((current) => current === "tag" ? null : "tag")}><QuickAddIcon type="tag" /><span className="task-capture__toolbar-copy"><strong>タグ</strong><small>{quickTags.length > 0 ? quickTags.join("、") : "なし"}</small></span></button>
+                  <button className={quickAddProjectId ? "is-active" : ""} type="button" aria-label="プロジェクトを設定" aria-expanded={quickPanel === "project"} onClick={() => setQuickPanel((current) => current === "project" ? null : "project")}><QuickAddIcon type="project" /><span className="task-capture__toolbar-copy"><strong>リスト</strong><small>{activeProjects.find((item) => item.id === quickAddProjectId)?.name ?? "Inbox"}</small></span></button>
                 </div>
                 {quickPanel === "date" && <AppCalendar title="期限を設定" value={dueDate} today={today} onSelect={(value) => { setDueDate(value); setQuickPanel(null); }} onClose={() => setQuickPanel(null)} />}
                 {quickPanel === "priority" && <section className="quick-add-popover quick-add-priority" role="dialog" aria-label="優先度を設定"><div className="quick-add-popover__header"><strong>優先度</strong><button type="button" aria-label="優先度設定を閉じる" onClick={() => setQuickPanel(null)}>×</button></div><div>{priorityOptions.map((option) => <button className={quickPriority === option.value ? "is-selected" : ""} type="button" aria-pressed={quickPriority === option.value} onClick={() => { setQuickPriority(option.value); setQuickPanel(null); }} key={option.value}><span style={{ color: option.color }}><QuickAddIcon type="priority" /></span><strong>{option.label}</strong></button>)}</div></section>}

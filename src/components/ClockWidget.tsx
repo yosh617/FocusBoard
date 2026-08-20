@@ -4,6 +4,7 @@ import { defaultSettings, describeFontSize, fontOptions, settingRanges, type App
 import { getOrientation } from "../hooks/useOrientation";
 import { ClockDisplay } from "./ClockDisplay";
 import { DateDisplay } from "./DateDisplay";
+import { ColorPickerDisclosure } from "./ui/ColorPicker";
 
 type Props = {
   now: Date;
@@ -24,8 +25,7 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
 
 type EditorPosition = {
   left: number;
-  offset: number;
-  above: boolean;
+  top: number;
 };
 
 export function ClockWidget({ now, settings, textColor, onChange, onMessage, orientation }: Props) {
@@ -113,15 +113,26 @@ export function ClockWidget({ now, settings, textColor, onChange, onMessage, ori
       const rect = display.getBoundingClientRect();
       const edgeGap = 16;
       const panelWidth = Math.min(360, window.innerWidth - edgeGap * 2);
+      const panelHeight = editorRef.current?.getBoundingClientRect().height ?? 400;
       const left = clamp(rect.left + rect.width / 2 - panelWidth / 2, edgeGap, window.innerWidth - panelWidth - edgeGap);
       const above = rect.top > window.innerHeight / 2;
-      const offset = above ? window.innerHeight - rect.top + 12 : rect.bottom + 12;
-      setEditorPosition({ left, offset, above });
+      const preferredTop = above ? rect.top - panelHeight - 12 : rect.bottom + 12;
+      const top = clamp(preferredTop, edgeGap, Math.max(edgeGap, window.innerHeight - panelHeight - edgeGap));
+      setEditorPosition((current) => current?.left === left && current.top === top ? current : { left, top });
     };
 
     updateEditorPosition();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateEditorPosition);
+    const frame = window.requestAnimationFrame(() => {
+      updateEditorPosition();
+      if (editorRef.current) observer?.observe(editorRef.current);
+    });
     window.addEventListener("resize", updateEditorPosition);
-    return () => window.removeEventListener("resize", updateEditorPosition);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer?.disconnect();
+      window.removeEventListener("resize", updateEditorPosition);
+    };
   }, [open, position.x, position.y]);
 
   useEffect(() => () => {
@@ -189,13 +200,13 @@ export function ClockWidget({ now, settings, textColor, onChange, onMessage, ori
 
       {open && editorPosition && createPortal(
         <section
-          className={`clock-editor${editorPosition.above ? " clock-editor--above" : ""}`}
+          className="clock-editor"
           role="dialog"
           aria-label="時計とカレンダーの表示設定"
           ref={editorRef}
           style={{
             left: `${editorPosition.left}px`,
-            [editorPosition.above ? "bottom" : "top"]: `${editorPosition.offset}px`,
+            top: `${editorPosition.top}px`,
             fontFamily: fontOptions[settings.fontFamily as keyof typeof fontOptions] ?? fontOptions.system
           } as CSSProperties}
         >
@@ -213,7 +224,12 @@ export function ClockWidget({ now, settings, textColor, onChange, onMessage, ori
           </div>
           <div className="clock-editor__color">
             <div className="clock-editor__color-heading"><span>時計・日付の色</span><label><input type="checkbox" aria-label="時計の色を自動調整" checked={settings.matchClockBackgroundColors} onChange={(event) => onChange({ matchClockBackgroundColors: event.target.checked })} />自動調整</label></div>
-            {!settings.matchClockBackgroundColors && <label className="clock-editor__color-input" htmlFor="clock-editor-color"><span>手動で選ぶ</span><input id="clock-editor-color" aria-label="時計・日付の色" type="color" value={settings.clockColor} onChange={(event) => onChange({ clockColor: event.target.value, colorPreset: "custom", matchClockBackgroundColors: false })} /></label>}
+            {!settings.matchClockBackgroundColors && <ColorPickerDisclosure
+              value={settings.clockColor}
+              label="時計・日付の色"
+              modes={["grid", "spectrum", "sliders"]}
+              onChange={(color) => onChange({ clockColor: color, colorPreset: "custom", matchClockBackgroundColors: false })}
+            />}
           </div>
           <label className="clock-editor__range">時計の大きさ <output>{describeFontSize(settings.clockFontSize, defaultSettings.clockFontSize, settingRanges.clockFontSize.min, settingRanges.clockFontSize.max)}</output><input aria-label="時計の大きさ" type="range" min="56" max="220" value={settings.clockFontSize} onChange={(event) => onChange({ clockFontSize: Number(event.target.value) })} /></label>
           <button className="clock-editor__reset" type="button" onClick={() => { onChange({ clockDatePosition: { x: .5, y: .5 }, clockDateAlignment: "center" }); onMessage("時計とカレンダーを中央にそろえました。"); }}>中央に戻す</button>

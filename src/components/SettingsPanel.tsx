@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
-import { colorPresets, dateFormatPresets, defaultSettings, describeFontSize, fontOptions, orientations, settingRanges, taskThemePresets, type AppSettings, type BackgroundChoice, type BackgroundFrame, type ColorPreset, type FontOption, type Orientation, type PositionPreset, type TaskThemePreset } from "../types/settings";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { colorPresets, dateFormatPresets, defaultSettings, describeFontSize, fontOptions, orientations, settingRanges, taskThemePresets, type AppSettings, type BackgroundChoice, type BackgroundFrame, type FontOption, type Orientation, type PositionPreset, type TaskThemePreset } from "../types/settings";
 import type { CustomBackground } from "../utils/backgroundStorage";
 import { defaultBackgrounds } from "./BackgroundSlideshow";
 import { ResetPanel } from "./ResetPanel";
@@ -7,6 +7,7 @@ import { downloadSettingsExport } from "../utils/settingsExport";
 import { appVersion } from "../utils/appVersion";
 import type { AdaptivePalette } from "../utils/adaptiveColor";
 import { AppSelect } from "./ui/AppSelect";
+import { ColorPicker, type ColorPickerSavedColor } from "./ui/ColorPicker";
 
 type Category = "background" | "display" | "timer" | "data";
 type ResettableCategory = Exclude<Category, "data">;
@@ -41,6 +42,24 @@ const fonts: { value: FontOption; label: string }[] = [{ value: "system", label:
 const customDateFormatExample = "yyyy/mm/dd (weekdayShort)";
 const builtInBackgroundLabels = ["モーニング", "ラベンダー", "スカイ"];
 const orientationLabels: Record<Orientation, string> = { portrait: "縦向き", landscape: "横向き" };
+const clockSavedColors: ColorPickerSavedColor[] = [
+  { label: "白", color: "#ffffff" },
+  { label: "黒", color: "#000000" },
+  ...Object.values(colorPresets).map(({ label, text }) => ({ label, color: text }))
+];
+const timerSavedColors: ColorPickerSavedColor[] = [
+  { label: "レッド", color: "#ff3b30" },
+  { label: "オレンジ", color: "#ff9500" },
+  { label: "イエロー", color: "#ffcc00" },
+  { label: "グリーン", color: "#34c759" },
+  { label: "ミント", color: "#00c7be" },
+  { label: "シアン", color: "#32ade6" },
+  { label: "ブルー", color: "#007aff" },
+  { label: "インディゴ", color: "#5856d6" },
+  { label: "パープル", color: "#af52de" },
+  { label: "ピンク", color: "#ff2d55" },
+  ...Object.values(colorPresets).map(({ label, accent }) => ({ label, color: accent }))
+];
 
 function SettingsCategoryIcon({ category }: { category: Category }) {
   if (category === "background") return <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><circle cx="8" cy="9" r="1.3" /><path d="m5.5 17 4.5-4.5 3 3 2.2-2.2 3.3 3.7" /></svg>;
@@ -64,168 +83,15 @@ function Range({ id, label, value, min, max, step, unit, initial, formatValue, o
   const rangeStyle = { "--range-progress": `${progress}%` } as CSSProperties;
   return <div className="setting-control range-control"><label htmlFor={id}>{label}<output>{formatValue ? formatValue(value) : `${value}${unit}`}</output></label><div className="range-control__inputs"><input id={id} className="settings-range" type="range" min={min} max={max} step={step} value={value} style={rangeStyle} aria-valuemin={min} aria-valuemax={max} aria-valuenow={value} onChange={(event) => input(event.target.value)} /><input className="number-input" aria-label={`${label}の数値`} type="number" min={min} max={max} step={step} value={value} onChange={(event) => input(event.target.value)} />{unit && <span>{unit}</span>}<button type="button" className="reset-value" aria-label={`${label}を初期値に戻す`} onClick={() => onChange(initial)}>戻す</button></div></div>;
 }
-function ColorSetting({ id, label, value, disabled, onChange }: { id: string; label: string; value: string; disabled: boolean; onChange: (value: string) => void }) {
-  return <div className={`color-setting${disabled ? " color-setting--disabled" : ""}`}><div className="color-setting__heading"><label htmlFor={id}>{label}</label><output>{value.toUpperCase()}</output></div><input id={id} type="color" value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)} /></div>;
-}
-
-type HslColor = { h: number; s: number; l: number };
-type TimerColorMode = "grid" | "sliders";
-
-const timerAccentPresets = [
-  { id: "red", label: "レッド", accent: "#ff3b30" },
-  { id: "orange", label: "オレンジ", accent: "#ff9500" },
-  { id: "yellow", label: "イエロー", accent: "#ffcc00" },
-  { id: "green", label: "グリーン", accent: "#34c759" },
-  { id: "mint", label: "ミント", accent: "#00c7be" },
-  { id: "cyan", label: "シアン", accent: "#32ade6" },
-  { id: "blue", label: "ブルー", accent: "#007aff" },
-  { id: "indigo", label: "インディゴ", accent: "#5856d6" },
-  { id: "purple", label: "パープル", accent: "#af52de" },
-  { id: "pink", label: "ピンク", accent: "#ff2d55" },
-  { id: "sky", label: "スカイ", accent: colorPresets.sky.accent },
-  { id: "lavender", label: "ラベンダー", accent: colorPresets.lavender.accent }
-] as const;
-
-function normalizeHex(value: string): string {
-  const match = value.trim().match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i);
-  if (!match) return colorPresets.sky.accent;
-  const digits = match[1].length === 3 ? match[1].split("").map((digit) => `${digit}${digit}`).join("") : match[1];
-  return `#${digits.toLowerCase()}`;
-}
-
-function hexToHsl(value: string): HslColor {
-  const hex = normalizeHex(value).slice(1);
-  const red = Number.parseInt(hex.slice(0, 2), 16) / 255;
-  const green = Number.parseInt(hex.slice(2, 4), 16) / 255;
-  const blue = Number.parseInt(hex.slice(4, 6), 16) / 255;
-  const max = Math.max(red, green, blue);
-  const min = Math.min(red, green, blue);
-  const lightness = (max + min) / 2;
-  const difference = max - min;
-  if (difference === 0) return { h: 0, s: 0, l: Math.round(lightness * 100) };
-  const saturation = difference / (1 - Math.abs(2 * lightness - 1));
-  let hue: number;
-  if (max === red) hue = ((green - blue) / difference) % 6;
-  else if (max === green) hue = (blue - red) / difference + 2;
-  else hue = (red - green) / difference + 4;
-  hue = Math.round(hue * 60);
-  if (hue < 0) hue += 360;
-  return { h: hue, s: Math.round(saturation * 100), l: Math.round(lightness * 100) };
-}
-
-function hslToHex({ h, s, l }: HslColor): string {
-  const hue = ((h % 360) + 360) % 360;
-  const saturation = Math.min(100, Math.max(0, s)) / 100;
-  const lightness = Math.min(100, Math.max(0, l)) / 100;
-  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
-  const section = hue / 60;
-  const second = chroma * (1 - Math.abs((section % 2) - 1));
-  const match = lightness - chroma / 2;
-  const [red, green, blue] = section < 1
-    ? [chroma, second, 0]
-    : section < 2
-      ? [second, chroma, 0]
-      : section < 3
-        ? [0, chroma, second]
-        : section < 4
-          ? [0, second, chroma]
-          : section < 5
-            ? [second, 0, chroma]
-            : [chroma, 0, second];
-  return `#${[red, green, blue].map((channel) => Math.round((channel + match) * 255).toString(16).padStart(2, "0")).join("")}`;
-}
-
-function TimerAccentColorSetting({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  const currentHex = normalizeHex(value);
-  const [mode, setMode] = useState<TimerColorMode>("grid");
-  const [hsl, setHsl] = useState<HslColor>(() => hexToHsl(currentHex));
-  useEffect(() => setHsl(hexToHsl(currentHex)), [currentHex]);
-
-  const selectColor = (nextHex: string) => {
-    const normalized = normalizeHex(nextHex);
-    setHsl(hexToHsl(normalized));
-    onChange(normalized);
-  };
-  const updateChannel = (channel: keyof HslColor, nextValue: string) => {
-    const nextHsl = { ...hsl, [channel]: Number(nextValue) };
-    setHsl(nextHsl);
-    onChange(hslToHex(nextHsl));
-  };
-  const moveGridSelection = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    const movement = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 0;
-    if (!movement) return;
-    const buttons = [...event.currentTarget.querySelectorAll<HTMLButtonElement>("button")];
-    const currentIndex = buttons.indexOf(document.activeElement as HTMLButtonElement);
-    if (currentIndex < 0) return;
-    event.preventDefault();
-    buttons[(currentIndex + movement + buttons.length) % buttons.length]?.click();
-    buttons[(currentIndex + movement + buttons.length) % buttons.length]?.focus();
-  };
-  const sliderOptions: { channel: keyof HslColor; label: string; max: number; unit: string }[] = [
-    { channel: "h", label: "色相", max: 360, unit: "°" },
-    { channel: "s", label: "彩度", max: 100, unit: "%" },
-    { channel: "l", label: "明度", max: 100, unit: "%" }
-  ];
-  const sliderStyle = (channel: keyof HslColor): CSSProperties => {
-    if (channel === "h") {
-      return { "--timer-color-picker-track": "linear-gradient(to right, #ff3b30 0%, #ff9500 16%, #ffcc00 32%, #34c759 48%, #00c7be 64%, #007aff 78%, #5856d6 90%, #ff2d55 100%)" } as CSSProperties;
-    }
-    if (channel === "s") {
-      return {
-        "--picker-hue": `${hsl.h}`,
-        "--timer-color-picker-track": `linear-gradient(to right, ${hslToHex({ h: hsl.h, s: 0, l: hsl.l })}, ${hslToHex({ h: hsl.h, s: 100, l: hsl.l })})`
-      } as CSSProperties;
-    }
-    return {
-      "--picker-hue": `${hsl.h}`,
-      "--picker-saturation": `${hsl.s}%`,
-      "--timer-color-picker-track": `linear-gradient(to right, #000, ${hslToHex({ h: hsl.h, s: hsl.s, l: 50 })}, #fff)`
-    } as CSSProperties;
-  };
-
-  return <div className="timer-color-picker" data-mode={mode === "grid" ? "grid" : "sliders"}>
-    <div className="timer-color-picker__preview" role="img" aria-label={`現在のタイマーアクセント色 ${currentHex.toUpperCase()}`}>
-      <span className="timer-color-picker__sample" style={{ "--timer-color": currentHex } as CSSProperties} aria-hidden="true" />
-      <div><strong>タイマー</strong><output className="timer-color-picker__value" aria-live="polite">{currentHex.toUpperCase()}</output></div>
-      <label><span className="visually-hidden">タイマーのアクセント色</span><input id="timer-color-hex" className="timer-color-picker__native" type="color" value={currentHex} onChange={(event) => selectColor(event.target.value)} /></label>
-    </div>
-    <div className="timer-color-picker__modes" role="group" aria-label="タイマーアクセント色の選択方法">
-      <button className={`timer-color-picker__mode${mode === "grid" ? " is-active" : ""}`} type="button" aria-label="色をグリッドで選ぶ" aria-pressed={mode === "grid"} onClick={() => setMode("grid")}>グリッド</button>
-      <button className={`timer-color-picker__mode${mode === "sliders" ? " is-active" : ""}`} type="button" aria-label="色をスライダーで調整" aria-pressed={mode === "sliders"} onClick={() => setMode("sliders")}>スライダー</button>
-    </div>
-    {mode === "grid" ? <div className="timer-color-picker__grid" role="radiogroup" aria-label="タイマーアクセント色" onKeyDown={moveGridSelection}>
-      {timerAccentPresets.map((preset) => {
-        const selected = currentHex === preset.accent.toLowerCase();
-        return <button className={`timer-color-picker__swatch${selected ? " is-selected" : ""}`} type="button" role="radio" aria-label={preset.label} aria-checked={selected} style={{ "--swatch-color": preset.accent } as CSSProperties} onClick={() => selectColor(preset.accent)} key={preset.id} />;
-      })}
-    </div> : <div aria-label="タイマーアクセント色の調整">
-      {sliderOptions.map(({ channel, label, max, unit }) => <label className="timer-color-picker__slider" data-channel={channel === "h" ? "hue" : channel === "s" ? "saturation" : "lightness"} htmlFor={`timer-color-${channel}`} key={channel}>
-        <span className="timer-color-picker__slider-label"><span>{label}</span><output>{hsl[channel]}{unit}</output></span>
-        <input className="timer-color-picker__range" id={`timer-color-${channel}`} style={sliderStyle(channel)} type="range" min="0" max={max} step="1" value={hsl[channel]} aria-label={`タイマーアクセント色の${label}`} onChange={(event) => updateChannel(channel, event.target.value)} />
-      </label>)}
-    </div>}
-  </div>;
-}
-
-function ClockColorChoices({ value, themeColor, backgroundImage, overlayOpacity, onChange }: { value: string; themeColor: string; backgroundImage?: string; overlayOpacity: number; onChange: (value: string) => void }) {
-  const choices = [
-    { value: "#ffffff", label: "白", id: "white" },
-    { value: "#000000", label: "黒", id: "black" },
-    { value: themeColor, label: "テーマ色", id: "theme" },
-    { value, label: "カスタム色", id: "custom" }
-  ];
-  const selected = value.toLowerCase();
-  const selectedId = selected === "#ffffff" ? "white" : selected === "#000000" ? "black" : selected === themeColor.toLowerCase() ? "theme" : "custom";
+function ClockColorChoices({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return <div className="clock-color-settings">
-    <div className="clock-color-preview" style={backgroundImage ? { backgroundImage: `linear-gradient(rgba(241,247,255,${overlayOpacity}), rgba(241,247,255,${overlayOpacity})), url(${backgroundImage})` } : undefined}>
-      <span style={{ color: value }}>12:34</span>
-    </div>
-    <div className="clock-color-choices" role="radiogroup" aria-label="時計・日付の手動色">
-      {choices.map((choice) => <button type="button" role="radio" aria-label={choice.label} aria-checked={selectedId === choice.id} className={`clock-color-choice${selectedId === choice.id ? " is-selected" : ""}`} onClick={() => onChange(choice.value)} key={choice.id}>
-        <span className="clock-color-choice__sample" style={{ color: choice.value }} aria-hidden="true">A</span><span aria-hidden="true">{choice.label}</span>
-      </button>)}
-    </div>
-    <Disclosure label="カラーコード（詳細）"><ColorSetting id="clock-color" label="時計・日付の色" value={value} disabled={false} onChange={onChange} /></Disclosure>
+    <ColorPicker
+      id="clock-color"
+      label="時計・日付の色"
+      value={value}
+      savedColors={clockSavedColors}
+      onChange={onChange}
+    />
   </div>;
 }
 function PositionGrid({ label, value, onChange }: { label: string; value: PositionPreset; onChange: (value: PositionPreset) => void }) {
@@ -350,11 +216,6 @@ export function SettingsPanel({ open, settings, orientation, saveState, onChange
     if (!clockTarget) return;
     applySettings({ clockBackgroundSettings: { ...settings.clockBackgroundSettings, [clockTarget]: { ...clockBackgroundSetting, positions: { ...clockBackgroundSetting.positions, [positionOrientation]: position } } } });
   };
-  const applyTheme = (id: Exclude<ColorPreset, "custom">) => {
-    const preset = colorPresets[id];
-    const clockBackgroundSettings = Object.fromEntries(Object.entries(settings.clockBackgroundSettings).map(([key, setting]) => [key, { ...setting, color: preset.text }]));
-    applySettings({ colorPreset: id, clockColor: preset.text, timerColor: preset.accent, clockBackgroundSettings });
-  };
   const resetPatches: Record<ResettableCategory, Partial<AppSettings>> = {
     background: {
       backgroundChoice: defaultSettings.backgroundChoice,
@@ -417,10 +278,10 @@ export function SettingsPanel({ open, settings, orientation, saveState, onChange
     <nav className="settings-tabs" aria-label="設定カテゴリー" role="tablist">{categories.map((item) => <button id={`settings-tab-${item.id}`} type="button" role="tab" aria-selected={category === item.id} aria-controls="settings-category-panel" className={category === item.id ? "is-active" : ""} onClick={() => setCategory(item.id)} key={item.id}><SettingsCategoryIcon category={item.id} /><span>{item.label}</span></button>)}</nav>
     <div className="settings-content"><section id="settings-category-panel" className="settings-section" role="tabpanel" aria-labelledby={`settings-tab-${category}`} tabIndex={0}><div className="section-heading"><h3 id="category-title" className="visually-hidden">{sectionTitle}</h3>{category !== "data" && <button className="text-button" type="button" onClick={() => resetSection(resetPatches[category])}>初期値に戻す</button>}</div>
       {category === "background" && <BackgroundSettings settings={settings} frame={backgroundFrame} customBackgrounds={customBackgrounds} frameOptions={frameOptions} frameTarget={frameTarget} onFrameTargetChange={(target) => { setFrameTarget(target); onChange({ backgroundChoice: target }); }} onStartBackgroundEditing={onStartBackgroundEditing} onChange={onChange} uploads={uploads} move={move} onRemoveBackground={onRemoveBackground} />}
-      {category === "display" && <><Toggle id="show-clock" label="時計を表示" checked={settings.showClock} onChange={(showClock) => onChange({ showClock })} /><Toggle id="show-date" label="日付を表示" checked={settings.showDate} onChange={(showDate) => onChange({ showDate })} /><Toggle id="fullscreen" label="全画面表示" checked={settings.fullscreen} disabled={!fullscreenSupported} onChange={(fullscreen) => { void onFullscreenToggle(fullscreen); }} /><Disclosure label="タスク画面"><section className="setting-control task-theme-setting" aria-labelledby="task-theme-label"><span id="task-theme-label" className="setting-label">テーマ</span><div className="task-theme-grid" role="radiogroup" aria-labelledby="task-theme-label">{(Object.entries(taskThemePresets) as [TaskThemePreset, typeof taskThemePresets.coral][]).map(([id, preset]) => <button type="button" role="radio" aria-checked={settings.taskTheme === id} className={settings.taskTheme === id ? "is-selected" : ""} onClick={() => onChange({ taskTheme: id })} key={id}><span className="task-theme-option__swatch" style={{ background: preset.primary, color: preset.text }}>Aa</span><span><strong>{preset.label}</strong></span><span className="task-theme-option__preview" style={{ background: preset.primary, color: preset.text }}>開始</span></button>)}</div></section><div className="setting-control"><span id="task-card-visibility-label" className="setting-label">メイン画面のタスクカード</span><div className="choice-grid" role="radiogroup" aria-labelledby="task-card-visibility-label" aria-describedby="task-card-visibility-description"><button type="button" role="radio" aria-checked={settings.taskLauncherVisibility === "always"} className={settings.taskLauncherVisibility === "always" ? "is-selected" : ""} onClick={() => onChange({ taskLauncherVisibility: "always" })}>常に表示</button><button type="button" role="radio" aria-checked={settings.taskLauncherVisibility === "background-tap"} className={settings.taskLauncherVisibility === "background-tap" ? "is-selected" : ""} onClick={() => onChange({ taskLauncherVisibility: "background-tap" })}>背景タップ時のみ</button></div><small id="task-card-visibility-description">背景タップ後に詳細カードを数秒表示します。タスクボタンは常に使えます。</small></div></Disclosure><Disclosure label="カラーテーマ"><div className="choice-grid" role="radiogroup" aria-label="カラーテーマ">{(Object.entries(colorPresets) as [Exclude<ColorPreset, "custom">, typeof colorPresets.sky][]).map(([id, preset]) => <button type="button" role="radio" aria-checked={settings.colorPreset === id} className={settings.colorPreset === id ? "is-selected" : ""} onClick={() => applyTheme(id)} key={id}><i style={{ background: preset.accent }} />{preset.label}</button>)}<button type="button" role="radio" aria-checked={settings.colorPreset === "custom"} className={settings.colorPreset === "custom" ? "is-selected" : ""} onClick={() => onChange({ colorPreset: "custom" })}>カスタム</button></div></Disclosure></>}
-      {category === "display" && <Disclosure label="時計・日付の見やすさ"><div className="color-setting-group"><h4>時計・日付の色</h4><p>背景ごとに色と自動調整を設定できます。</p><div className="clock-color-preview" style={{ backgroundImage: `linear-gradient(rgba(241,247,255,${settings.overlayOpacity}), rgba(241,247,255,${settings.overlayOpacity})), url(${frameOptions.find((option) => option.value === clockTarget)?.imageUrl ?? frameOptions[0]?.imageUrl ?? ""})` }}><span style={{ color: clockBackgroundSetting.matchColors ? adaptivePalette.text : clockBackgroundSetting.color }}>12:34</span><small>現在の背景でプレビュー</small></div><Toggle id="match-clock-colors" label="自動調整" checked={clockBackgroundSetting.matchColors} onChange={(matchClockBackgroundColors) => { if (clockTarget) updateClockSetting({ matchColors: matchClockBackgroundColors }); else onChange({ matchClockBackgroundColors }); }} />{clockBackgroundSetting.matchColors ? <small className="color-setting-group__note">明るい文字／暗い文字を背景に合わせて自動調整します。{adaptivePalette.textContrast < 4.5 ? "読みやすさが不足するため補正を推奨します。" : "読みやすさを確認済みです。"}</small> : <ClockColorChoices value={clockBackgroundSetting.color} themeColor={settings.colorPreset !== "custom" ? colorPresets[settings.colorPreset].text : defaultSettings.clockColor} backgroundImage={frameOptions.find((option) => option.value === clockTarget)?.imageUrl} overlayOpacity={settings.overlayOpacity} onChange={(color) => { updateClockSetting({ color }); onChange({ colorPreset: "custom" }); }} />}<Disclosure label="背景ごとの設定"><AppSelect id="clock-background-target" label="設定する背景" value={clockTarget} options={[{ value: "", label: "背景を選択" }, ...frameOptions.map((option) => ({ value: option.value, label: option.label }))]} onChange={(value) => setClockTarget(value as BackgroundFrameTarget | "")} /><div className="orientation-picker"><span className="setting-label">設定する画面の向き</span><div role="radiogroup" aria-label="設定する画面の向き">{orientations.map((item) => <button type="button" role="radio" aria-checked={positionOrientation === item} className={positionOrientation === item ? "is-selected" : ""} onClick={() => setPositionOrientation(item)} key={item}>{orientationLabels[item]}</button>)}</div><small>現在は{orientationLabels[orientation]}です。向きを変えたときも別の位置を保てます。</small></div><Range id="clock-position-x" label="時計の左右位置" value={Math.round(clockPosition.x * 100)} min={0} max={100} step={1} unit="%" initial={defaultSettings.clockDatePosition.x * 100} onChange={(value) => updateClockPosition({ ...clockPosition, x: value / 100 })} /><Range id="clock-position-y" label="時計の上下位置" value={Math.round(clockPosition.y * 100)} min={0} max={100} step={1} unit="%" initial={defaultSettings.clockDatePosition.y * 100} onChange={(value) => updateClockPosition({ ...clockPosition, y: value / 100 })} /></Disclosure></div><Disclosure label="表示形式とサイズ"><Toggle id="use-12-hour" label="12時間表示" checked={settings.use12Hour} onChange={(use12Hour) => onChange({ use12Hour })} /><Toggle id="show-seconds" label="秒を表示" checked={settings.showSeconds} onChange={(showSeconds) => onChange({ showSeconds })} /><div className="setting-control"><AppSelect id="date-format-preset" label="日付の形式" value={dateFormatPresets.some((preset) => preset.value === settings.dateFormat) ? settings.dateFormat : "custom"} options={[{ value: "custom", label: "カスタム" }, ...dateFormatPresets.map((preset) => ({ value: preset.value, label: preset.label }))]} onChange={(value) => onChange({ dateFormat: value === "custom" ? customDateFormatExample : value })} />{!dateFormatPresets.some((preset) => preset.value === settings.dateFormat) && <><label className="sub-label" htmlFor="date-format">カスタム形式</label><input id="date-format" className="text-input" type="text" value={settings.dateFormat} maxLength={40} onChange={(event) => onChange({ dateFormat: event.target.value })} /><small>yyyy / yy、mm / m、dd / d、weekday（曜日）、weekdayShort（短い曜日）が使えます。</small></>}</div><Range id="clock-size" label="時計サイズ" value={settings.clockFontSize} {...settingRanges.clockFontSize} unit="" formatValue={(value) => describeFontSize(value, defaultSettings.clockFontSize, settingRanges.clockFontSize.min, settingRanges.clockFontSize.max)} initial={defaultSettings.clockFontSize} onChange={(clockFontSize) => onChange({ clockFontSize })} /><Range id="date-size" label="日付サイズ" value={settings.dateFontSize} {...settingRanges.dateFontSize} unit="" formatValue={(value) => describeFontSize(value, defaultSettings.dateFontSize, settingRanges.dateFontSize.min, settingRanges.dateFontSize.max)} initial={defaultSettings.dateFontSize} onChange={(dateFontSize) => onChange({ dateFontSize })} /></Disclosure></Disclosure>}
+      {category === "display" && <><Toggle id="show-clock" label="時計を表示" checked={settings.showClock} onChange={(showClock) => onChange({ showClock })} /><Toggle id="show-date" label="日付を表示" checked={settings.showDate} onChange={(showDate) => onChange({ showDate })} /><Toggle id="fullscreen" label="全画面表示" checked={settings.fullscreen} disabled={!fullscreenSupported} onChange={(fullscreen) => { void onFullscreenToggle(fullscreen); }} /><Disclosure label="タスク画面"><section className="setting-control task-theme-setting" aria-labelledby="task-theme-label"><span id="task-theme-label" className="setting-label">テーマ</span><div className="task-theme-grid" role="radiogroup" aria-labelledby="task-theme-label">{(Object.entries(taskThemePresets) as [TaskThemePreset, typeof taskThemePresets.coral][]).map(([id, preset]) => <button type="button" role="radio" aria-checked={settings.taskTheme === id} className={settings.taskTheme === id ? "is-selected" : ""} onClick={() => onChange({ taskTheme: id })} key={id}><span className="task-theme-option__swatch" style={{ background: preset.primary, color: preset.text }}>Aa</span><span><strong>{preset.label}</strong></span><span className="task-theme-option__preview" style={{ background: preset.primary, color: preset.text }}>開始</span></button>)}</div></section><div className="setting-control"><span id="task-card-visibility-label" className="setting-label">メイン画面のタスクカード</span><div className="choice-grid" role="radiogroup" aria-labelledby="task-card-visibility-label" aria-describedby="task-card-visibility-description"><button type="button" role="radio" aria-checked={settings.taskLauncherVisibility === "always"} className={settings.taskLauncherVisibility === "always" ? "is-selected" : ""} onClick={() => onChange({ taskLauncherVisibility: "always" })}>常に表示</button><button type="button" role="radio" aria-checked={settings.taskLauncherVisibility === "background-tap"} className={settings.taskLauncherVisibility === "background-tap" ? "is-selected" : ""} onClick={() => onChange({ taskLauncherVisibility: "background-tap" })}>背景タップ時のみ</button></div><small id="task-card-visibility-description">背景タップ後に詳細カードを数秒表示します。タスクボタンは常に使えます。</small></div></Disclosure></>}
+      {category === "display" && <Disclosure label="時計・日付の見やすさ"><div className="color-setting-group"><h4>時計・日付の色</h4><p>背景ごとに色と自動調整を設定できます。</p><div className="clock-color-preview" style={{ backgroundImage: `linear-gradient(rgba(241,247,255,${settings.overlayOpacity}), rgba(241,247,255,${settings.overlayOpacity})), url(${frameOptions.find((option) => option.value === clockTarget)?.imageUrl ?? frameOptions[0]?.imageUrl ?? ""})` }}><span style={{ color: clockBackgroundSetting.matchColors ? adaptivePalette.text : clockBackgroundSetting.color }}>12:34</span><small>現在の背景でプレビュー</small></div><Toggle id="match-clock-colors" label="自動調整" checked={clockBackgroundSetting.matchColors} onChange={(matchClockBackgroundColors) => { if (clockTarget) updateClockSetting({ matchColors: matchClockBackgroundColors }); else onChange({ matchClockBackgroundColors }); }} />{clockBackgroundSetting.matchColors ? <small className="color-setting-group__note">明るい文字／暗い文字を背景に合わせて自動調整します。{adaptivePalette.textContrast < 4.5 ? "読みやすさが不足するため補正を推奨します。" : "読みやすさを確認済みです。"}</small> : <ClockColorChoices value={clockBackgroundSetting.color} onChange={(color) => { updateClockSetting({ color }); onChange({ colorPreset: "custom" }); }} />}<Disclosure label="背景ごとの設定"><AppSelect id="clock-background-target" label="設定する背景" value={clockTarget} options={[{ value: "", label: "背景を選択" }, ...frameOptions.map((option) => ({ value: option.value, label: option.label }))]} onChange={(value) => setClockTarget(value as BackgroundFrameTarget | "")} /><div className="orientation-picker"><span className="setting-label">設定する画面の向き</span><div role="radiogroup" aria-label="設定する画面の向き">{orientations.map((item) => <button type="button" role="radio" aria-checked={positionOrientation === item} className={positionOrientation === item ? "is-selected" : ""} onClick={() => setPositionOrientation(item)} key={item}>{orientationLabels[item]}</button>)}</div><small>現在は{orientationLabels[orientation]}です。向きを変えたときも別の位置を保てます。</small></div><Range id="clock-position-x" label="時計の左右位置" value={Math.round(clockPosition.x * 100)} min={0} max={100} step={1} unit="%" initial={defaultSettings.clockDatePosition.x * 100} onChange={(value) => updateClockPosition({ ...clockPosition, x: value / 100 })} /><Range id="clock-position-y" label="時計の上下位置" value={Math.round(clockPosition.y * 100)} min={0} max={100} step={1} unit="%" initial={defaultSettings.clockDatePosition.y * 100} onChange={(value) => updateClockPosition({ ...clockPosition, y: value / 100 })} /></Disclosure></div><Disclosure label="表示形式とサイズ"><Toggle id="use-12-hour" label="12時間表示" checked={settings.use12Hour} onChange={(use12Hour) => onChange({ use12Hour })} /><Toggle id="show-seconds" label="秒を表示" checked={settings.showSeconds} onChange={(showSeconds) => onChange({ showSeconds })} /><div className="setting-control"><AppSelect id="date-format-preset" label="日付の形式" value={dateFormatPresets.some((preset) => preset.value === settings.dateFormat) ? settings.dateFormat : "custom"} options={[{ value: "custom", label: "カスタム" }, ...dateFormatPresets.map((preset) => ({ value: preset.value, label: preset.label }))]} onChange={(value) => onChange({ dateFormat: value === "custom" ? customDateFormatExample : value })} />{!dateFormatPresets.some((preset) => preset.value === settings.dateFormat) && <><label className="sub-label" htmlFor="date-format">カスタム形式</label><input id="date-format" className="text-input" type="text" value={settings.dateFormat} maxLength={40} onChange={(event) => onChange({ dateFormat: event.target.value })} /><small>yyyy / yy、mm / m、dd / d、weekday（曜日）、weekdayShort（短い曜日）が使えます。</small></>}</div><Range id="clock-size" label="時計サイズ" value={settings.clockFontSize} {...settingRanges.clockFontSize} unit="" formatValue={(value) => describeFontSize(value, defaultSettings.clockFontSize, settingRanges.clockFontSize.min, settingRanges.clockFontSize.max)} initial={defaultSettings.clockFontSize} onChange={(clockFontSize) => onChange({ clockFontSize })} /><Range id="date-size" label="日付サイズ" value={settings.dateFontSize} {...settingRanges.dateFontSize} unit="" formatValue={(value) => describeFontSize(value, defaultSettings.dateFontSize, settingRanges.dateFontSize.min, settingRanges.dateFontSize.max)} initial={defaultSettings.dateFontSize} onChange={(dateFontSize) => onChange({ dateFontSize })} /></Disclosure></Disclosure>}
       {category === "display" && <Disclosure label="フォント"><div className="setting-control"><span className="setting-label">表示フォント</span><div className="choice-grid" role="radiogroup" aria-label="表示フォント">{fonts.map((font) => <button type="button" role="radio" aria-checked={settings.fontFamily === font.value} className={settings.fontFamily === font.value ? "is-selected" : ""} style={{ fontFamily: fontOptions[font.value] }} onClick={() => onChange({ fontFamily: font.value })} key={font.value}>{font.label}</button>)}</div></div></Disclosure>}
-      {category === "timer" && <><Toggle id="show-timer" label="タイマーを表示" checked={settings.showTimer} onChange={(showTimer) => onChange({ showTimer })} /><div className="color-setting-group"><h4>タイマー</h4><p>進捗表示と操作ボタンの色を設定します。</p><Toggle id="match-timer-colors" label="背景に合わせて自動調整" checked={settings.matchTimerBackgroundColors} onChange={(matchTimerBackgroundColors) => onChange({ matchTimerBackgroundColors })} />{settings.matchTimerBackgroundColors ? <small className="color-setting-group__note">背景の明るさと色から、タイマーを見やすく調整します。</small> : <TimerAccentColorSetting value={settings.timerColor} onChange={(timerColor) => onChange({ timerColor, colorPreset: "custom" })} />}</div><Disclosure label="タイマーの表示と配置"><Range id="timer-size" label="タイマーサイズ" value={settings.timerFontSize} {...settingRanges.timerFontSize} unit="" formatValue={(value) => describeFontSize(value, defaultSettings.timerFontSize, settingRanges.timerFontSize.min, settingRanges.timerFontSize.max)} initial={defaultSettings.timerFontSize} onChange={(timerFontSize) => onChange({ timerFontSize })} /><Range id="timer-opacity" label="タイマー背景の不透明度" value={Math.round(settings.timerBackgroundOpacity * 100)} {...settingRanges.timerBackgroundOpacity} initial={Math.round(defaultSettings.timerBackgroundOpacity * 100)} onChange={(value) => onChange({ timerBackgroundOpacity: value / 100 })} /><div className="orientation-picker"><span className="setting-label">設定する画面の向き</span><div role="radiogroup" aria-label="タイマーを設定する画面の向き">{orientations.map((item) => <button type="button" role="radio" aria-checked={positionOrientation === item} className={positionOrientation === item ? "is-selected" : ""} onClick={() => setPositionOrientation(item)} key={item}>{orientationLabels[item]}</button>)}</div><small>現在は{orientationLabels[orientation]}です。</small></div><PositionGrid label="開始前タイマーの配置" value={settings.timerPositions[positionOrientation]} onChange={(timerPosition) => onChange({ timerPosition, timerPositions: { ...settings.timerPositions, [positionOrientation]: timerPosition } })} /></Disclosure></>}
+      {category === "timer" && <><Toggle id="show-timer" label="タイマーを表示" checked={settings.showTimer} onChange={(showTimer) => onChange({ showTimer })} /><div className="color-setting-group"><h4>タイマー</h4><p>進捗表示と操作ボタンの色を設定します。</p><Toggle id="match-timer-colors" label="背景に合わせて自動調整" checked={settings.matchTimerBackgroundColors} onChange={(matchTimerBackgroundColors) => onChange({ matchTimerBackgroundColors })} />{settings.matchTimerBackgroundColors ? <small className="color-setting-group__note">背景の明るさと色から、タイマーを見やすく調整します。</small> : <ColorPicker id="timer-color" label="タイマーの色" value={settings.timerColor} savedColors={timerSavedColors} onChange={(timerColor) => onChange({ timerColor, colorPreset: "custom" })} />}</div><Disclosure label="タイマーの表示と配置"><Range id="timer-size" label="タイマーサイズ" value={settings.timerFontSize} {...settingRanges.timerFontSize} unit="" formatValue={(value) => describeFontSize(value, defaultSettings.timerFontSize, settingRanges.timerFontSize.min, settingRanges.timerFontSize.max)} initial={defaultSettings.timerFontSize} onChange={(timerFontSize) => onChange({ timerFontSize })} /><Range id="timer-opacity" label="タイマー背景の不透明度" value={Math.round(settings.timerBackgroundOpacity * 100)} {...settingRanges.timerBackgroundOpacity} initial={Math.round(defaultSettings.timerBackgroundOpacity * 100)} onChange={(value) => onChange({ timerBackgroundOpacity: value / 100 })} /><div className="orientation-picker"><span className="setting-label">設定する画面の向き</span><div role="radiogroup" aria-label="タイマーを設定する画面の向き">{orientations.map((item) => <button type="button" role="radio" aria-checked={positionOrientation === item} className={positionOrientation === item ? "is-selected" : ""} onClick={() => setPositionOrientation(item)} key={item}>{orientationLabels[item]}</button>)}</div><small>現在は{orientationLabels[orientation]}です。</small></div><PositionGrid label="開始前タイマーの配置" value={settings.timerPositions[positionOrientation]} onChange={(timerPosition) => onChange({ timerPosition, timerPositions: { ...settings.timerPositions, [positionOrientation]: timerPosition } })} /></Disclosure></>}
       {category === "timer" && <Disclosure label="ポモドーロの詳細設定"><Range id="work" label="作業時間" value={settings.workMinutes} {...settingRanges.workMinutes} initial={defaultSettings.workMinutes} onChange={(workMinutes) => onChange({ workMinutes })} /><Range id="short-break" label="短い休憩" value={settings.shortBreakMinutes} {...settingRanges.shortBreakMinutes} initial={defaultSettings.shortBreakMinutes} onChange={(shortBreakMinutes) => onChange({ shortBreakMinutes })} /><Range id="long-break" label="長い休憩" value={settings.longBreakMinutes} {...settingRanges.longBreakMinutes} initial={defaultSettings.longBreakMinutes} onChange={(longBreakMinutes) => onChange({ longBreakMinutes })} /><Toggle id="sound" label="終了音" checked={settings.soundEnabled} onChange={(soundEnabled) => onChange({ soundEnabled })} /></Disclosure>}
       {category === "data" && <>
         <div className="data-summary" role="note">

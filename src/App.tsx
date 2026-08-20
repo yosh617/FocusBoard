@@ -129,6 +129,14 @@ export default function App() {
   }, [activeTask, sessions, timer.status, timerAcceptsTask]);
   const completedTask = completedSession?.taskId ? tasks.find((task) => task.id === completedSession.taskId) ?? null : null;
   const todayOpenTaskCount = useMemo(() => getTasksForView(tasks, "today", todayKey).length, [tasks, todayKey]);
+  const launcherTodayTasks = useMemo(() => getTasksForView(tasks, "today", todayKey).slice(0, 2).map((task) => {
+    const project = task.projectId ? projects.find((item) => item.id === task.projectId) ?? null : null;
+    return {
+      id: task.id,
+      title: task.title,
+      meta: project?.name ?? (task.dueDate !== null && task.dueDate < todayKey ? "期限切れ" : "今日")
+    };
+  }), [projects, tasks, todayKey]);
   const todayCompletedTaskCount = useMemo(
     () => tasks.filter((task) => task.parentTaskId === null && task.status === "completed" && task.completedAt !== null && toLocalDateKey(new Date(task.completedAt)) === todayKey).length,
     [tasks, todayKey]
@@ -172,7 +180,7 @@ export default function App() {
     return tasks.find((task) => task.id === breakResumeTaskId && task.status === "open") ?? null;
   }, [breakResumeTaskId, tasks, timer.mode, timer.status]);
   const launcherSuggestedTask = useMemo(() => {
-    const task = breakResumeTask ?? (timer.status === "idle" ? sortTasksForFocus(tasks, todayKey)[0] ?? null : null);
+    const task = breakResumeTask;
     if (!task) return null;
     const project = task.projectId ? projects.find((item) => item.id === task.projectId) ?? null : null;
     const detailParts: string[] = [];
@@ -192,7 +200,7 @@ export default function App() {
       title: task.title,
       detail: detailParts.join(" · ")
     };
-  }, [breakResumeTask, projects, tasks, timer.status, todayKey, todayOpenTaskCount]);
+  }, [breakResumeTask, projects, todayKey, todayOpenTaskCount]);
   const taskLauncherSummary = useMemo(() => {
     if (timer.status === "idle") return null;
     const isBreakFlow = timer.mode !== "work";
@@ -578,6 +586,7 @@ export default function App() {
           focusedLabel: todayFocusedMs > 0 ? formatFocusedTime(todayFocusedMs) : "0分",
           overdueCount: todayOverdueTaskCount
         }}
+        todayTasks={launcherTodayTasks}
         activeTaskTitle={timer.status !== "idle" && timer.mode === "work" ? activeTask?.title ?? null : null}
         suggestedTask={launcherSuggestedTask}
         timerSummary={taskLauncherSummary}
@@ -609,14 +618,6 @@ export default function App() {
               detail: `${activeTaskDetailParts.join(" ・ ")} 集中を止めずに、詳細と一覧を見直せます。`,
               taskId: activeTask.id,
               actionLabel: "進行中を開く"
-            });
-          } else if (launcherSuggestedTask) {
-            setTaskDrawerResumeContext({
-              label: "今日のおすすめ",
-              title: `${launcherSuggestedTask.title}を開いています`,
-              detail: `${launcherSuggestedTask.detail}。そのまま開始するか、一覧で順番を見直せます。`,
-              taskId: launcherSuggestedTask.id,
-              actionLabel: "おすすめを開く"
             });
           } else {
             setTaskDrawerResumeContext(null);

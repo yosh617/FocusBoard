@@ -106,7 +106,6 @@ describe("TaskDrawer", () => {
     const workspace = settings.closest(".task-workspace--list");
     const scrollArea = workspace?.querySelector(".task-workspace__scroll");
     expect(taskList).toBeTruthy();
-    expect(taskList.compareDocumentPosition(settingsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(settings.contains(settingsHeading)).toBe(true);
     expect(scrollArea?.contains(taskList)).toBe(true);
     expect(scrollArea?.nextElementSibling).toBe(settings);
@@ -160,39 +159,17 @@ describe("TaskDrawer", () => {
     expect(screen.getByLabelText("新しいタスク").getAttribute("placeholder")).toBe("タスクを追加");
   });
 
-  it("adds projects with an accessible fixed color palette", async () => {
+  it("adds projects with the shared color picker and saved presets", async () => {
     const props = renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: "新規" }));
 
-    expect(document.querySelector(".project-add input[type='color']")).toBeNull();
     const palette = screen.getByRole("group", { name: "プロジェクトの色を選択" });
-    expect(within(palette).getAllByRole("button").map((button) => button.getAttribute("aria-label"))).toEqual([
-      "ブルー",
-      "インディゴ",
-      "パープル",
-      "レッド",
-      "オレンジ",
-      "イエロー",
-      "ライム",
-      "グリーン",
-      "ティール",
-      "シアン"
-    ]);
-    expect(within(palette).getAllByRole("button").map((button) => (button.querySelector("span") as HTMLElement).style.backgroundColor)).toEqual([
-      "rgb(10, 132, 255)",
-      "rgb(79, 70, 229)",
-      "rgb(124, 58, 237)",
-      "rgb(255, 69, 58)",
-      "rgb(255, 149, 0)",
-      "rgb(245, 183, 0)",
-      "rgb(132, 204, 22)",
-      "rgb(48, 199, 89)",
-      "rgb(0, 191, 166)",
-      "rgb(0, 174, 239)"
-    ]);
-    expect(within(palette).queryByRole("button", { name: /ピンク|マゼンタ/ })).toBeNull();
+    const picker = within(palette).getByRole("region", { name: "プロジェクトの色" });
+    expect(within(picker).getByText("プロジェクトの色")).toBeTruthy();
+    expect(within(picker).getByRole("button", { name: "保存色 ブルー #0A84FF" })).toBeTruthy();
+    expect(within(picker).getByRole("button", { name: "保存色 シアン #00AEEF" })).toBeTruthy();
 
-    const cyan = within(palette).getByRole("button", { name: "シアン" });
+    const cyan = within(picker).getByRole("button", { name: "保存色 シアン #00AEEF" });
     expect(cyan.getAttribute("aria-pressed")).toBe("false");
     fireEvent.click(cyan);
     expect(cyan.getAttribute("aria-pressed")).toBe("true");
@@ -202,7 +179,7 @@ describe("TaskDrawer", () => {
     await waitFor(() => expect(props.onAddProject).toHaveBeenCalledWith("読書", "#00AEEF"));
 
     fireEvent.click(screen.getByRole("button", { name: "新規" }));
-    expect(within(screen.getByRole("group", { name: "プロジェクトの色を選択" })).getByRole("button", { name: "ブルー" }).getAttribute("aria-pressed")).toBe("true");
+    expect(within(screen.getByRole("group", { name: "プロジェクトの色を選択" })).getByRole("button", { name: "保存色 ブルー #0A84FF" }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("opens the suggested task in the dedicated editor and returns to the list", async () => {
@@ -494,25 +471,26 @@ describe("TaskDrawer", () => {
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "理科の暗記", dueDate: addLocalDays(today, 1) })));
   });
 
-  it("adds a task with a focus estimate from the quick presets", async () => {
+  it("adds a task with a planned pomodoro count", async () => {
     const props = renderDrawer();
     fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "理科の暗記" } });
-    const estimateButton = screen.getByRole("button", { name: "2回" });
-    fireEvent.click(estimateButton);
-    expect(estimateButton.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "2回" }));
     fireEvent.click(screen.getByRole("button", { name: "タスクを追加" }));
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "理科の暗記", estimatedPomodoros: 2 })));
   });
 
-  it("uses a horizontal slider for five or more planned pomodoros", async () => {
-    const props = renderDrawer();
-    fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "長めの課題" } });
+  it("adjusts the planned pomodoro count down to one or by number input", () => {
+    renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: "5回以上を設定" }));
-    const slider = screen.getByRole("slider", { name: "予定数 5回" });
-    fireEvent.change(slider, { target: { value: "8" } });
-    expect((slider as HTMLInputElement).value).toBe("8");
-    fireEvent.click(screen.getByRole("button", { name: "タスクを追加" }));
-    await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ estimatedPomodoros: 8 })));
+    expect(screen.queryByRole("button", { name: "2回" })).toBeNull();
+    const slider = screen.getByRole("slider", { name: "予定ポモドーロのスライダー" });
+    fireEvent.change(slider, { target: { value: "1" } });
+    expect((slider as HTMLInputElement).value).toBe("1");
+    const numberInput = screen.getByRole("spinbutton", { name: "予定ポモドーロの回数" });
+    fireEvent.change(numberInput, { target: { value: "12" } });
+    expect((numberInput as HTMLInputElement).value).toBe("12");
+    fireEvent.click(screen.getByRole("button", { name: "予定ポモドーロのプリセットへ戻る" }));
+    expect(screen.getByRole("button", { name: "2回" })).toBeTruthy();
   });
 
   it("adds the selected priority and project from the bottom toolbar", async () => {
