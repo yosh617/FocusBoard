@@ -18,10 +18,34 @@ describe("TaskLauncher", () => {
     expect(button.classList.contains("task-launcher--dimmed")).toBe(false);
   });
 
+  it("shows at most two upcoming tasks with a compact daily summary", () => {
+    render(
+      <TaskLauncher
+        todayCount={3}
+        todaySummary={{ completedCount: 1, totalCount: 4, focusedLabel: "25分", overdueCount: 1 }}
+        todayTasks={[
+          { id: "task-1", title: "英単語の復習", meta: "期限切れ" },
+          { id: "task-2", title: "数学の宿題", meta: "学校" },
+          { id: "task-3", title: "読書", meta: "今日" }
+        ]}
+        activeTaskTitle={null}
+        suggestedTask={null}
+        timerSummary={null}
+        onClick={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("英単語の復習")).toBeTruthy();
+    expect(screen.getByText("数学の宿題")).toBeTruthy();
+    expect(screen.queryByText("読書")).toBeNull();
+    expect(screen.getByText("1/4")).toBeTruthy();
+    expect(screen.getByText("25分")).toBeTruthy();
+  });
+
   it("stays clear while a task is actively focused", () => {
     vi.useFakeTimers();
     render(<TaskLauncher todayCount={2} todaySummary={{ completedCount: 1, totalCount: 3, focusedLabel: "25分", overdueCount: 0 }} activeTaskTitle="英単語の復習" suggestedTask={null} timerSummary={null} onClick={vi.fn()} />);
-    const button = screen.getByRole("button", { name: "タスクを開く。集中中のタスクは英単語の復習。今日の未完了は2件" });
+    const button = screen.getByRole("button", { name: "タスクを開く。取り組んでいるタスクは英単語の復習。今日の未完了は2件" });
 
     act(() => { vi.advanceTimersByTime(8_000); });
     expect(button.classList.contains("task-launcher--dimmed")).toBe(false);
@@ -40,7 +64,7 @@ describe("TaskLauncher", () => {
       />
     );
     const button = screen.getByRole("button", { name: "タスクを開く。次のおすすめは英単語の復習。今日の未完了は2件" });
-    expect(button.textContent).toContain("次のおすすめ");
+    expect(button.textContent).toContain("NEXT");
     expect(button.textContent).toContain("英単語の復習");
     expect(button.textContent).toContain("勉強 · 今日の予定 · 未完了 2件");
     expect(button.textContent).not.toContain("完了 1 / 3");
@@ -54,12 +78,12 @@ describe("TaskLauncher", () => {
         todaySummary={{ completedCount: 1, totalCount: 2, focusedLabel: "25分", overdueCount: 0 }}
         activeTaskTitle="英単語の復習"
         suggestedTask={{ id: "task-2", title: "数学", detail: "勉強 · 今日の予定 · 未完了 1件" }}
-        timerSummary={{ statusText: "集中中", title: "英単語の復習", detail: "集中 · 集中中 · 12:30" }}
+        timerSummary={{ statusText: "FOCUS", title: "英単語の復習", detail: "集中 · FOCUS · 12:30" }}
         onClick={vi.fn()}
       />
     );
-    const button = screen.getByRole("button", { name: "タスクを開く。集中中のタスクは英単語の復習。今日の未完了は1件" });
-    expect(button.textContent).toContain("集中中");
+    const button = screen.getByRole("button", { name: "タスクを開く。取り組んでいるタスクは英単語の復習。今日の未完了は1件" });
+    expect(button.textContent).toContain("FOCUS");
     expect(button.textContent).toContain("12:30");
     expect(button.textContent).not.toContain("完了 1 / 2");
   });

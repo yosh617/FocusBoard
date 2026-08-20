@@ -7,6 +7,7 @@ import { SettingsPanel } from "./components/SettingsPanel";
 import { TaskDrawer } from "./components/tasks/TaskDrawer";
 import { TaskLauncher } from "./components/tasks/TaskLauncher";
 import { SessionCompleteDialog } from "./components/tasks/SessionCompleteDialog";
+import { TimerTaskPicker } from "./components/tasks/TimerTaskPicker";
 import { useClock } from "./hooks/useClock";
 import { useLocalStorageSettings } from "./hooks/useLocalStorageSettings";
 import { usePomodoroTimer } from "./hooks/usePomodoroTimer";
@@ -52,6 +53,7 @@ export default function App() {
     updateTask,
     toggleTask,
     archiveTask,
+    deleteTask,
     moveTask,
     addProject,
     archiveProject,
@@ -91,6 +93,8 @@ export default function App() {
   } | null>(null);
   const [breakResumeTaskId, setBreakResumeTaskId] = useState<string | null>(null);
   const [timerSetupVisible, setTimerSetupVisible] = useState(false);
+  const [selectedTimerTaskId, setSelectedTimerTaskId] = useState<string | null>(null);
+  const [timerTaskPickerIntent, setTimerTaskPickerIntent] = useState<"select" | "start" | null>(null);
   const [taskDetailCardVisible, setTaskDetailCardVisible] = useState(false);
   const [taskDetailCardFading, setTaskDetailCardFading] = useState(false);
   const [backgroundEditing, setBackgroundEditing] = useState(false);
@@ -109,8 +113,30 @@ export default function App() {
   const updateTaskLauncherPosition = useCallback((taskLauncherPosition: { x: number; y: number }) => updateSettings({ taskLauncherPosition }), [updateSettings]);
   const todayKey = toLocalDateKey(now);
   const activeTask = timer.activeTaskId ? tasks.find((task) => task.id === timer.activeTaskId) ?? null : null;
+  const timerTaskCandidates = useMemo(() => sortTasksForFocus(tasks, todayKey), [tasks, todayKey]);
+  const selectedTimerTask = selectedTimerTaskId
+    ? timerTaskCandidates.find((task) => task.id === selectedTimerTaskId) ?? null
+    : null;
+  const timerAcceptsTask = timer.program === "pomodoro" ? timer.mode === "work" : timer.category === "focus";
+  const activeTaskProgress = useMemo(() => {
+    if (!activeTask || !timerAcceptsTask || timer.status === "idle" || timer.status === "completed") return null;
+    const completedCount = sessions.filter((session) => (
+      session.taskId === activeTask.id
+      && session.mode === "work"
+      && session.result === "completed"
+    )).length;
+    return { current: completedCount + 1, planned: activeTask.estimatedPomodoros };
+  }, [activeTask, sessions, timer.status, timerAcceptsTask]);
   const completedTask = completedSession?.taskId ? tasks.find((task) => task.id === completedSession.taskId) ?? null : null;
   const todayOpenTaskCount = useMemo(() => getTasksForView(tasks, "today", todayKey).length, [tasks, todayKey]);
+  const launcherTodayTasks = useMemo(() => getTasksForView(tasks, "today", todayKey).slice(0, 2).map((task) => {
+    const project = task.projectId ? projects.find((item) => item.id === task.projectId) ?? null : null;
+    return {
+      id: task.id,
+      title: task.title,
+      meta: project?.name ?? (task.dueDate !== null && task.dueDate < todayKey ? "期限切れ" : "今日")
+    };
+  }), [projects, tasks, todayKey]);
   const todayCompletedTaskCount = useMemo(
     () => tasks.filter((task) => task.parentTaskId === null && task.status === "completed" && task.completedAt !== null && toLocalDateKey(new Date(task.completedAt)) === todayKey).length,
     [tasks, todayKey]
@@ -154,7 +180,7 @@ export default function App() {
     return tasks.find((task) => task.id === breakResumeTaskId && task.status === "open") ?? null;
   }, [breakResumeTaskId, tasks, timer.mode, timer.status]);
   const launcherSuggestedTask = useMemo(() => {
-    const task = breakResumeTask ?? (timer.status === "idle" ? sortTasksForFocus(tasks, todayKey)[0] ?? null : null);
+    const task = breakResumeTask;
     if (!task) return null;
     const project = task.projectId ? projects.find((item) => item.id === task.projectId) ?? null : null;
     const detailParts: string[] = [];
@@ -174,12 +200,12 @@ export default function App() {
       title: task.title,
       detail: detailParts.join(" · ")
     };
-  }, [breakResumeTask, projects, tasks, timer.status, todayKey, todayOpenTaskCount]);
+  }, [breakResumeTask, projects, todayKey, todayOpenTaskCount]);
   const taskLauncherSummary = useMemo(() => {
     if (timer.status === "idle") return null;
     const isBreakFlow = timer.mode !== "work";
     const statusText = timer.status === "running"
-      ? timer.mode === "work" ? "集中中" : "休憩中"
+      ? timer.mode === "work" ? "FOCUS" : "休憩中"
       : timer.status === "paused"
         ? "一時停止中"
         : "延長中";
@@ -203,7 +229,7 @@ export default function App() {
     const accessibleLabel = isBreakFlow
       ? `タスクを開く。${defaultTitle}中。${launcherSuggestedTask?.title ? `次のおすすめは${launcherSuggestedTask.title}。` : ""}今日の未完了は${todayOpenTaskCount}件`
       : activeTask?.title
-        ? `タスクを開く。集中中のタスクは${activeTask.title}。今日の未完了は${todayOpenTaskCount}件`
+        ? `タスクを開く。取り組んでいるタスクは${activeTask.title}。今日の未完了は${todayOpenTaskCount}件`
         : `タスクを開く。${statusText}。今日の未完了は${todayOpenTaskCount}件`;
     return { statusText, title, detail, accessibleLabel };
   }, [activeTask?.title, launcherSuggestedTask?.title, timer, todayOpenTaskCount]);
@@ -250,6 +276,7 @@ export default function App() {
     setTaskMessage("");
     setTaskDrawerResumeContext(null);
     setBreakResumeTaskId(null);
+    setSelectedTimerTaskId(taskId);
     start(taskId);
     setTasksOpen(false);
   }, [setTaskMessage, start]);
@@ -325,11 +352,28 @@ export default function App() {
     if (settings.fullscreen !== isFullscreen) updateSettings({ fullscreen: isFullscreen });
   }, [isFullscreen, settings.fullscreen, updateSettings]);
 
-  const startTimer = useCallback(() => {
+  const beginTimer = useCallback((taskId?: string | null) => {
+    setTimerTaskPickerIntent(null);
+    if (taskId !== undefined) setSelectedTimerTaskId(taskId);
     setTimerSetupVisible(false);
     updateSettings({ timerSetupCollapsed: true });
-    start();
+    start(taskId);
   }, [start, updateSettings]);
+  const startTimer = useCallback(() => {
+    if (timer.status !== "idle") {
+      beginTimer();
+      return;
+    }
+    if (!timerAcceptsTask) {
+      beginTimer(null);
+      return;
+    }
+    if (selectedTimerTask) {
+      beginTimer(selectedTimerTask.id);
+      return;
+    }
+    setTimerTaskPickerIntent("start");
+  }, [beginTimer, selectedTimerTask, timer.status, timerAcceptsTask]);
   const showTimerSetup = useCallback(() => {
     setTimerSetupVisible(true);
     updateSettings({ timerSetupCollapsed: false });
@@ -360,11 +404,14 @@ export default function App() {
         onSetDuration={setCustomDurationMinutes}
         onCollapse={() => { setTimerSetupVisible(false); updateSettings({ timerSetupCollapsed: true }); }}
         onShowFloating={showFloatingTimer}
+        taskSelectionEnabled={timerAcceptsTask}
+        selectedTaskTitle={selectedTimerTask?.title ?? null}
+        onOpenTaskPicker={() => setTimerTaskPickerIntent("select")}
         key="timer"
       />
     );
     return slots;
-  }, [orientation, settings, timer, timerSetupVisible, startTimer, resetTimer, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, showFloatingTimer, updateSettings]);
+  }, [orientation, settings, timer, timerSetupVisible, startTimer, resetTimer, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, showFloatingTimer, timerAcceptsTask, selectedTimerTask?.title, updateSettings]);
 
   const liveMessage = reminderMessage || taskMessage || backgroundMessage || announcement || storageMessage;
   const activeOverlay = completedSession !== null && completedTask !== null
@@ -500,6 +547,7 @@ export default function App() {
         <FloatingTimer
           timer={timer}
           taskTitle={activeTask?.title ?? null}
+          taskProgress={activeTaskProgress}
           onStart={startTimer}
           onPause={pause}
           onEnd={endTimer}
@@ -510,6 +558,21 @@ export default function App() {
       )}
 
       {liveMessage && <div className="toast" role="status" aria-live="polite">{liveMessage}</div>}
+      <TimerTaskPicker
+        open={timerTaskPickerIntent !== null}
+        intent={timerTaskPickerIntent ?? "select"}
+        tasks={timerTaskCandidates}
+        projects={projects}
+        selectedTaskId={selectedTimerTask?.id ?? null}
+        storageAvailable={taskStorageAvailable}
+        onAddTask={(title) => addTask({ title, dueDate: todayKey })}
+        onSelect={(taskId) => {
+          setSelectedTimerTaskId(taskId);
+          setTimerTaskPickerIntent(null);
+        }}
+        onStart={(taskId) => beginTimer(taskId)}
+        onClose={() => setTimerTaskPickerIntent(null)}
+      />
       <nav className="home-dock" aria-label="ホーム操作">
         <button className="home-dock__button home-dock__button--tasks" type="button" aria-label="タスク" aria-pressed={tasksOpen} onClick={() => openTasks(homeTasksRef.current)} ref={homeTasksRef}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h10M9 12h10M9 18h10M4 6h.01M4 12h.01M4 18h.01" /></svg><span>タスク</span>
@@ -523,6 +586,7 @@ export default function App() {
           focusedLabel: todayFocusedMs > 0 ? formatFocusedTime(todayFocusedMs) : "0分",
           overdueCount: todayOverdueTaskCount
         }}
+        todayTasks={launcherTodayTasks}
         activeTaskTitle={timer.status !== "idle" && timer.mode === "work" ? activeTask?.title ?? null : null}
         suggestedTask={launcherSuggestedTask}
         timerSummary={taskLauncherSummary}
@@ -554,14 +618,6 @@ export default function App() {
               detail: `${activeTaskDetailParts.join(" ・ ")} 集中を止めずに、詳細と一覧を見直せます。`,
               taskId: activeTask.id,
               actionLabel: "進行中を開く"
-            });
-          } else if (launcherSuggestedTask) {
-            setTaskDrawerResumeContext({
-              label: "今日のおすすめ",
-              title: `${launcherSuggestedTask.title}を開いています`,
-              detail: `${launcherSuggestedTask.detail}。そのまま開始するか、一覧で順番を見直せます。`,
-              taskId: launcherSuggestedTask.id,
-              actionLabel: "おすすめを開く"
             });
           } else {
             setTaskDrawerResumeContext(null);
@@ -613,6 +669,7 @@ export default function App() {
         onUpdateTask={updateTask}
         onToggleTask={toggleTask}
         onArchiveTask={archiveTask}
+        onDeleteTask={deleteTask}
         onMoveTask={moveTask}
         onAddProject={addProject}
         onArchiveProject={archiveProject}

@@ -137,8 +137,8 @@ export function AppCalendar({ value, today, onSelect, onClose, title, id }: AppC
         <button ref={closeButtonRef} type="button" aria-label={`${title}を閉じる`} onClick={onClose}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg></button>
       </div>
       <div className="app-calendar__shortcuts" aria-label="日付のショートカット">
-        <button type="button" className={value === today ? "is-selected" : ""} onClick={() => selectDate(today)}>今日</button>
-        <button type="button" className={value === addDays(today, 1) ? "is-selected" : ""} onClick={() => selectDate(addDays(today, 1))}>明日</button>
+        <button type="button" className={`app-calendar__shortcut--today${value === today ? " is-selected" : ""}`} onClick={() => selectDate(today)}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="m8.5 12 2.2 2.2 4.8-5" /></svg><span>今日</span></button>
+        <button type="button" className={`app-calendar__shortcut--tomorrow${value === addDays(today, 1) ? " is-selected" : ""}`} onClick={() => selectDate(addDays(today, 1))}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13m-5-5 5 5-5 5" /></svg><span>明日</span></button>
         <button type="button" className={value === addDays(today, 7) ? "is-selected" : ""} onClick={() => selectDate(addDays(today, 7))}>7日後</button>
         <button type="button" className={value === "" ? "is-selected" : ""} onClick={() => selectDate("")}>なし</button>
       </div>

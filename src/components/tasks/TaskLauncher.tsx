@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import type { FreePosition } from "../../types/settings";
 
 type Props = {
@@ -9,6 +9,7 @@ type Props = {
     focusedLabel: string;
     overdueCount: number;
   };
+  todayTasks?: { id: string; title: string; meta: string }[];
   activeTaskTitle: string | null;
   suggestedTask: {
     id: string;
@@ -31,20 +32,24 @@ type Props = {
 const defaultPosition: FreePosition = { x: .2, y: .86 };
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLauncher({ todayCount, activeTaskTitle, suggestedTask, timerSummary, onClick, position = defaultPosition, onPositionChange = () => undefined, transient = false, fading = false }, ref) {
-  const title = timerSummary?.title ?? activeTaskTitle ?? suggestedTask?.title ?? "今日のタスク";
+export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLauncher({ todayCount, todaySummary, todayTasks = [], activeTaskTitle, suggestedTask, timerSummary, onClick, position = defaultPosition, onPositionChange = () => undefined, transient = false, fading = false }, ref) {
+  const title = timerSummary?.title ?? activeTaskTitle ?? suggestedTask?.title ?? "Today";
   const detail = timerSummary?.detail
     ?? (activeTaskTitle
       ? `今日の未完了 ${todayCount}件`
       : suggestedTask?.detail
         ?? (todayCount === 0 ? "今日の予定はありません" : `${todayCount}件を整理`));
-  const status = timerSummary?.statusText ?? (activeTaskTitle ? "集中中" : suggestedTask ? "次のおすすめ" : "今日のタスク");
+  const status = timerSummary?.statusText ?? (activeTaskTitle ? "FOCUS" : suggestedTask ? "NEXT" : "TODAY");
   const isEmphasized = activeTaskTitle !== null || timerSummary !== null;
-  const isBreakFlow = timerSummary !== null && timerSummary.statusText !== "集中中";
+  const isBreakFlow = timerSummary !== null && timerSummary.statusText !== "FOCUS";
+  const showTodayTasks = !isEmphasized && suggestedTask === null;
   const queueLabel = todayCount === 0 ? "今日の未完了なし" : `未完了 ${todayCount}件`;
+  const completionRate = todaySummary && todaySummary.totalCount > 0
+    ? Math.round((todaySummary.completedCount / todaySummary.totalCount) * 100)
+    : 0;
   const accessibleLabel = timerSummary?.accessibleLabel
     ?? (activeTaskTitle
-      ? `タスクを開く。集中中のタスクは${activeTaskTitle}。今日の未完了は${todayCount}件`
+      ? `タスクを開く。取り組んでいるタスクは${activeTaskTitle}。今日の未完了は${todayCount}件`
       : suggestedTask
         ? `タスクを開く。次のおすすめは${suggestedTask.title}。今日の未完了は${todayCount}件`
         : `タスクを開く。今日の未完了は${todayCount}件`);
@@ -171,13 +176,25 @@ export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLa
           </span>
           <span className="task-launcher__queue" aria-hidden="true">{queueLabel}</span>
         </span>
-        <span className="task-launcher__headline">
+        {(!showTodayTasks || todayTasks.length === 0) && <span className="task-launcher__headline">
           <strong>{title}</strong>
-        </span>
+        </span>}
         <span className="task-launcher__detail">{detail}</span>
+        {showTodayTasks && todayTasks.length > 0 && <span className="task-launcher__tasks" aria-hidden="true">
+          {todayTasks.slice(0, 2).map((task) => <span className="task-launcher__task" key={task.id}>
+            <i />
+            <span>{task.title}</span>
+            <small>{task.meta}</small>
+          </span>)}
+        </span>}
+        {todaySummary && <span className="task-launcher__summary" aria-hidden="true">
+          <span><strong>{todaySummary.completedCount}/{todaySummary.totalCount}</strong> 完了</span>
+          <span><strong>{todaySummary.focusedLabel}</strong> 集中</span>
+          {todaySummary.overdueCount > 0 && <span className="task-launcher__overdue"><strong>{todaySummary.overdueCount}</strong> 期限切れ</span>}
+        </span>}
       </span>
       <span className="task-launcher__side" aria-hidden="true">
-        <span className="task-launcher__icon">
+        <span className="task-launcher__icon" style={{ "--task-completion": `${completionRate}%` } as CSSProperties}>
           <svg viewBox="0 0 24 24">
             <path d="M9 6h10M9 12h10M9 18h10" />
             <path d="m4 6 1 1 2-2M4 12h3M4 18h3" />

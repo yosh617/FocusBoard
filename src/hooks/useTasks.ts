@@ -14,6 +14,7 @@ import {
   type StoreImportPlan
 } from "../utils/productivityImport";
 import {
+  deleteProductivityRecords,
   loadProductivityData,
   replaceProductivityData,
   saveProductivityRecords,
@@ -194,6 +195,35 @@ export function useTasks() {
     }
   }, [fail, setUndo, storageAvailable]);
 
+  const deleteTask = useCallback(async (id: string) => {
+    const taskIds = new Set([id]);
+    let foundNewChild = true;
+    while (foundNewChild) {
+      foundNewChild = false;
+      for (const task of tasksRef.current) {
+        if (!taskIds.has(task.id) && task.parentTaskId !== null && taskIds.has(task.parentTaskId)) {
+          taskIds.add(task.id);
+          foundNewChild = true;
+        }
+      }
+    }
+    const previousRecords = tasksRef.current.filter((task) => taskIds.has(task.id));
+    if (previousRecords.length === 0 || !storageAvailable) return false;
+    try {
+      await deleteProductivityRecords({ taskIds: previousRecords.map((task) => task.id) });
+      setTasks((current) => current.filter((task) => !taskIds.has(task.id)));
+      setMessage(previousRecords.length > 1 ? "タスクとサブタスクを削除しました。" : "タスクを削除しました。");
+      setUndo(async () => {
+        await saveProductivityRecords({ tasks: previousRecords });
+        setTasks((current) => [...current, ...previousRecords].sort((left, right) => left.order - right.order || left.createdAt - right.createdAt));
+      });
+      return true;
+    } catch {
+      fail();
+      return false;
+    }
+  }, [fail, setUndo, storageAvailable]);
+
   const moveTask = useCallback(async (id: string, visibleIds: string[], direction: -1 | 1) => {
     const index = visibleIds.indexOf(id);
     const targetIndex = index + direction;
@@ -366,6 +396,7 @@ export function useTasks() {
     updateTask,
     toggleTask,
     archiveTask,
+    deleteTask,
     moveTask,
     addProject,
     archiveProject,

@@ -72,6 +72,7 @@ function renderDrawer(overrides: Partial<React.ComponentProps<typeof TaskDrawer>
     onUpdateTask: vi.fn().mockResolvedValue(true),
     onToggleTask: vi.fn().mockResolvedValue(true),
     onArchiveTask: vi.fn().mockResolvedValue(true),
+    onDeleteTask: vi.fn().mockResolvedValue(true),
     onMoveTask: vi.fn().mockResolvedValue(true),
     onAddProject: vi.fn().mockResolvedValue(true),
     onArchiveProject: vi.fn().mockResolvedValue(true),
@@ -90,6 +91,10 @@ function chooseSelect(container: ReturnType<typeof within>, label: string, optio
   fireEvent.click(container.getByRole("option", { name: option }));
 }
 
+function openAdvancedSettings(container: ReturnType<typeof within>) {
+  fireEvent.click(container.getByText("詳細設定"));
+}
+
 describe("TaskDrawer", () => {
   it("keeps settings below an independently scrolling task list", () => {
     renderDrawer({ sessions: [session] });
@@ -101,7 +106,6 @@ describe("TaskDrawer", () => {
     const workspace = settings.closest(".task-workspace--list");
     const scrollArea = workspace?.querySelector(".task-workspace__scroll");
     expect(taskList).toBeTruthy();
-    expect(taskList.compareDocumentPosition(settingsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(settings.contains(settingsHeading)).toBe(true);
     expect(scrollArea?.contains(taskList)).toBe(true);
     expect(scrollArea?.nextElementSibling).toBe(settings);
@@ -117,52 +121,55 @@ describe("TaskDrawer", () => {
     expect(screen.getByRole("button", { name: "勉強 0h 50m" })).toBeTruthy();
   });
 
-  it("shows a focus-ready label and a visible start action in the task row", () => {
+  it("shows a compact focus count and a play action in the task row", () => {
     renderDrawer();
-    expect(screen.getByRole("button", { name: /数学の復習/, expanded: false }).textContent).toContain("次に集中");
-    expect(screen.getByRole("button", { name: "数学の復習のタイマーを開始" }).textContent).toContain("開始");
+    expect(screen.getByRole("button", { name: /数学の復習/, expanded: false }).textContent).toBe("数学の復習0/2");
+    expect(screen.getByLabelText("集中回数 0/2")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "数学の復習のタイマーを開始" }).querySelector(".task-row__play-icon")).toBeTruthy();
+  });
+
+  it("keeps tasks completed today in a collapsible section and restores them from the checkbox", async () => {
+    const completedTask: TaskRecord = {
+      ...task,
+      status: "completed",
+      completedAt: Date.now(),
+      updatedAt: Date.now()
+    };
+    const props = renderDrawer({ tasks: [completedTask] });
+
+    expect(screen.getByText("1件のタスク")).toBeTruthy();
+    const completedToggle = screen.getByRole("button", { name: "今日の完了済みタスク 1件" });
+    expect(completedToggle.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByRole("button", { name: "数学の復習を未完了に戻す" })).toBeNull();
+
+    fireEvent.click(completedToggle);
+
+    expect(completedToggle.getAttribute("aria-expanded")).toBe("true");
+    const restoreButton = screen.getByRole("button", { name: "数学の復習を未完了に戻す" });
+    expect(restoreButton.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.queryByRole("button", { name: "数学の復習のタイマーを開始" })).toBeNull();
+    fireEvent.click(restoreButton);
+    await waitFor(() => expect(props.onToggleTask).toHaveBeenCalledWith(completedTask.id));
   });
 
   it("keeps task capture concise when switching to a project", () => {
     renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: /^勉強 / }));
     expect(screen.getByRole("heading", { name: "勉強" })).toBeTruthy();
-    expect(screen.getByLabelText("新しいタスク").getAttribute("placeholder")).toBe("タスクを追加…");
+    expect(screen.getByLabelText("新しいタスク").getAttribute("placeholder")).toBe("タスクを追加");
   });
 
-  it("adds projects with an accessible fixed color palette", async () => {
+  it("adds projects with the shared color picker and saved presets", async () => {
     const props = renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: "新規" }));
 
-    expect(document.querySelector(".project-add input[type='color']")).toBeNull();
     const palette = screen.getByRole("group", { name: "プロジェクトの色を選択" });
-    expect(within(palette).getAllByRole("button").map((button) => button.getAttribute("aria-label"))).toEqual([
-      "ブルー",
-      "インディゴ",
-      "パープル",
-      "レッド",
-      "オレンジ",
-      "イエロー",
-      "ライム",
-      "グリーン",
-      "ティール",
-      "シアン"
-    ]);
-    expect(within(palette).getAllByRole("button").map((button) => (button.querySelector("span") as HTMLElement).style.backgroundColor)).toEqual([
-      "rgb(10, 132, 255)",
-      "rgb(79, 70, 229)",
-      "rgb(124, 58, 237)",
-      "rgb(255, 69, 58)",
-      "rgb(255, 149, 0)",
-      "rgb(245, 183, 0)",
-      "rgb(132, 204, 22)",
-      "rgb(48, 199, 89)",
-      "rgb(0, 191, 166)",
-      "rgb(0, 174, 239)"
-    ]);
-    expect(within(palette).queryByRole("button", { name: /ピンク|マゼンタ/ })).toBeNull();
+    const picker = within(palette).getByRole("region", { name: "プロジェクトの色" });
+    expect(within(picker).getByText("プロジェクトの色")).toBeTruthy();
+    expect(within(picker).getByRole("button", { name: "保存色 ブルー #0A84FF" })).toBeTruthy();
+    expect(within(picker).getByRole("button", { name: "保存色 シアン #00AEEF" })).toBeTruthy();
 
-    const cyan = within(palette).getByRole("button", { name: "シアン" });
+    const cyan = within(picker).getByRole("button", { name: "保存色 シアン #00AEEF" });
     expect(cyan.getAttribute("aria-pressed")).toBe("false");
     fireEvent.click(cyan);
     expect(cyan.getAttribute("aria-pressed")).toBe("true");
@@ -172,7 +179,7 @@ describe("TaskDrawer", () => {
     await waitFor(() => expect(props.onAddProject).toHaveBeenCalledWith("読書", "#00AEEF"));
 
     fireEvent.click(screen.getByRole("button", { name: "新規" }));
-    expect(within(screen.getByRole("group", { name: "プロジェクトの色を選択" })).getByRole("button", { name: "ブルー" }).getAttribute("aria-pressed")).toBe("true");
+    expect(within(screen.getByRole("group", { name: "プロジェクトの色を選択" })).getByRole("button", { name: "保存色 ブルー #0A84FF" }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("opens the suggested task in the dedicated editor and returns to the list", async () => {
@@ -203,7 +210,8 @@ describe("TaskDrawer", () => {
   it("surfaces the active focus context at the top of the drawer", async () => {
     renderDrawer({ timerStatus: "running", activeTaskId: task.id });
     expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("いまの集中");
-    expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("数学の復習に集中中です");
+    expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("数学の復習に取り組んでいます");
+    expect(screen.getByRole("button", { name: "タイマーへ戻る" }).querySelector(".task-row__timer-icon")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
     await waitFor(() => expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy());
     expect(screen.getByRole("button", { name: "数学の復習の詳細からタイマーへ戻る" })).toBeTruthy();
@@ -229,16 +237,18 @@ describe("TaskDrawer", () => {
     try {
       renderDrawer();
       expect(screen.queryByRole("button", { name: /^表示先 今日/ })).toBeNull();
-      expect(screen.getByRole("heading", { name: "表示先を選ぶ" })).toBeTruthy();
+      expect(screen.queryByRole("heading", { name: "表示先を選ぶ" })).toBeNull();
+      expect(screen.queryByText("リストまたはプロジェクトを選択してください。")).toBeNull();
+      expect(screen.queryByText("リストを選択")).toBeNull();
       expect(document.querySelector(".task-drawer__body")?.classList.contains("is-navigation-open")).toBe(true);
       fireEvent.click(screen.getByRole("button", { name: /^明日 / }));
 
       expect(document.querySelector(".task-drawer__body")?.classList.contains("is-navigation-open")).toBe(false);
       expect(screen.getByRole("heading", { name: "明日" })).toBeTruthy();
-      fireEvent.click(screen.getByRole("button", { name: "表示先を選ぶ" }));
+      fireEvent.click(screen.getByRole("button", { name: "一覧を開く" }));
 
       expect(document.querySelector(".task-drawer__body")?.classList.contains("is-navigation-open")).toBe(true);
-      expect(screen.getByRole("heading", { name: "表示先を選ぶ" })).toBeTruthy();
+      expect(screen.queryByRole("heading", { name: "表示先を選ぶ" })).toBeNull();
     } finally {
       Object.defineProperty(window, "matchMedia", {
         configurable: true,
@@ -325,7 +335,7 @@ describe("TaskDrawer", () => {
     expect(screen.getByLabelText("プロジェクトなしの集中目安 0 / 1")).toBeTruthy();
   });
 
-  it("marks overdue work in the task list", () => {
+  it("keeps overdue task cards compact while retaining their details", () => {
     const overdueTask: TaskRecord = {
       ...task,
       id: "task-2",
@@ -339,15 +349,19 @@ describe("TaskDrawer", () => {
       tasks: [task, overdueTask]
     });
 
-    expect(screen.getByRole("button", { name: /英語の宿題/, expanded: false }).textContent).toContain("先に片づける");
+    expect(screen.getByRole("button", { name: /英語の宿題/, expanded: false }).textContent).toBe("英語の宿題0/2");
     fireEvent.click(screen.getByRole("button", { name: /英語の宿題/, expanded: false }));
     expect(screen.getByRole("form", { name: "英語の宿題の詳細" })).toBeTruthy();
   });
 
   it("adds a task to today's list with a single title", async () => {
     const props = renderDrawer();
-    fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "英単語を覚える" } });
-    fireEvent.click(screen.getByRole("button", { name: "完了" }));
+    const titleInput = screen.getByLabelText("新しいタスク");
+    const addButton = screen.getByRole("button", { name: "タスクを追加" });
+    expect(titleInput.previousElementSibling).toBe(addButton);
+    expect(addButton.querySelector("svg")).toBeTruthy();
+    fireEvent.change(titleInput, { target: { value: "英単語を覚える" } });
+    fireEvent.click(addButton);
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "英単語を覚える", dueDate: today })));
   });
 
@@ -396,6 +410,7 @@ describe("TaskDrawer", () => {
         onUpdateTask={vi.fn().mockResolvedValue(true)}
         onToggleTask={vi.fn().mockResolvedValue(true)}
         onArchiveTask={vi.fn().mockResolvedValue(true)}
+        onDeleteTask={vi.fn().mockResolvedValue(true)}
         onMoveTask={vi.fn().mockResolvedValue(true)}
         onAddProject={vi.fn().mockResolvedValue(true)}
         onArchiveProject={vi.fn().mockResolvedValue(true)}
@@ -407,7 +422,7 @@ describe("TaskDrawer", () => {
     );
 
     fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: createdTask.title } });
-    fireEvent.click(screen.getByRole("button", { name: "完了" }));
+    fireEvent.click(screen.getByRole("button", { name: "タスクを追加" }));
     await waitFor(() => expect(onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: createdTask.title })));
     await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("新しいタスク")));
 
@@ -429,6 +444,7 @@ describe("TaskDrawer", () => {
         onUpdateTask={vi.fn().mockResolvedValue(true)}
         onToggleTask={vi.fn().mockResolvedValue(true)}
         onArchiveTask={vi.fn().mockResolvedValue(true)}
+        onDeleteTask={vi.fn().mockResolvedValue(true)}
         onMoveTask={vi.fn().mockResolvedValue(true)}
         onAddProject={vi.fn().mockResolvedValue(true)}
         onArchiveProject={vi.fn().mockResolvedValue(true)}
@@ -451,29 +467,30 @@ describe("TaskDrawer", () => {
     fireEvent.click(screen.getByRole("button", { name: new RegExp(`期限 ${today}`) }));
     const calendar = screen.getByRole("dialog", { name: "期限を設定" });
     fireEvent.click(within(calendar).getByRole("button", { name: "明日" }));
-    fireEvent.click(screen.getByRole("button", { name: "完了" }));
+    fireEvent.click(screen.getByRole("button", { name: "タスクを追加" }));
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "理科の暗記", dueDate: addLocalDays(today, 1) })));
   });
 
-  it("adds a task with a focus estimate from the quick presets", async () => {
+  it("adds a task with a planned pomodoro count", async () => {
     const props = renderDrawer();
     fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "理科の暗記" } });
-    const estimateButton = screen.getByRole("button", { name: "2回" });
-    fireEvent.click(estimateButton);
-    expect(estimateButton.getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(screen.getByRole("button", { name: "完了" }));
+    fireEvent.click(screen.getByRole("button", { name: "2回" }));
+    fireEvent.click(screen.getByRole("button", { name: "タスクを追加" }));
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "理科の暗記", estimatedPomodoros: 2 })));
   });
 
-  it("uses a horizontal slider for five or more planned pomodoros", async () => {
-    const props = renderDrawer();
-    fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "長めの課題" } });
+  it("adjusts the planned pomodoro count down to one or by number input", () => {
+    renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: "5回以上を設定" }));
-    const slider = screen.getByRole("slider", { name: "予定数 5回" });
-    fireEvent.change(slider, { target: { value: "8" } });
-    expect((slider as HTMLInputElement).value).toBe("8");
-    fireEvent.click(screen.getByRole("button", { name: "完了" }));
-    await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ estimatedPomodoros: 8 })));
+    expect(screen.queryByRole("button", { name: "2回" })).toBeNull();
+    const slider = screen.getByRole("slider", { name: "予定ポモドーロのスライダー" });
+    fireEvent.change(slider, { target: { value: "1" } });
+    expect((slider as HTMLInputElement).value).toBe("1");
+    const numberInput = screen.getByRole("spinbutton", { name: "予定ポモドーロの回数" });
+    fireEvent.change(numberInput, { target: { value: "12" } });
+    expect((numberInput as HTMLInputElement).value).toBe("12");
+    fireEvent.click(screen.getByRole("button", { name: "予定ポモドーロのプリセットへ戻る" }));
+    expect(screen.getByRole("button", { name: "2回" })).toBeTruthy();
   });
 
   it("adds the selected priority and project from the bottom toolbar", async () => {
@@ -483,7 +500,7 @@ describe("TaskDrawer", () => {
     fireEvent.click(within(screen.getByRole("dialog", { name: "優先度を設定" })).getByRole("button", { name: "高" }));
     fireEvent.click(screen.getByRole("button", { name: "プロジェクトを設定" }));
     fireEvent.click(within(screen.getByRole("dialog", { name: "プロジェクトを設定" })).getByRole("button", { name: "勉強" }));
-    fireEvent.click(screen.getByRole("button", { name: "完了" }));
+    fireEvent.click(screen.getByRole("button", { name: "タスクを追加" }));
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ priority: "high", projectId: project.id })));
   });
 
@@ -495,7 +512,7 @@ describe("TaskDrawer", () => {
     fireEvent.change(within(tagDialog).getByLabelText("新しいタグ名"), { target: { value: "試験" } });
     fireEvent.click(within(tagDialog).getByRole("button", { name: "タグを追加" }));
     expect(within(tagDialog).getByRole("button", { name: "#試験" }).getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(screen.getByRole("button", { name: "完了" }));
+    fireEvent.click(screen.getByRole("button", { name: "タスクを追加" }));
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ tags: ["試験"] })));
   });
 
@@ -515,7 +532,60 @@ describe("TaskDrawer", () => {
     renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
     expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "タスクの設定" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "タスク詳細" })).toBeTruthy();
+  });
+
+  it("shows only the essential task settings until details are requested", () => {
+    renderDrawer();
+    fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
+    const details = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
+
+    expect(details.getByLabelText("タスク名")).toBeTruthy();
+    expect(details.getByRole("group", { name: "タスクの期限をすばやく設定" })).toBeTruthy();
+    expect(details.getByRole("group", { name: "集中回数をすばやく設定" })).toBeTruthy();
+    expect(details.getByLabelText("プロジェクト")).toBeTruthy();
+    expect(details.getByRole("button", { name: "数学の復習を詳細から開始" })).toBeTruthy();
+    expect((details.getByText("詳細設定").closest("details") as HTMLDetailsElement).open).toBe(false);
+  });
+
+  it("keeps archive compact and offers permanent deletion in task details", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const props = renderDrawer();
+    fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
+    const details = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
+    openAdvancedSettings(details);
+
+    const archiveButton = details.getByRole("button", { name: "アーカイブ" });
+    expect(archiveButton.className).toContain("task-editor__archive-button");
+    fireEvent.click(details.getByRole("button", { name: "削除" }));
+    await waitFor(() => expect(props.onDeleteTask).toHaveBeenCalledWith(task.id));
+    expect(confirm).toHaveBeenCalledWith("数学の復習を完全に削除しますか？この操作は元に戻せません。");
+    confirm.mockRestore();
+  });
+
+  it("saves edited task settings before starting the timer", async () => {
+    const props = renderDrawer();
+    fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
+    fireEvent.change(screen.getByLabelText("タスク名"), { target: { value: "数学Iの復習" } });
+    fireEvent.click(screen.getByRole("button", { name: "数学の復習を詳細から開始" }));
+
+    await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({ title: "数学Iの復習" })));
+    expect(props.onStartTask).toHaveBeenCalledWith(task.id);
+    expect(vi.mocked(props.onUpdateTask).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(props.onStartTask).mock.invocationCallOrder[0]);
+  });
+
+  it("asks before leaving task details with unsaved changes", () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
+    renderDrawer();
+    fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
+    fireEvent.change(screen.getByLabelText("タスク名"), { target: { value: "変更中" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "タスク一覧へ戻る" }));
+    expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "タスク一覧へ戻る" }));
+    expect(screen.queryByRole("form", { name: "数学の復習の詳細" })).toBeNull();
+    expect(confirm).toHaveBeenCalledTimes(2);
+    confirm.mockRestore();
   });
 
   it("returns focus to the task row after returning from the dedicated editor", async () => {
@@ -527,12 +597,16 @@ describe("TaskDrawer", () => {
     expect(document.activeElement?.textContent).toContain("数学の復習");
   });
 
-  it("surfaces a reminder in the task row", () => {
+  it("keeps reminders out of the compact row and available in task details", () => {
     const reminderAt = new Date(`${addLocalDays(today, 1)}T09:30:00`).getTime();
     renderDrawer({
       tasks: [{ ...task, reminderAt }]
     });
-    expect(screen.getAllByText(/通知/).length).toBeGreaterThan(0);
+    const taskButton = screen.getByRole("button", { name: /数学の復習/, expanded: false });
+    expect(taskButton.textContent).not.toContain("通知");
+    fireEvent.click(taskButton);
+    openAdvancedSettings(within(screen.getByRole("form", { name: "数学の復習の詳細" })));
+    expect(screen.getByText("通知と繰り返し")).toBeTruthy();
   });
 
   it("completes a task and edits its details through named controls", async () => {
@@ -541,11 +615,13 @@ describe("TaskDrawer", () => {
     expect(props.onToggleTask).toHaveBeenCalledWith(task.id);
 
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
+    openAdvancedSettings(within(screen.getByRole("form", { name: "数学の復習の詳細" })));
     fireEvent.click(screen.getByRole("button", { name: "数学の復習を詳細から完了" }));
     await waitFor(() => expect(props.onToggleTask).toHaveBeenCalledTimes(2));
     expect(screen.queryByRole("form", { name: "数学の復習の詳細" })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
+    openAdvancedSettings(within(screen.getByRole("form", { name: "数学の復習の詳細" })));
     fireEvent.change(screen.getByLabelText("タスク名"), { target: { value: "数学Iの復習" } });
     fireEvent.change(screen.getByLabelText("見積もり"), { target: { value: "3" } });
     fireEvent.click(screen.getByText("通知と繰り返し"));
@@ -560,6 +636,7 @@ describe("TaskDrawer", () => {
 
     const form = screen.getByRole("form", { name: "数学の復習の詳細" });
     const details = within(form);
+    openAdvancedSettings(details);
     expect(form.querySelectorAll("select, input[type='date'], input[type='datetime-local']")).toHaveLength(0);
     chooseSelect(details, "プロジェクト", "なし");
     chooseSelect(details, "分類", "いつか");
@@ -609,6 +686,7 @@ describe("TaskDrawer", () => {
     };
     const props = renderDrawer({ tasks: [task, nextTask] });
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
+    openAdvancedSettings(within(screen.getByRole("form", { name: "数学の復習の詳細" })));
     fireEvent.click(screen.getByRole("button", { name: "数学の復習を完了して英語の宿題を開始" }));
     await waitFor(() => expect(props.onToggleTask).toHaveBeenCalledWith(task.id));
     expect(props.onStartTask).toHaveBeenCalledWith(nextTask.id);
@@ -627,6 +705,7 @@ describe("TaskDrawer", () => {
 
     renderDrawer({ tasks: [task, nextTask] });
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
+    openAdvancedSettings(within(screen.getByRole("form", { name: "数学の復習の詳細" })));
     fireEvent.click(screen.getByRole("button", { name: "英語の宿題の候補を詳細で見る" }));
 
     await waitFor(() => expect(screen.getByRole("form", { name: "英語の宿題の詳細" })).toBeTruthy());
@@ -730,6 +809,7 @@ describe("TaskDrawer", () => {
   it("adds a subtask from the task details", async () => {
     const props = renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
+    openAdvancedSettings(within(screen.getByRole("form", { name: "数学の復習の詳細" })));
     fireEvent.click(screen.getByText("サブタスク"));
     const details = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
     fireEvent.change(details.getByLabelText("サブタスク名"), { target: { value: "例題を3問解く" } });
@@ -740,6 +820,7 @@ describe("TaskDrawer", () => {
   it("saves a custom repeat interval", async () => {
     const props = renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
+    openAdvancedSettings(within(screen.getByRole("form", { name: "数学の復習の詳細" })));
     fireEvent.click(screen.getByText("通知と繰り返し"));
     const details = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
     chooseSelect(details, "繰り返し", "カスタム");
@@ -753,6 +834,7 @@ describe("TaskDrawer", () => {
     const props = renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
     const details = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
+    openAdvancedSettings(details);
     fireEvent.click(details.getByLabelText("期限"));
     fireEvent.click(within(details.getByRole("dialog", { name: "期限を選択" })).getByRole("button", { name: "明日" }));
     fireEvent.click(details.getByRole("button", { name: "保存" }));
@@ -763,6 +845,7 @@ describe("TaskDrawer", () => {
     const props = renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
     const details = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
+    openAdvancedSettings(details);
     fireEvent.click(details.getByText("通知と繰り返し"));
     fireEvent.click(details.getByLabelText("リマインダー"));
     fireEvent.click(within(details.getByRole("dialog", { name: "リマインダーの日付を選択" })).getByRole("button", { name: "明日" }));
@@ -774,6 +857,7 @@ describe("TaskDrawer", () => {
     const props = renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
     const details = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
+    openAdvancedSettings(details);
     fireEvent.change(details.getByLabelText("見積もり"), { target: { value: "4" } });
     expect((details.getByLabelText("見積もり") as HTMLInputElement).value).toBe("4");
     fireEvent.click(details.getByRole("button", { name: "保存" }));
@@ -784,6 +868,7 @@ describe("TaskDrawer", () => {
     const props = renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
     const details = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
+    openAdvancedSettings(details);
 
     const inSevenDays = details.getByRole("button", { name: "7日後" });
     fireEvent.click(inSevenDays);
@@ -804,6 +889,7 @@ describe("TaskDrawer", () => {
     const props = renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
     const details = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
+    openAdvancedSettings(details);
     const someday = details.getByRole("button", { name: "いつか" });
     fireEvent.click(someday);
     expect(someday.getAttribute("aria-pressed")).toBe("true");
@@ -817,6 +903,7 @@ describe("TaskDrawer", () => {
     const props = renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
     const details = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
+    openAdvancedSettings(details);
 
     fireEvent.click(details.getByLabelText("期限"));
     fireEvent.click(within(details.getByRole("dialog", { name: "期限を選択" })).getByRole("button", { name: "明日" }));
@@ -839,6 +926,7 @@ describe("TaskDrawer", () => {
     const props = renderDrawer({ tasks: [{ ...task, tags: ["復習"] }] });
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
     const details = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
+    openAdvancedSettings(details);
     fireEvent.change(details.getByLabelText("新しいタグ名"), { target: { value: "重要" } });
     fireEvent.click(details.getByRole("button", { name: "タグを追加" }));
     fireEvent.click(details.getByRole("button", { name: "保存" }));
