@@ -4,6 +4,7 @@ import type { ProductivityBackup } from "../utils/productivityBackup";
 import type { TaskRecord } from "../types/task";
 import { createProductivityBackup } from "../utils/productivityBackup";
 import {
+  deleteProductivityRecords,
   loadProductivityData,
   replaceProductivityData,
   saveFocusSessionRecord,
@@ -15,6 +16,7 @@ import { useTasks } from "./useTasks";
 
 vi.mock("../utils/productivityStorage", () => ({
   loadProductivityData: vi.fn(),
+  deleteProductivityRecords: vi.fn(),
   replaceProductivityData: vi.fn(),
   saveFocusSessionRecord: vi.fn(),
   saveProductivityRecords: vi.fn(),
@@ -50,6 +52,7 @@ describe("useTasks", () => {
     vi.mocked(saveFocusSessionRecord).mockResolvedValue(undefined);
     vi.mocked(saveProjectRecord).mockResolvedValue(undefined);
     vi.mocked(saveProductivityRecords).mockResolvedValue(undefined);
+    vi.mocked(deleteProductivityRecords).mockResolvedValue(undefined);
     vi.mocked(replaceProductivityData).mockResolvedValue(undefined);
   });
 
@@ -74,6 +77,19 @@ describe("useTasks", () => {
     await act(async () => { await result.current.undo(); });
     expect(result.current.tasks[0]).toEqual(savedTask);
     expect(result.current.canUndo).toBe(false);
+  });
+
+  it("deletes a task and its subtasks while keeping undo available", async () => {
+    const child = { ...savedTask, id: "subtask-1", title: "例題", parentTaskId: savedTask.id, order: 1 };
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask, child], projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0 });
+    const { result } = renderHook(() => useTasks());
+    await waitFor(() => expect(result.current.tasks).toHaveLength(2));
+
+    await act(async () => { expect(await result.current.deleteTask(savedTask.id)).toBe(true); });
+    expect(deleteProductivityRecords).toHaveBeenCalledWith({ taskIds: [savedTask.id, child.id] });
+    expect(result.current.tasks).toEqual([]);
+    await act(async () => { expect(await result.current.undo()).toBe(true); });
+    expect(result.current.tasks).toEqual([savedTask, child]);
   });
 
   it("keeps the timer-capable app available when IndexedDB cannot load", async () => {

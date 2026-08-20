@@ -37,7 +37,7 @@ export function FloatingTimer({ timer, taskTitle, taskProgress, onStart, onPause
     ? modeLabels[timer.mode]
     : timer.category === "focus" ? "実施中" : "休憩";
   const programText = taskProgress
-    ? `${taskProgress.current}/${taskProgress.planned}`
+    ? `SESSION ${taskProgress.current}/${taskProgress.planned}`
     : timer.program === "pomodoro"
       ? null
       : timer.program === "countup"

@@ -21,6 +21,7 @@ const mockTasksState = vi.hoisted(() => ({
   updateTask: vi.fn(),
   toggleTask: vi.fn(),
   archiveTask: vi.fn(),
+  deleteTask: vi.fn(),
   moveTask: vi.fn(),
   addProject: vi.fn(),
   archiveProject: vi.fn(),
@@ -57,6 +58,7 @@ describe("App", () => {
     mockTasksState.updateTask.mockReset().mockResolvedValue(true);
     mockTasksState.toggleTask.mockReset().mockResolvedValue(true);
     mockTasksState.archiveTask.mockReset().mockResolvedValue(true);
+    mockTasksState.deleteTask.mockReset().mockResolvedValue(true);
     mockTasksState.moveTask.mockReset().mockResolvedValue(true);
     mockTasksState.addProject.mockReset().mockResolvedValue(true);
     mockTasksState.archiveProject.mockReset().mockResolvedValue(true);
@@ -291,7 +293,7 @@ describe("App", () => {
     expect(screen.queryByRole("dialog", { name: "取り組むタスクを選ぶ" })).toBeNull();
     const linkedTimer = screen.getByLabelText("数学の復習の集中タイマー");
     expect(linkedTimer.textContent).not.toContain("数学の復習");
-    expect(linkedTimer.textContent).toContain("1/1");
+    expect(linkedTimer.textContent).toContain("SESSION 1/1");
   });
 
   it("asks for a task when starting and can start the selected task directly", () => {
@@ -304,7 +306,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "数学の復習を開始" }));
 
     expect(screen.queryByRole("dialog", { name: "どのタスクを始めますか？" })).toBeNull();
-    expect(screen.getByLabelText("数学の復習の集中タイマー").textContent).toContain("1/1");
+    expect(screen.getByLabelText("数学の復習の集中タイマー").textContent).toContain("SESSION 1/1");
   });
 
   it("shows the current task session beyond its planned count", () => {
@@ -326,7 +328,7 @@ describe("App", () => {
 
     prepareTaskFlow();
 
-    expect(screen.getByLabelText("数学の復習の集中タイマー").textContent).toContain("3/1");
+    expect(screen.getByLabelText("数学の復習の集中タイマー").textContent).toContain("SESSION 3/1");
   });
 
   it("adds a new task from the start dialog and begins it immediately", async () => {

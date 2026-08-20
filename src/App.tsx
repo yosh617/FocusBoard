@@ -53,6 +53,7 @@ export default function App() {
     updateTask,
     toggleTask,
     archiveTask,
+    deleteTask,
     moveTask,
     addProject,
     archiveProject,
@@ -667,6 +668,7 @@ export default function App() {
         onUpdateTask={updateTask}
         onToggleTask={toggleTask}
         onArchiveTask={archiveTask}
+        onDeleteTask={deleteTask}
         onMoveTask={moveTask}
         onAddProject={addProject}
         onArchiveProject={archiveProject}

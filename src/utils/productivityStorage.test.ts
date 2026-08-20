@@ -5,6 +5,7 @@ import type { TaskRecord } from "../types/task";
 import {
   PRODUCTIVITY_DB_NAME,
   PRODUCTIVITY_DB_VERSION,
+  deleteProductivityRecords,
   loadProductivityData,
   replaceProductivityData,
   saveProductivityRecords
@@ -91,6 +92,18 @@ class FakeObjectStore {
     return request as unknown as IDBRequest<undefined>;
   }
 
+  delete(key: IDBValidKey, transaction: FakeTransaction) {
+    const request = new FakeRequest<undefined>();
+    transaction.start();
+    queueMicrotask(() => {
+      if (transaction.aborted) return;
+      this.data.delete(String(key));
+      request.succeed(undefined);
+      transaction.finish();
+    });
+    return request as unknown as IDBRequest<undefined>;
+  }
+
   getAll(transaction: FakeTransaction) {
     const request = new FakeRequest<unknown[]>();
     transaction.start();
@@ -145,6 +158,7 @@ class FakeTransaction {
     return {
       put: (value: unknown) => store.put(value, this),
       clear: () => store.clear(this),
+      delete: (key: IDBValidKey) => store.delete(key, this),
       getAll: () => store.getAll(this),
       createIndex: (indexName: string, keyPath: string | string[]) => {
         store.createIndex(indexName, keyPath);
@@ -338,6 +352,16 @@ describe("productivityStorage", () => {
     const loaded = await loadProductivityData();
     expect(loaded.tasks).toEqual([task]);
     expect(loaded.projects).toEqual([project]);
+    expect(loaded.sessions).toEqual([session]);
+  });
+
+  it("deletes selected tasks without deleting their focus history", async () => {
+    await saveProductivityRecords({ tasks: [task], sessions: [session] });
+
+    await deleteProductivityRecords({ taskIds: [task.id] });
+
+    const loaded = await loadProductivityData();
+    expect(loaded.tasks).toEqual([]);
     expect(loaded.sessions).toEqual([session]);
   });
 

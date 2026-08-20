@@ -180,6 +180,20 @@ export async function saveProductivityRecords(records: { tasks?: TaskRecord[]; p
   }
 }
 
+export async function deleteProductivityRecords(records: { taskIds?: string[] }) {
+  const taskIds = records.taskIds ?? [];
+  if (taskIds.length === 0) return;
+  const database = await openDatabase();
+  try {
+    const transaction = database.transaction(TASK_STORE, "readwrite");
+    const done = transactionDone(transaction);
+    const requests = taskIds.map((id) => requestResult(transaction.objectStore(TASK_STORE).delete(id)));
+    await finishTransaction(done, Promise.all(requests));
+  } finally {
+    database.close();
+  }
+}
+
 export async function replaceProductivityData(records: { tasks: TaskRecord[]; projects: ProjectRecord[]; sessions: FocusSessionRecord[] }) {
   const database = await openDatabase();
   try {
