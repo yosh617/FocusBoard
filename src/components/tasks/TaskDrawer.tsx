@@ -350,13 +350,11 @@ function TaskEditor({ task, projects, availableTags, subtasks, timerStatus, acti
       </section>
       <section className="task-editor__quick-actions" aria-label="よく使う設定">
         <div className="task-editor__quick-group">
-          <span>期限を選ぶ</span>
           <div role="group" aria-label="タスクの期限をすばやく設定">
             {([ ["today", "今日"], ["tomorrow", "明日"], ["week", "7日後"], ["someday", "いつか"] ] as const).map(([preset, label]) => <button type="button" aria-pressed={preset === "someday" ? bucket === "someday" && !dueDate : dueDate === addLocalDays(today, preset === "today" ? 0 : preset === "tomorrow" ? 1 : 7) && bucket === "inbox"} className={(preset === "someday" ? bucket === "someday" && !dueDate : dueDate === addLocalDays(today, preset === "today" ? 0 : preset === "tomorrow" ? 1 : 7) && bucket === "inbox") ? "is-active" : ""} onClick={() => applyDuePreset(preset)} key={preset}>{label}</button>)}
           </div>
         </div>
         <div className="task-editor__quick-group">
-          <span>集中回数を選ぶ</span>
           <div role="group" aria-label="集中回数をすばやく設定">
             {[0, ...quickEstimateOptions].map((value) => <button type="button" aria-pressed={estimatedPomodoros === value} className={estimatedPomodoros === value ? "is-active" : ""} onClick={() => setEstimatedPomodoros(value)} key={value}>{value === 0 ? "なし" : value}</button>)}
           </div>
@@ -374,7 +372,6 @@ function TaskEditor({ task, projects, availableTags, subtasks, timerStatus, acti
       <details className="task-editor__details task-editor__advanced" style={{ overflow: "visible" }}>
         <summary>
           <span>詳細設定</span>
-          <strong>優先度・タグ・通知など</strong>
         </summary>
         <div className="task-editor__details-body">
           <div className="task-editor__row">
@@ -411,14 +408,14 @@ function TaskEditor({ task, projects, availableTags, subtasks, timerStatus, acti
             </div>
           </details>
           <details className="task-editor__details" open={noteExpanded} onToggle={(event) => setNoteExpanded((event.currentTarget as HTMLDetailsElement).open)}>
-            <summary><span>メモ</span><strong>{note.trim() ? `${Math.min(note.trim().length, 40)}文字のメモ` : "まだ追加していません"}</strong></summary>
+            <summary><span>メモ</span>{note.trim() && <strong>{`${Math.min(note.trim().length, 40)}文字のメモ`}</strong>}</summary>
             <div className="task-editor__details-body"><label>メモ<textarea value={note} maxLength={10_000} rows={4} onChange={(event) => setNote(event.target.value)} /></label></div>
           </details>
           <details className="task-editor__details subtask-editor" open={subtasksExpanded} onToggle={(event) => setSubtasksExpanded((event.currentTarget as HTMLDetailsElement).open)}>
-            <summary><span>サブタスク</span><strong>{subtasks.length > 0 ? `${subtasks.length}件` : "まだありません"}</strong></summary>
+            <summary><span>サブタスク</span>{subtasks.length > 0 && <strong>{`${subtasks.length}件`}</strong>}</summary>
             <div className="task-editor__details-body">
               {subtasks.length > 0 && <div className="subtask-list">{subtasks.map((subtask) => <button type="button" aria-pressed={subtask.status === "completed"} onClick={() => void onToggleSubtask(subtask.id)} key={subtask.id}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 12 4 4 8-9" /></svg><span>{subtask.title}</span></button>)}</div>}
-              <div className="subtask-add"><label className="visually-hidden" htmlFor={`subtask-title-${task.id}`}>サブタスク名</label><input id={`subtask-title-${task.id}`} value={subtaskTitle} maxLength={200} placeholder="小さな手順を追加" onChange={(event) => setSubtaskTitle(event.target.value)} /><button type="button" disabled={!subtaskTitle.trim()} onClick={async () => { if (await onAddSubtask(subtaskTitle)) setSubtaskTitle(""); }}>追加</button></div>
+              <div className="subtask-add"><label className="visually-hidden" htmlFor={`subtask-title-${task.id}`}>サブタスク名</label><input id={`subtask-title-${task.id}`} value={subtaskTitle} maxLength={200} placeholder="サブタスクを追加" onChange={(event) => setSubtaskTitle(event.target.value)} /><button type="button" disabled={!subtaskTitle.trim()} onClick={async () => { if (await onAddSubtask(subtaskTitle)) setSubtaskTitle(""); }}>追加</button></div>
             </div>
           </details>
           <section className="task-editor__operations" aria-label="タスク操作">

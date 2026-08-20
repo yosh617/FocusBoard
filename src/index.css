@@ -2323,3 +2323,22 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
     min-width: 24px;
   }
 }
+
+/* Keep settings and the home launcher focused on controls rather than help copy. */
+.settings-content .settings-help,
+.settings-content .background-upload small,
+.settings-content .background-frame-current small,
+.settings-content .color-setting-group > p,
+.settings-content .color-setting-group__note,
+.settings-content .orientation-picker > small,
+.settings-content .setting-control > small,
+.settings-content .data-summary > div > span,
+.settings-content .data-card__body p,
+.settings-content .data-undo > div > span {
+  display: none;
+}
+
+.task-launcher__topline,
+.task-launcher__detail {
+  display: none;
+}

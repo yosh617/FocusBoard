@@ -54,23 +54,18 @@ export function PomodoroTimer({
 
   return (
     <section className={`timer-card timer-setup${isActive ? " timer-setup--active" : ""}`} aria-label={isActive ? "進行中タイマーの設定" : "タイマー設定"}>
-      <div className="timer-setup__heading">
-        <div>
-          <span>{isActive ? "実行中" : "タイマー"}</span>
-          <h2>{isActive ? "タイマーを確認" : "タイマーをセット"}</h2>
-        </div>
-        <div className="timer-setup__tools">
+      {(timer.program === "pomodoro" || !isActive) && <div className="timer-setup__heading">
+        <div className="timer-setup__tools" style={{ marginInlineStart: "auto" }}>
           {timer.program === "pomodoro" && <p className="timer-setup__sessions"><strong>{timer.completedWorkSessions}</strong><span>セッション</span></p>}
           {!isActive && <button className="timer-setup__collapse" type="button" aria-label="タイマー設定をしまう" title="タイマー設定をしまう" onClick={onCollapse}>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12" /></svg>
           </button>}
         </div>
-      </div>
+      </div>}
 
       {isActive ? <div className="timer-setup__live-note" role="status"><span className="timer-setup__status-dot" aria-hidden="true" /><strong>{statusLabel}</strong>{timer.program === "countup" && <span>{countupLap}周目</span>}</div> : null}
 
       <div className="timer-setup__step">
-        <div className="timer-setup__step-heading"><strong>方式</strong></div>
         <div className="program-tabs" role="group" aria-label="タイマー方式">
           {programs.map((program) => (
             <button
@@ -91,7 +86,6 @@ export function PomodoroTimer({
 
       {timer.program === "pomodoro" ? (
         <div className="timer-setup__step">
-          <div className="timer-setup__step-heading"><strong>内容</strong></div>
           <div className="mode-tabs" role="group" aria-label="ポモドーロモード">
             {modes.map((mode) => (
               <button
@@ -110,7 +104,6 @@ export function PomodoroTimer({
         </div>
       ) : (
         <div className="timer-setup__step">
-          <div className="timer-setup__step-heading"><strong>時間</strong></div>
           <div className="custom-timer-options">
             <div className="category-tabs" role="group" aria-label="時間の種類">
               {(["focus", "break"] as SessionCategory[]).map((category) => (
@@ -146,10 +139,9 @@ export function PomodoroTimer({
 
       {!isActive && taskSelectionEnabled && (
         <div className="timer-setup__step timer-setup__task-step">
-          <div className="timer-setup__step-heading"><strong>取り組むタスク</strong></div>
           <button className={`timer-task-select${selectedTaskTitle ? " has-task" : ""}`} type="button" onClick={onOpenTaskPicker} aria-haspopup="dialog">
             <span className="timer-task-select__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 6h11M8 12h11M8 18h7M4 6h.01M4 12h.01M4 18h.01" /></svg></span>
-            <span><small>{selectedTaskTitle ? "選択中" : "集中する内容を決める"}</small><strong>{selectedTaskTitle ?? "タスクを選ぶ・追加する"}</strong></span>
+            <span><strong>{selectedTaskTitle ?? "タスクを選ぶ・追加する"}</strong></span>
             <svg className="timer-task-select__arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
           </button>
         </div>
@@ -157,7 +149,6 @@ export function PomodoroTimer({
 
       <div className={`timer-setup__footer${isActive ? " timer-setup__footer--active" : ""}`}>
         <div className="timer-setup__preview">
-          {!isActive && <span>セット時間</span>}
           <div className="timer-card__time" style={{ fontSize: `${Math.min(fontSize, 68)}px` }}>
             {formatDuration(displayMs)}
             {isActive && <small className="timer-card__status">{timer.program === "countup" ? `${countupLap}周目` : statusLabel}</small>}
