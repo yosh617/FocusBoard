@@ -30,6 +30,9 @@ describe("ProductivityReport", () => {
     render(<ProductivityReport tasks={[completedTask]} sessions={[todaySession, previousDaySession]} workMinutes={25} now={now} />);
     expect(screen.getAllByText("50分").length).toBeGreaterThan(0);
     expect(screen.getAllByText("25分").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "勉強時間" })).toBeTruthy();
+    expect(screen.getByLabelText("直近1年の勉強時間ヒートマップ").querySelectorAll("[role=\"img\"]")).toHaveLength(371);
+    expect(screen.getByRole("img", { name: /2026年7月18日 25分/ })).toBeTruthy();
     expect(screen.getAllByText("集中時間").length).toBeGreaterThan(0);
     expect(screen.getByText("完了セッション")).toBeTruthy();
     expect(screen.getByText("中断")).toBeTruthy();

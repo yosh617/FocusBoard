@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { FocusSessionRecord } from "../../types/focusSession";
 import type { TaskRecord } from "../../types/task";
-import { createProductivityReport, formatFocusedTime, type ReportPeriod } from "../../utils/productivityReport";
+import { createFocusHeatmap, createProductivityReport, formatFocusedTime, type ReportPeriod } from "../../utils/productivityReport";
 
 const periods: { value: ReportPeriod; label: string }[] = [
   { value: "day", label: "日" },
@@ -29,6 +29,7 @@ export function ProductivityReport({ tasks, sessions, workMinutes, now = new Dat
     () => createProductivityReport(tasks, sessions, period, now, workMinutes),
     [now, period, sessions, tasks, workMinutes]
   );
+  const focusHeatmap = useMemo(() => createFocusHeatmap(sessions, now), [now, sessions]);
   const maxDailyFocus = Math.max(1, ...report.dailyFocus.map((day) => day.focusedMs));
   const todayTaskCount = report.todayRemainingTasks + report.todayCompletedTasks;
   const todayCompletionRate = todayTaskCount === 0 ? 0 : Math.round((report.todayCompletedTasks / todayTaskCount) * 100);
@@ -41,6 +42,61 @@ export function ProductivityReport({ tasks, sessions, workMinutes, now = new Dat
           {periods.map((item) => <button type="button" aria-pressed={period === item.value} onClick={() => setPeriod(item.value)} key={item.value}>{item.label}</button>)}
         </div>
       </div>
+
+      <section className="report-activity" aria-labelledby="report-activity-title">
+        <div className="report-activity__heading">
+          <div>
+            <h4 id="report-activity-title">勉強時間</h4>
+            <p>直近1年の集中記録</p>
+          </div>
+          <strong>{formatFocusedTime(focusHeatmap.totalFocusedMs)}</strong>
+        </div>
+        <div className="report-activity__scroll">
+          <div className="report-activity__calendar" aria-label="直近1年の勉強時間ヒートマップ">
+            <div className="report-activity__weekdays" aria-hidden="true">
+              <span className="report-activity__month-spacer" />
+              <span>日</span>
+              <span>月</span>
+              <span>火</span>
+              <span>水</span>
+              <span>木</span>
+              <span>金</span>
+              <span>土</span>
+            </div>
+            <div className="report-activity__graph">
+              <div className="report-activity__months" aria-hidden="true">
+                {focusHeatmap.weeks.map((week, index) => {
+                  const month = new Date(`${week[0].date}T00:00:00`).getMonth();
+                  const previousMonth = index === 0 ? -1 : new Date(`${focusHeatmap.weeks[index - 1][0].date}T00:00:00`).getMonth();
+                  return <span key={week[0].date}>{month !== previousMonth ? `${month + 1}月` : ""}</span>;
+                })}
+              </div>
+              <div className="report-activity__grid">
+                {focusHeatmap.weeks.map((week) => (
+                  <div className="report-activity__week" key={week[0].date}>
+                    {week.map((day) => (
+                      <span
+                        className="report-activity__day"
+                        data-level={day.level}
+                        data-future={day.isFuture ? "true" : undefined}
+                        key={day.date}
+                        role="img"
+                        aria-label={`${new Date(`${day.date}T00:00:00`).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" })} ${day.isFuture ? "予定" : formatFocusedTime(day.focusedMs)}`}
+                        title={`${day.date.replaceAll("-", "/")}：${day.isFuture ? "予定" : formatFocusedTime(day.focusedMs)}`}
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="report-activity__legend" aria-hidden="true">
+          <span>少ない</span>
+          {[0, 1, 2, 3, 4].map((level) => <i data-level={level} key={level} />)}
+          <span>多い</span>
+        </div>
+      </section>
 
       <section className="report-summary" aria-label={`${report.periodLabel}のサマリー`}>
         <div className="report-stats">

@@ -923,6 +923,29 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .report-overview__progress progress::-webkit-progress-value { border-radius: 999px; background: linear-gradient(90deg, #2d8f84, #4d7ad2); }
 .report-overview__progress progress::-moz-progress-bar { border-radius: 999px; background: linear-gradient(90deg, #2d8f84, #4d7ad2); }
 .report-heading h3, .productivity-backup > div:first-child h3 { color: #17375f; font-size: 25px; }
+.report-activity { display: grid; gap: 16px; }
+.report-activity__heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.report-activity__heading h4 { margin: 0 0 4px; color: #294767; font-size: 17px; }
+.report-activity__heading p { margin: 0; color: #617891; font-size: 12px; }
+.report-activity__heading > strong { color: #17375f; font-size: 22px; letter-spacing: -.03em; white-space: nowrap; }
+.report-activity__scroll { overflow-x: auto; padding-bottom: 4px; scrollbar-color: #b8cddd transparent; }
+.report-activity__calendar { display: flex; gap: 8px; width: max-content; min-width: 100%; padding: 2px 0; }
+.report-activity__weekdays { display: grid; grid-template-rows: 16px repeat(7, 12px); gap: 4px; width: 14px; color: #7890a8; font-size: 9px; line-height: 12px; text-align: right; }
+.report-activity__month-spacer { display: block; }
+.report-activity__graph { display: grid; gap: 4px; }
+.report-activity__months, .report-activity__grid { display: grid; grid-template-columns: repeat(53, 12px); gap: 4px; }
+.report-activity__months { height: 16px; color: #7890a8; font-size: 9px; line-height: 16px; }
+.report-activity__months span { width: max-content; }
+.report-activity__grid { display: flex; gap: 4px; }
+.report-activity__week { display: grid; grid-template-rows: repeat(7, 12px); gap: 4px; }
+.report-activity__day, .report-activity__legend i { display: block; width: 12px; height: 12px; border: 1px solid rgba(50,92,132,.06); border-radius: 3px; background: #edf3f8; }
+.report-activity__day[data-level="1"], .report-activity__legend i[data-level="1"] { background: #c6e9dd; }
+.report-activity__day[data-level="2"], .report-activity__legend i[data-level="2"] { background: #8cd2bc; }
+.report-activity__day[data-level="3"], .report-activity__legend i[data-level="3"] { background: #4aa98f; }
+.report-activity__day[data-level="4"], .report-activity__legend i[data-level="4"] { background: #247a68; }
+.report-activity__day[data-future="true"] { opacity: .38; }
+.report-activity__legend { display: flex; align-items: center; justify-content: flex-end; gap: 5px; color: #7890a8; font-size: 10px; }
+.report-activity__legend i { width: 11px; height: 11px; }
 .productivity-report section, .productivity-backup section { padding: 22px; border-color: #d6e1ed; background: #fff; box-shadow: 0 5px 16px rgba(36,68,108,.05); }
 .productivity-report section h4, .productivity-backup section h4 { color: #294767; font-size: 15px; }
 .report-stats { gap: 10px; }
@@ -2958,6 +2981,39 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 /* Final interaction pass: keep settings content inset and route shared UI states through --accent. */
 .settings-disclosure > summary { padding-inline: 16px; }
 .settings-disclosure__body { padding: 0 16px 10px; }
+
+/* Keep rounded settings surfaces separate from the category dividers. */
+.settings-content > .settings-section {
+  padding: 16px 0 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.settings-content > .settings-section > .section-heading { border-bottom: 0; }
+.settings-disclosure { margin: 0 0 12px; }
+.settings-disclosure > summary {
+  position: relative;
+  min-height: 56px;
+  padding: 16px 20px;
+  border-bottom: 0;
+}
+.settings-disclosure[open] > summary::before {
+  position: absolute;
+  right: 16px;
+  bottom: 0;
+  left: 16px;
+  height: 1px;
+  background: var(--color-hairline);
+  content: "";
+}
+.settings-disclosure__body { padding: 12px 20px 16px; }
+.settings-section__footer { padding: 12px 0 4px; margin-top: 4px; border-top: 0; }
+.color-setting-group { padding: 18px 20px; }
+.color-setting-group > .ui-accent-color-settings,
+.color-setting-group > .clock-color-settings { margin-top: 12px; }
+.color-picker__current { border-bottom: 0; }
+.color-picker__saved { padding-top: 12px; }
 
 .background-library { margin: 12px 0 0; border-top: 1px solid var(--color-hairline); border-bottom: 1px solid var(--color-hairline); }
 .background-library > summary { display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 0; color: var(--color-ink); font-size: 13px; font-weight: 600; cursor: pointer; list-style: none; }

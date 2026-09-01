@@ -18,6 +18,18 @@ export type ReportTaskComparison = {
   focusedMs: number;
 };
 
+export type FocusHeatmapDay = {
+  date: string;
+  focusedMs: number;
+  isFuture: boolean;
+  level: 0 | 1 | 2 | 3 | 4;
+};
+
+export type FocusHeatmap = {
+  weeks: FocusHeatmapDay[][];
+  totalFocusedMs: number;
+};
+
 export type ProductivityReport = {
   period: ReportPeriod;
   periodLabel: string;
@@ -51,6 +63,54 @@ export function getLocalPeriodRange(period: ReportPeriod, now: Date) {
     ? start.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })
     : `${start.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })}〜${new Date(end.getTime() - 1).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })}`;
   return { startAt: start.getTime(), endAt: end.getTime(), periodLabel };
+}
+
+function getFocusHeatmapLevel(focusedMs: number): FocusHeatmapDay["level"] {
+  if (focusedMs === 0) return 0;
+  if (focusedMs < 30 * 60_000) return 1;
+  if (focusedMs < 60 * 60_000) return 2;
+  if (focusedMs < 120 * 60_000) return 3;
+  return 4;
+}
+
+export function createFocusHeatmap(sessions: FocusSessionRecord[], now = new Date()): FocusHeatmap {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const currentWeekStart = new Date(today);
+  currentWeekStart.setDate(today.getDate() - today.getDay());
+  const start = new Date(currentWeekStart);
+  start.setDate(start.getDate() - 52 * 7);
+  const end = new Date(currentWeekStart);
+  end.setDate(end.getDate() + 7);
+  const dailyTotals = new Map<string, number>();
+
+  for (const session of sessions) {
+    if (session.mode !== "work" || session.endedAt > now.getTime() || session.endedAt < start.getTime() || session.endedAt >= end.getTime()) continue;
+    const date = toLocalDateKey(new Date(session.endedAt));
+    dailyTotals.set(date, (dailyTotals.get(date) ?? 0) + session.focusedDurationMs);
+  }
+
+  const weeks: FocusHeatmapDay[][] = [];
+  for (let weekIndex = 0; weekIndex < 53; weekIndex += 1) {
+    const week: FocusHeatmapDay[] = [];
+    for (let weekday = 0; weekday < 7; weekday += 1) {
+      const date = new Date(start);
+      date.setDate(start.getDate() + weekIndex * 7 + weekday);
+      const dateKey = toLocalDateKey(date);
+      const focusedMs = dailyTotals.get(dateKey) ?? 0;
+      week.push({
+        date: dateKey,
+        focusedMs,
+        isFuture: date > today,
+        level: getFocusHeatmapLevel(focusedMs)
+      });
+    }
+    weeks.push(week);
+  }
+
+  return {
+    weeks,
+    totalFocusedMs: [...dailyTotals.values()].reduce((sum, focusedMs) => sum + focusedMs, 0)
+  };
 }
 
 export function createProductivityReport(

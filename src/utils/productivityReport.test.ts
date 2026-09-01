@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { FocusSessionRecord } from "../types/focusSession";
 import type { TaskRecord } from "../types/task";
-import { createProductivityReport, getLocalPeriodRange } from "./productivityReport";
+import { createFocusHeatmap, createProductivityReport, getLocalPeriodRange } from "./productivityReport";
 
 const task: TaskRecord = {
   version: 1, id: "task-1", title: "数学", status: "open", bucket: "inbox", projectId: "project-1",
@@ -44,5 +44,21 @@ describe("productivityReport", () => {
     expect(new Date(week.endAt).getTime() - new Date(week.startAt).getTime()).toBeGreaterThanOrEqual(6 * 24 * 60 * 60_000);
     expect(new Date(month.startAt).getDate()).toBe(1);
     expect(new Date(month.endAt).getMonth()).toBe(8);
+  });
+
+  it("builds a 53-week heatmap from work sessions in the local calendar", () => {
+    const now = new Date(2026, 6, 15, 12);
+    const heatmap = createFocusHeatmap([
+      session("recent", new Date(2026, 6, 14, 10).getTime(), 25 * 60_000),
+      session("future", new Date(2026, 6, 16, 10).getTime(), 25 * 60_000),
+      { ...session("break", new Date(2026, 6, 14, 11).getTime(), 25 * 60_000), mode: "shortBreak" },
+      session("outside", new Date(2025, 6, 12, 10).getTime(), 25 * 60_000)
+    ], now);
+    const days = heatmap.weeks.flat();
+
+    expect(days).toHaveLength(371);
+    expect(heatmap.totalFocusedMs).toBe(25 * 60_000);
+    expect(days.find((day) => day.date === "2026-07-14")).toMatchObject({ focusedMs: 25 * 60_000, level: 1, isFuture: false });
+    expect(days.find((day) => day.date === "2026-07-16")).toMatchObject({ focusedMs: 0, level: 0, isFuture: true });
   });
 });
