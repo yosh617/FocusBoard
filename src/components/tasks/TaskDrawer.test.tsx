@@ -70,6 +70,7 @@ function renderDrawer(overrides: Partial<React.ComponentProps<typeof TaskDrawer>
     onClose: vi.fn(),
     onAddTask: vi.fn().mockResolvedValue("task-created"),
     onUpdateTask: vi.fn().mockResolvedValue(true),
+    onUpdateSession: vi.fn().mockResolvedValue(true),
     onToggleTask: vi.fn().mockResolvedValue(true),
     onArchiveTask: vi.fn().mockResolvedValue(true),
     onDeleteTask: vi.fn().mockResolvedValue(true),
@@ -408,6 +409,7 @@ describe("TaskDrawer", () => {
         onClose={vi.fn()}
         onAddTask={onAddTask}
         onUpdateTask={vi.fn().mockResolvedValue(true)}
+        onUpdateSession={vi.fn().mockResolvedValue(true)}
         onToggleTask={vi.fn().mockResolvedValue(true)}
         onArchiveTask={vi.fn().mockResolvedValue(true)}
         onDeleteTask={vi.fn().mockResolvedValue(true)}
@@ -442,6 +444,7 @@ describe("TaskDrawer", () => {
         onClose={vi.fn()}
         onAddTask={onAddTask}
         onUpdateTask={vi.fn().mockResolvedValue(true)}
+        onUpdateSession={vi.fn().mockResolvedValue(true)}
         onToggleTask={vi.fn().mockResolvedValue(true)}
         onArchiveTask={vi.fn().mockResolvedValue(true)}
         onDeleteTask={vi.fn().mockResolvedValue(true)}

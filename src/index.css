@@ -958,6 +958,120 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .report-breakdown > div, .productivity-report table { font-size: 12px; }
 .productivity-report th, .productivity-report td { padding-block: 12px; }
 .session-history li { min-height: 58px; padding: 10px 12px; }
+
+.report-period-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: -8px;
+}
+.report-period-navigation > span {
+  min-width: 150px;
+  color: #60768f;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+.report-period-navigation button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 10px;
+  color: #294767;
+  border: 1px solid #d6e2ee;
+  border-radius: 12px;
+  background: #fff;
+  font-size: 18px;
+  font-weight: 800;
+}
+.report-period-navigation button:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, #fff);
+}
+.report-period-navigation button:disabled { cursor: not-allowed; opacity: .38; }
+.report-period-navigation button.report-period-navigation__current { min-width: 52px; font-size: 12px; }
+.report-period-navigation button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  outline-offset: 2px;
+}
+.session-history li {
+  display: grid;
+  gap: 0;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.session-history__select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 58px;
+  gap: 12px;
+  padding: 12px;
+  color: inherit;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+.session-history__select:hover,
+.session-history__select[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 7%, #fff); }
+.session-history__select:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  outline-offset: -3px;
+}
+.session-history__editor {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border-top: 1px solid var(--line);
+  background: #f8fbff;
+}
+.session-history__fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(100px, .8fr) minmax(100px, .8fr);
+  gap: 10px;
+}
+.session-history__fields label {
+  display: grid;
+  gap: 5px;
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+.session-history__fields input,
+.session-history__fields select {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 10px;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+}
+.session-history__editor p { margin: 0; color: #913b4e; font-size: 11px; }
+.session-history__editor-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.session-history__editor-actions button {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 750;
+}
+.session-history__editor-actions button[type="submit"] {
+  color: #fff;
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.session-history__editor-actions button[type="button"] { color: var(--ink); background: #fff; }
+
+@media (max-width: 520px) {
+  .report-period-navigation > span { min-width: 120px; }
+  .session-history__fields { grid-template-columns: 1fr 1fr; }
+  .session-history__fields label:first-child { grid-column: 1 / -1; }
+  .session-history__editor-actions { display: grid; grid-template-columns: 1fr 1fr; }
+}
 .session-history strong { font-size: 13px; }
 .session-history span { font-size: 11px; }
 .backup-callout { padding: 17px; border-radius: 16px; }

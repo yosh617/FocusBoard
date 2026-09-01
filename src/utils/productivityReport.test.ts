@@ -18,6 +18,17 @@ function session(id: string, endedAt: number, focusedDurationMs: number, result:
 }
 
 describe("productivityReport", () => {
+  it("moves the selected day, week, and month ranges backward", () => {
+    const now = new Date(2026, 6, 18, 12);
+    const previousDay = getLocalPeriodRange("day", now, -1);
+    const previousWeek = getLocalPeriodRange("week", now, -1);
+    const previousMonth = getLocalPeriodRange("month", now, -1);
+
+    expect(new Date(previousDay.startAt).toLocaleDateString("ja-JP")).toBe("2026/7/17");
+    expect(new Date(previousWeek.startAt).toLocaleDateString("ja-JP")).toBe("2026/7/6");
+    expect(new Date(previousMonth.startAt).toLocaleDateString("ja-JP")).toBe("2026/6/1");
+  });
+
   it("aggregates the same local-day records deterministically", () => {
     const now = new Date(2026, 6, 18, 12);
     const { startAt, endAt } = getLocalPeriodRange("day", now);

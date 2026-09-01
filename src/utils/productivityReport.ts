@@ -47,13 +47,16 @@ export type ProductivityReport = {
   history: FocusSessionRecord[];
 };
 
-export function getLocalPeriodRange(period: ReportPeriod, now: Date) {
+export function getLocalPeriodRange(period: ReportPeriod, now: Date, periodOffset = 0) {
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  if (period === "week") {
+  if (period === "day") {
+    start.setDate(start.getDate() + periodOffset);
+  } else if (period === "week") {
     const mondayOffset = (start.getDay() + 6) % 7;
-    start.setDate(start.getDate() - mondayOffset);
-  } else if (period === "month") {
+    start.setDate(start.getDate() - mondayOffset + periodOffset * 7);
+  } else {
     start.setDate(1);
+    start.setMonth(start.getMonth() + periodOffset);
   }
   const end = new Date(start);
   if (period === "day") end.setDate(end.getDate() + 1);
@@ -118,9 +121,10 @@ export function createProductivityReport(
   sessions: FocusSessionRecord[],
   period: ReportPeriod,
   now = new Date(),
-  workMinutes = 25
+  workMinutes = 25,
+  periodOffset = 0
 ): ProductivityReport {
-  const { startAt, endAt, periodLabel } = getLocalPeriodRange(period, now);
+  const { startAt, endAt, periodLabel } = getLocalPeriodRange(period, now, periodOffset);
   const todayRange = getLocalPeriodRange("day", now);
   const todayKey = toLocalDateKey(now);
   const periodSessions = sessions

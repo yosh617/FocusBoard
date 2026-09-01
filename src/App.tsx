@@ -51,6 +51,7 @@ export default function App() {
     canUndo: canUndoTask,
     addTask,
     updateTask,
+    updateSession,
     toggleTask,
     archiveTask,
     deleteTask,
@@ -675,6 +676,7 @@ export default function App() {
         onOpenSettings={openSettings}
         onAddTask={addTask}
         onUpdateTask={updateTask}
+        onUpdateSession={updateSession}
         onToggleTask={toggleTask}
         onArchiveTask={archiveTask}
         onDeleteTask={deleteTask}

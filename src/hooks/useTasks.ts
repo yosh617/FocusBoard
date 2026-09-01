@@ -22,7 +22,7 @@ import {
   saveProjectRecord,
   saveTaskRecord
 } from "../utils/productivityStorage";
-import { validateTaskRecord } from "../utils/taskValidation";
+import { validateFocusSessionRecord, validateTaskRecord } from "../utils/taskValidation";
 import { createNextRepeatedTask } from "../utils/repeatRule";
 
 const createId = (prefix: string) =>
@@ -133,6 +133,25 @@ export function useTasks() {
     try {
       await saveTaskRecord(candidate);
       setTasks((current) => current.map((task) => task.id === id ? candidate : task));
+      return true;
+    } catch {
+      fail();
+      return false;
+    }
+  }, [fail, storageAvailable]);
+
+  const updateSession = useCallback(async (id: string, patch: Partial<FocusSessionRecord>) => {
+    const previous = sessionsRef.current.find((session) => session.id === id);
+    if (!previous || !storageAvailable) return false;
+    const candidate = validateFocusSessionRecord({ ...previous, ...patch, id, version: 1 });
+    if (!candidate) {
+      setMessage("集中記録の入力内容を確認してください。");
+      return false;
+    }
+    try {
+      await saveFocusSessionRecord(candidate);
+      setSessions((current) => current.map((session) => session.id === id ? candidate : session));
+      setMessage("集中記録を更新しました。");
       return true;
     } catch {
       fail();
@@ -394,6 +413,7 @@ export function useTasks() {
     canUndo,
     addTask,
     updateTask,
+    updateSession,
     toggleTask,
     archiveTask,
     deleteTask,
