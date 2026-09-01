@@ -166,10 +166,10 @@ describe("TaskDrawer", () => {
     const palette = screen.getByRole("group", { name: "プロジェクトの色を選択" });
     const picker = within(palette).getByRole("region", { name: "プロジェクトの色" });
     expect(within(picker).getByText("プロジェクトの色")).toBeTruthy();
-    expect(within(picker).getByRole("button", { name: "保存色 ブルー #0A84FF" })).toBeTruthy();
-    expect(within(picker).getByRole("button", { name: "保存色 シアン #00AEEF" })).toBeTruthy();
+    expect(within(picker).getByRole("button", { name: "推奨テーマ ブルー #0A84FF" })).toBeTruthy();
+    expect(within(picker).getByRole("button", { name: "推奨テーマ シアン #00AEEF" })).toBeTruthy();
 
-    const cyan = within(picker).getByRole("button", { name: "保存色 シアン #00AEEF" });
+    const cyan = within(picker).getByRole("button", { name: "推奨テーマ シアン #00AEEF" });
     expect(cyan.getAttribute("aria-pressed")).toBe("false");
     fireEvent.click(cyan);
     expect(cyan.getAttribute("aria-pressed")).toBe("true");
@@ -179,7 +179,7 @@ describe("TaskDrawer", () => {
     await waitFor(() => expect(props.onAddProject).toHaveBeenCalledWith("読書", "#00AEEF"));
 
     fireEvent.click(screen.getByRole("button", { name: "新規" }));
-    expect(within(screen.getByRole("group", { name: "プロジェクトの色を選択" })).getByRole("button", { name: "保存色 ブルー #0A84FF" }).getAttribute("aria-pressed")).toBe("true");
+    expect(within(screen.getByRole("group", { name: "プロジェクトの色を選択" })).getByRole("button", { name: "推奨テーマ ブルー #0A84FF" }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("opens the suggested task in the dedicated editor and returns to the list", async () => {
@@ -873,7 +873,8 @@ describe("TaskDrawer", () => {
     const inSevenDays = details.getByRole("button", { name: "7日後" });
     fireEvent.click(inSevenDays);
     expect(inSevenDays.getAttribute("aria-pressed")).toBe("true");
-    expect(details.getByLabelText("期限").textContent).toContain("8月");
+    const expectedMonth = Number(addLocalDays(today, 7).slice(5, 7));
+    expect(details.getByLabelText("期限").textContent).toContain(`${expectedMonth}月`);
     expect(details.getByLabelText("分類").textContent).toContain("Inbox");
 
     const fourPomodoros = details.getByRole("button", { name: "4" });

@@ -64,6 +64,17 @@ export const colorPresets = {
 } as const;
 export type ColorPreset = keyof typeof colorPresets | "custom";
 
+export const uiAccentPresets = [
+  { label: "ブルー", color: "#a9c7e8" },
+  { label: "ミント", color: "#a9d8cf" },
+  { label: "ラベンダー", color: "#c3b7e6" },
+  { label: "ピーチ", color: "#e5b49a" },
+  { label: "ローズ", color: "#d6a5b5" },
+  { label: "グレー", color: "#b8c1cc" },
+  { label: "バター", color: "#e5c78d" },
+  { label: "スカイ", color: "#a6c9df" }
+] as const;
+
 export type AppSettings = {
   version: 2;
   uiRevision: 5;
@@ -91,6 +102,8 @@ export type AppSettings = {
   accentColor: string;
   /** @deprecated Used only when migrating settings created before separate auto-color switches. */
   matchBackgroundColors: boolean;
+  /** UI-wide accent color, kept separate from clock and timer colors. */
+  uiAccentColor: string;
   overlayOpacity: number;
   backgroundScale: number;
   backgroundPosition: FreePosition;
@@ -151,6 +164,7 @@ export const defaultSettings: AppSettings = {
   textColor: "#17345f",
   accentColor: "#91bde8",
   matchBackgroundColors: false,
+  uiAccentColor: "#315f98",
   overlayOpacity: 0.16,
   backgroundScale: 100,
   backgroundPosition: { x: 0.5, y: 0.5 },

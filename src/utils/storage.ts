@@ -150,6 +150,7 @@ export function migrateSettings(value: unknown): AppSettings {
     matchClockBackgroundColors: savedClockAutoColors,
     matchTimerBackgroundColors: booleanValue(value.matchTimerBackgroundColors, legacyAutoColors),
     matchBackgroundColors: legacyAutoColors,
+    uiAccentColor: colorValue(value.uiAccentColor, defaultSettings.uiAccentColor),
     overlayOpacity: isLegacyTheme && value.overlayOpacity === 0.42
       ? defaultSettings.overlayOpacity
       : numberValue(value.overlayOpacity, defaultSettings.overlayOpacity, 0, 0.85),

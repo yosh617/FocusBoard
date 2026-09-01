@@ -942,7 +942,7 @@ export function TaskDrawer({
                       value={newProjectColor}
                       label="プロジェクトの色"
                       modes={["grid", "spectrum", "sliders"]}
-                      savedColors={projectColorOptions.map(({ name, value }) => ({ label: name, color: value }))}
+                      themeColors={projectColorOptions.map(({ name, value }) => ({ label: name, color: value }))}
                       onChange={(color) => setNewProjectColor(projectColorOptions.find((option) => option.value.toLowerCase() === color.toLowerCase())?.value ?? color)}
                       disabled={!storageAvailable}
                     />

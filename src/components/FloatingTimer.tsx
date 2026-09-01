@@ -33,6 +33,7 @@ export function FloatingTimer({ timer, taskTitle, taskProgress, onStart, onPause
   const progress = getTimerProgress(timer);
   const countupLap = getCountupLap(elapsedMs, timer.durationMs);
   const statusText = timer.status === "overtime" ? "延長中" : timer.status === "paused" ? "一時停止中" : "";
+  const statusLabel = statusText || (timer.status === "completed" ? "完了" : "進行中");
   const sessionLabel = timer.program === "pomodoro"
     ? modeLabels[timer.mode]
     : timer.category === "focus" ? "実施中" : "休憩";
@@ -184,9 +185,11 @@ export function FloatingTimer({ timer, taskTitle, taskProgress, onStart, onPause
           </div>
         ) : (
             <div className="floating-timer__content">
+              <span className="floating-timer__session">{sessionLabel}</span>
+              <span className="floating-timer__status" role="status">{statusLabel}</span>
               {programText && <span className="floating-timer__program">{programText}</span>}
-              <strong>{formatDuration(displayMs)}</strong>
-              <div className="floating-timer__controls" onPointerDown={(event) => event.stopPropagation()}>
+              <strong aria-label={`${statusLabel} ${formatDuration(displayMs)}`}>{formatDuration(displayMs)}</strong>
+              <div className="floating-timer__controls" role="group" aria-label="タイマー操作" onPointerDown={(event) => event.stopPropagation()}>
                 {timer.status === "overtime" ? (
                   <button className="floating-timer__primary floating-timer__end" type="button" onClick={onEnd} aria-label="タイマーを終了" title="タイマーを終了">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1" /></svg>
@@ -200,7 +203,7 @@ export function FloatingTimer({ timer, taskTitle, taskProgress, onStart, onPause
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6V6Z" /></svg>
                   </button>
                 ) : <span className="floating-timer__done">完了</span>}
-                <button type="button" onClick={onShowSetup} aria-label={returnToSetupLabel} title={returnToSetupLabel}>
+                <button className="floating-timer__secondary" type="button" onClick={onShowSetup} aria-label={returnToSetupLabel} title={returnToSetupLabel}>
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 4v6M17 14v6M4 17h16" /></svg>
                 </button>
               </div>

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ColorPicker, ColorPickerDisclosure } from "./ColorPicker";
 
 describe("ColorPicker", () => {
-  it("renders the three selection modes, current color, saved colors, and optional opacity", () => {
+  it("renders the three selection modes, current color, theme colors, and optional opacity", () => {
     render(<ColorPicker value="#af42eb" onChange={vi.fn()} savedColors={["#000000", "#ffffff"]} opacity={0.66} onOpacityChange={vi.fn()} onAddSavedColor={vi.fn()} />);
 
     expect(screen.getByRole("tab", { name: "グリッド" }).getAttribute("aria-selected")).toBe("true");
@@ -11,18 +11,18 @@ describe("ColorPicker", () => {
     expect(screen.getByRole("tab", { name: "スライダー" })).toBeTruthy();
     expect(screen.getByText("#AF42EB")).toBeTruthy();
     expect(screen.getByRole("slider", { name: "不透明度" }).getAttribute("value")).toBe("0.66");
-    expect(screen.getByRole("button", { name: "保存色 #000000" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "推奨テーマ #000000" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "現在の色を保存" })).toBeTruthy();
   });
 
-  it("supports named saved color choices like theme presets", () => {
+  it("supports named recommended theme choices", () => {
     const onChange = vi.fn();
     render(<ColorPicker value="#17345f" onChange={onChange} savedColors={[{ label: "スカイ", color: "#17345f" }, { label: "ローズ", color: "#6b4050" }]} />);
 
-    const sky = screen.getByRole("button", { name: "保存色 スカイ #17345F" });
+    const sky = screen.getByRole("button", { name: "推奨テーマ スカイ #17345F" });
     expect(sky.getAttribute("title")).toBe("スカイ (#17345F)");
     expect(sky.getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(screen.getByRole("button", { name: "保存色 ローズ #6B4050" }));
+    fireEvent.click(screen.getByRole("button", { name: "推奨テーマ ローズ #6B4050" }));
     expect(onChange).toHaveBeenCalledWith("#6b4050");
   });
 

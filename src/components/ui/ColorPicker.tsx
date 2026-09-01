@@ -16,7 +16,9 @@ export type ColorPickerProps = {
   defaultMode?: ColorPickerMode;
   mode?: ColorPickerMode;
   onModeChange?: (mode: ColorPickerMode) => void;
-  /** Colors shown in the saved-colors row. Strings are kept for backwards compatibility. */
+  /** Recommended theme colors shown below the picker. Strings are kept for backwards compatibility. */
+  themeColors?: Array<string | ColorPickerSavedColor>;
+  /** @deprecated Use themeColors. */
   savedColors?: Array<string | ColorPickerSavedColor>;
   onAddSavedColor?: (color: string) => void;
   onRemoveSavedColor?: (color: string, index: number) => void;
@@ -32,16 +34,15 @@ export type ColorPickerProps = {
 type Rgb = { red: number; green: number; blue: number };
 type Hsl = { h: number; s: number; l: number };
 
-const DEFAULT_SAVED_COLORS: ColorPickerSavedColor[] = [
-  { label: "黒", color: "#000000" },
-  { label: "ブルー", color: "#007aff" },
-  { label: "グリーン", color: "#34c759" },
-  { label: "イエロー", color: "#ffcc00" },
-  { label: "レッド", color: "#ff3b30" },
-  { label: "シアン", color: "#32ade6" },
-  { label: "パープル", color: "#af52de" },
-  { label: "インディゴ", color: "#5856d6" },
-  { label: "ピンク", color: "#ff2d55" }
+const DEFAULT_THEME_COLORS: ColorPickerSavedColor[] = [
+  { label: "ブルー", color: "#a9c7e8" },
+  { label: "ミント", color: "#a9d8cf" },
+  { label: "ラベンダー", color: "#c3b7e6" },
+  { label: "ピーチ", color: "#e5b49a" },
+  { label: "ローズ", color: "#d6a5b5" },
+  { label: "グレー", color: "#b8c1cc" },
+  { label: "バター", color: "#e5c78d" },
+  { label: "スカイ", color: "#a6c9df" }
 ];
 const GRID_COLUMNS = 12;
 const GRID_ROWS = 9;
@@ -229,7 +230,7 @@ function Sliders({ value, rgb, disabled, onChange }: { value: string; rgb: Rgb; 
   </div>;
 }
 
-export function ColorPicker({ value, onChange, modes = ["grid", "spectrum", "sliders"], defaultMode = modes[0] ?? "grid", mode, onModeChange, savedColors = DEFAULT_SAVED_COLORS, onAddSavedColor, onRemoveSavedColor, opacity, onOpacityChange, label = "色", id, disabled = false, className }: ColorPickerProps) {
+export function ColorPicker({ value, onChange, modes = ["grid", "spectrum", "sliders"], defaultMode = modes[0] ?? "grid", mode, onModeChange, themeColors, savedColors, onAddSavedColor, onRemoveSavedColor, opacity, onOpacityChange, label = "色", id, disabled = false, className }: ColorPickerProps) {
   const generatedId = useId();
   const pickerId = id ?? `color-picker-${generatedId.replaceAll(":", "")}`;
   const currentHex = normalizeHex(value);
@@ -240,6 +241,7 @@ export function ColorPicker({ value, onChange, modes = ["grid", "spectrum", "sli
   const changeColor = (next: string) => { if (!disabled) onChange(normalizeHex(next)); };
   const selectMode = (next: ColorPickerMode) => { if (disabled) return; setInternalMode(next); onModeChange?.(next); };
   const showOpacity = opacity !== undefined && onOpacityChange !== undefined;
+  const displayedThemeColors = themeColors ?? savedColors ?? DEFAULT_THEME_COLORS;
   const rootClassName = ["color-picker", disabled ? "color-picker--disabled" : "", className ?? ""].filter(Boolean).join(" ");
   return <section className={rootClassName} aria-label={label} data-mode={activeMode} style={{ "--color-picker-accent": currentHex, "--picker-hue": hsl.h } as CSSProperties}>
     <header className="color-picker__heading">
@@ -272,10 +274,10 @@ export function ColorPicker({ value, onChange, modes = ["grid", "spectrum", "sli
       </span>
       <div className="color-picker__current-value"><span>選択中の色</span><output>{colorName(currentHex)}</output></div>
     </div>
-    <div className="color-picker__saved" aria-label="保存色">
-      <span className="color-picker__saved-label">保存色</span>
+    <div className="color-picker__saved" aria-label="推奨テーマ色">
+      <span className="color-picker__saved-label">推奨テーマ</span>
       <div className="color-picker__saved-colors">
-        {savedColors.map((option, index) => { const { label: optionLabel, color } = savedColorOption(option); const accessibleLabel = typeof option === "string" ? `保存色 ${colorName(color)}` : `保存色 ${optionLabel} ${colorName(color)}`; return <button key={`${color}-${index}`} type="button" className={`color-picker__saved-color${color === currentHex ? " is-selected" : ""}`} style={{ "--color-picker-swatch": color } as CSSProperties} aria-label={accessibleLabel} title={`${optionLabel} (${colorName(color)})`} aria-pressed={color === currentHex} disabled={disabled} onClick={() => changeColor(color)} onContextMenu={(event) => { if (!onRemoveSavedColor) return; event.preventDefault(); onRemoveSavedColor(color, index); }} />; })}
+        {displayedThemeColors.map((option, index) => { const { label: optionLabel, color } = savedColorOption(option); const accessibleLabel = typeof option === "string" ? `推奨テーマ ${colorName(color)}` : `推奨テーマ ${optionLabel} ${colorName(color)}`; return <button key={`${color}-${index}`} type="button" className={`color-picker__saved-color${color === currentHex ? " is-selected" : ""}`} style={{ "--color-picker-swatch": color } as CSSProperties} aria-label={accessibleLabel} title={`${optionLabel} (${colorName(color)})`} aria-pressed={color === currentHex} disabled={disabled} onClick={() => changeColor(color)} onContextMenu={(event) => { if (!onRemoveSavedColor) return; event.preventDefault(); onRemoveSavedColor(color, index); }} />; })}
         {onAddSavedColor && <button type="button" className="color-picker__add-saved" aria-label="現在の色を保存" disabled={disabled} onClick={() => onAddSavedColor(currentHex)}>+</button>}
       </div>
     </div>

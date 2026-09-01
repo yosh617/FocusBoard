@@ -85,6 +85,10 @@ export function getReadableTextColor(background: Rgb) {
   return darkContrast >= lightContrast ? "#122a4c" : "#f7fbff";
 }
 
+export function getReadableTextColorForHex(color: string) {
+  return getReadableTextColor(hexToRgb(color) ?? fallbackBackgroundRgb);
+}
+
 export function getReadableTextColorFromSamples(samples: Rgb[]) {
   if (!samples.length) return getReadableTextColor(fallbackBackgroundRgb);
   const weakestContrast = (candidate: Rgb) => samples.reduce(

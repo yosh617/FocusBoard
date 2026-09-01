@@ -60,6 +60,14 @@ describe("settings storage", () => {
     expect(loadSettings().taskTheme).toBe("violet");
   });
 
+  it("preserves and validates the independent UI accent color", () => {
+    const legacy = { ...defaultSettings } as Record<string, unknown>;
+    Reflect.deleteProperty(legacy, "uiAccentColor");
+    expect(migrateSettings(legacy).uiAccentColor).toBe(defaultSettings.uiAccentColor);
+    expect(migrateSettings({ ...defaultSettings, uiAccentColor: "#123456" }).uiAccentColor).toBe("#123456");
+    expect(migrateSettings({ ...defaultSettings, uiAccentColor: "blue" }).uiAccentColor).toBe(defaultSettings.uiAccentColor);
+  });
+
   it("clamps background framing settings", () => {
     const result = migrateSettings({ ...defaultSettings, backgroundScale: 999, backgroundPosition: { x: -1, y: 2 } });
     expect(result.backgroundScale).toBe(220);

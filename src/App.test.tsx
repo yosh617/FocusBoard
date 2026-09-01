@@ -125,11 +125,11 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "数学の復習を詳細から開始" }));
   };
 
-  it("keeps only tasks in the home dock and never renders a direct settings button", () => {
+  it("keeps task and settings entry points in the home dock", () => {
     render(<App />);
     const homeDock = screen.getByRole("navigation", { name: "ホーム操作" });
     expect(within(homeDock).getByRole("button", { name: "タスク" })).toBeTruthy();
-    expect(within(homeDock).queryByRole("button", { name: "設定" })).toBeNull();
+    expect(within(homeDock).getByRole("button", { name: "設定" })).toBeTruthy();
     expect(document.querySelector(".settings-button")).toBeNull();
   });
 
@@ -188,11 +188,11 @@ describe("App", () => {
     }
   });
 
-  it("uses the task workspace as the settings entry point and switches between panels", () => {
+  it("switches between task and settings panels from the home dock", async () => {
     render(<App />);
     const homeDock = screen.getByRole("navigation", { name: "ホーム操作" });
     expect(within(homeDock).getByRole("button", { name: "タスク" }).textContent).toContain("タスク");
-    expect(within(homeDock).queryByRole("button", { name: "設定" })).toBeNull();
+    expect(within(homeDock).getByRole("button", { name: "設定" })).toBeTruthy();
 
     fireEvent.click(within(homeDock).getByRole("button", { name: "タスク" }));
     expect(screen.getByRole("dialog", { name: "Tasks" })).toBeTruthy();
@@ -202,6 +202,12 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "タスクを開く" }));
     expect(screen.queryByRole("dialog", { name: "設定" })).toBeNull();
     expect(screen.getByRole("dialog", { name: "Tasks" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "タスクを閉じる" }));
+    const homeSettings = within(homeDock).getByRole("button", { name: "設定" });
+    fireEvent.click(homeSettings);
+    fireEvent.click(screen.getByRole("button", { name: "設定を閉じる" }));
+    await waitFor(() => expect(document.activeElement).toBe(homeSettings));
   });
 
   it("returns focus to the trigger that remains available after closing or switching panels", async () => {
@@ -267,6 +273,23 @@ describe("App", () => {
     expect(document.querySelector<HTMLElement>(".app-shell")?.style.getPropertyValue("--task-primary")).toBe("#c9b8f4");
     fireEvent.click(screen.getByRole("button", { name: "初期値に戻す" }));
     expect(document.querySelector<HTMLElement>(".app-shell")?.style.getPropertyValue("--task-primary")).toBe("#f4a6a8");
+  });
+
+  it("applies, persists, and resets the UI accent independently from clock and timer colors", () => {
+    render(<App />);
+    openSettings();
+    fireEvent.click(screen.getByRole("tab", { name: "表示" }));
+    const accentPicker = screen.getByRole("region", { name: "UIの差し色" });
+    fireEvent.click(within(accentPicker).getByRole("button", { name: /推奨テーマ ピーチ/ }));
+
+    const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}");
+    expect(saved.uiAccentColor).toBe("#e5b49a");
+    expect(saved.clockColor).toBe(defaultSettings.clockColor);
+    expect(saved.timerColor).toBe(defaultSettings.timerColor);
+    expect(screen.getByRole("region", { name: "UIの差し色" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "初期値に戻す" }));
+    expect(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}").uiAccentColor).toBe(defaultSettings.uiAccentColor);
   });
 
   it("starts in setup mode, collapses to a floating timer, and opens settings", () => {
@@ -897,7 +920,7 @@ describe("App", () => {
     fireEvent.click(screen.getByText("時計・日付の見やすさ"));
     fireEvent.click(screen.getByLabelText("自動調整"));
     const picker = screen.getByRole("region", { name: "時計・日付の色" });
-    fireEvent.click(within(picker).getByRole("button", { name: "保存色 ローズ #6B4050" }));
+    fireEvent.click(within(picker).getByRole("button", { name: "推奨テーマ ローズ #6B4050" }));
     expect(display.style.color).toBe("rgb(107, 64, 80)");
   });
 
