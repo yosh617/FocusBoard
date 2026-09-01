@@ -22,6 +22,7 @@ export type BackgroundFrames = Record<string, BackgroundFrame>;
 export type ClockBackgroundSetting = { positions: OrientationPositions; color: string; matchColors: boolean };
 export type ClockBackgroundSettings = Record<string, ClockBackgroundSetting>;
 export type DateFormat = string;
+export type DateDisplayStyle = "text" | "calendar";
 export type TaskLauncherVisibility = "always" | "background-tap";
 
 export const taskThemePresets = {
@@ -86,6 +87,7 @@ export type AppSettings = {
   showSeconds: boolean;
   use12Hour: boolean;
   dateFormat: DateFormat;
+  dateDisplayStyle: DateDisplayStyle;
   clockFontSize: number;
   dateFontSize: number;
   timerFontSize: number;
@@ -151,6 +153,7 @@ export const defaultSettings: AppSettings = {
   showSeconds: false,
   use12Hour: false,
   dateFormat: defaultDateFormat,
+  dateDisplayStyle: "text",
   clockFontSize: 104,
   dateFontSize: 20,
   timerFontSize: 60,

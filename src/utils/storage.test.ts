@@ -93,6 +93,13 @@ describe("settings storage", () => {
     expect(result.dateFormat).toBe(defaultSettings.dateFormat);
   });
 
+  it("falls back to the standard date display when the calendar style is invalid", () => {
+    expect(migrateSettings({ ...defaultSettings, dateDisplayStyle: "poster" }).dateDisplayStyle).toBe("text");
+    const legacy = { ...defaultSettings } as Record<string, unknown>;
+    Reflect.deleteProperty(legacy, "dateDisplayStyle");
+    expect(migrateSettings(legacy).dateDisplayStyle).toBe(defaultSettings.dateDisplayStyle);
+  });
+
   it("migrates the previous dark default to the pastel theme", () => {
     const legacy = { ...defaultSettings, textColor: "#f8fafc", overlayOpacity: 0.42 } as Record<string, unknown>;
     delete legacy.backgroundChoice;

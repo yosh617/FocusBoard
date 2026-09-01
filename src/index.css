@@ -2935,6 +2935,26 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .dashboard--timer-setup ~ .task-launcher .task-launcher__side { flex: none; }
 }
 
+/* The calendar is a deliberate alternative to the compact text date. */
+.date--calendar { align-items: flex-start; gap: 3px; letter-spacing: 0; text-align: left; }
+.date--calendar .date__month { font-size: 1em; font-weight: 560; letter-spacing: .02em; line-height: 1.2; }
+.date--calendar .date__day { display: block; margin: 6px 0 1px; font-weight: 500; line-height: .78; letter-spacing: -.08em; font-variant-numeric: lining-nums; }
+.date--calendar .date__weekday { font-size: .95em; font-weight: 560; letter-spacing: .04em; line-height: 1.2; }
+
+/* Keep the timer setup as one surface with only the controls carrying shape. */
+.timer-card, .timer-setup { width: min(100%, 720px); }
+.timer-setup__step { padding: 0; border: 0; border-radius: 0; background: transparent; }
+.timer-setup__step + .timer-setup__step { margin-top: 14px; }
+.program-tabs, .mode-tabs, .category-tabs { padding: 4px; border: 1px solid var(--color-hairline); border-radius: var(--radius-m); background: var(--color-surface-alt); }
+.timer-setup__task-step { padding-inline: 4px; }
+.timer-task-select { border-color: transparent; background: transparent; }
+.timer-task-select:hover, .timer-task-select.has-task { border-color: var(--accent); }
+.timer-setup__preview { padding: 18px 0 16px; border-block: 1px solid var(--color-hairline); }
+.timer-setup__footer { padding-top: 0; margin-top: 14px; border-top: 0; }
+.timer-setup__step:has(.duration-field) { padding-block: 12px; border-block: 1px solid var(--color-hairline); }
+
+.clock-editor__date-style { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--line); color: var(--ink); font-size: 13px; font-weight: 750; }
+
 /* Final interaction pass: keep settings content inset and route shared UI states through --accent. */
 .settings-disclosure > summary { padding-inline: 16px; }
 .settings-disclosure__body { padding: 0 16px 10px; }
@@ -3002,3 +3022,133 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .dashboard--timer-setup ~ .task-launcher .task-launcher__icon svg { width: 17px; height: 17px; }
   .dashboard--timer-setup ~ .task-launcher .task-launcher__count { min-width: 24px; height: 24px; padding-inline: 5px; font-size: 11px; }
 }
+
+/* The calendar is a deliberate alternative to the compact text date. */
+.date--calendar { align-items: flex-start; gap: 3px; letter-spacing: 0; text-align: left; }
+.date--calendar .date__month { font-size: 1em; font-weight: 560; letter-spacing: .02em; line-height: 1.2; }
+.date--calendar .date__day { display: block; margin: 6px 0 1px; font-weight: 500; line-height: .78; letter-spacing: -.08em; font-variant-numeric: lining-nums; }
+.date--calendar .date__weekday { font-size: .95em; font-weight: 560; letter-spacing: .04em; line-height: 1.2; }
+
+/* Keep the timer setup as one surface with only the controls carrying shape. */
+.timer-card, .timer-setup { width: min(100%, 720px); }
+.timer-setup__step { padding: 0; border: 0; border-radius: 0; background: transparent; }
+.timer-setup__step + .timer-setup__step { margin-top: 14px; }
+.program-tabs, .mode-tabs, .category-tabs { padding: 4px; border: 1px solid var(--color-hairline); border-radius: var(--radius-m); background: var(--color-surface-alt); }
+.timer-setup__task-step { padding-inline: 4px; }
+.timer-task-select { border-color: transparent; background: transparent; }
+.timer-task-select:hover, .timer-task-select.has-task { border-color: var(--accent); }
+.timer-setup__preview { padding: 18px 0 16px; border-block: 1px solid var(--color-hairline); }
+.timer-setup__footer { padding-top: 0; margin-top: 14px; border-top: 0; }
+.timer-setup__step:has(.duration-field) { padding-block: 12px; border-block: 1px solid var(--color-hairline); }
+
+.clock-editor__date-style { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--line); color: var(--ink); font-size: 13px; font-weight: 750; }
+
+@media (max-height: 560px) and (min-width: 521px) {
+  .timer-setup__step + .timer-setup__step { margin-top: 6px; }
+  .program-tabs, .mode-tabs, .category-tabs { padding: 3px; }
+  .timer-setup__preview { padding-block: 8px; }
+  .timer-setup__footer { margin-top: 8px; }
+}
+
+/* The home dock remains available; keep the larger task summary out of the setup surface. */
+.dashboard--timer-setup ~ .task-launcher { display: none; }
+
+/* Settings actions use the shared UI accent; task-theme colors stay inside Tasks. */
+.settings-drawer .primary-button {
+  color: var(--accent-contrast);
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.settings-drawer .primary-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 86%, #000);
+}
+.settings-drawer .background-option.background-option--active,
+.settings-drawer .background-option.background-option--active .background-option__preview {
+  color: var(--accent-contrast);
+  border-color: var(--accent);
+  background-color: color-mix(in srgb, var(--accent) 9%, #fff);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.settings-drawer .background-option__selected-badge,
+.settings-drawer .background-option__visibility {
+  color: var(--accent-contrast);
+  background: var(--accent);
+}
+.settings-drawer .background-option__visibility:hover { background: color-mix(in srgb, var(--accent) 86%, #000); }
+.settings-drawer .background-frame-current strong,
+.settings-drawer .background-frame-settings__target select,
+.settings-drawer .background-advanced summary { color: var(--accent-contrast); }
+
+/* Do not let legacy task-theme hover and form-control rules leak into shared UI. */
+.settings-drawer .settings-range { accent-color: var(--accent); }
+.settings-drawer .settings-range::-webkit-slider-runnable-track { background: linear-gradient(to right, var(--accent) 0 var(--range-progress), #dfe3e7 var(--range-progress) 100%); }
+.settings-drawer .settings-range::-webkit-slider-thumb { background: var(--accent); }
+.settings-drawer .settings-range::-moz-range-progress { background: var(--accent); }
+.settings-drawer .settings-range::-moz-range-thumb { background: var(--accent); }
+.settings-drawer .toggle:checked,
+.settings-drawer .setting-control input[type="range"] { accent-color: var(--accent); }
+.settings-drawer .toggle:not(:checked) { border-color: #cbd5df; background: #e2e8ee; }
+.settings-drawer .toggle:checked { background: var(--accent); }
+.task-drawer .task-header-action:hover,
+.task-drawer .task-mode-tabs button:hover,
+.task-drawer .task-navigation__views button:hover,
+.task-drawer .project-link:hover,
+.task-drawer .task-list-filters button:hover,
+.task-drawer .task-editor__details summary:hover,
+.task-drawer .task-editor__next-card-action:hover {
+  color: var(--accent-contrast);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, #fff);
+}
+.settings-drawer :focus-visible { outline-color: var(--accent); }
+.task-drawer button:focus-visible,
+.task-drawer input:focus-visible,
+.task-drawer select:focus-visible,
+.task-drawer textarea:focus-visible {
+  box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--accent);
+}
+.task-drawer .report-period button[aria-pressed="true"] {
+  color: var(--accent-contrast);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, #fff);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.task-drawer .report-section-heading > strong,
+.task-drawer .report-bar b,
+.task-drawer .report-breakdown b,
+.task-drawer .report-summary progress { accent-color: var(--accent); color: var(--accent-contrast); }
+.task-drawer .report-bar b,
+.task-drawer .report-breakdown b { background: var(--accent); }
+.task-drawer .task-navigation__views button.is-active,
+.task-drawer .task-navigation__views button.is-active:hover {
+  border-color: var(--accent);
+  border-radius: var(--radius-m);
+  background: color-mix(in srgb, var(--accent) 9%, #fff);
+  box-shadow: none;
+}
+.task-drawer .task-navigation__views button.is-active:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.task-drawer .task-row__check {
+  color: var(--accent-contrast);
+  border-right-color: color-mix(in srgb, var(--accent) 18%, var(--color-hairline));
+}
+.task-drawer .task-row__check[aria-pressed="true"] {
+  color: var(--accent-contrast);
+  background: color-mix(in srgb, var(--accent) 9%, #fff);
+}
+.task-drawer .task-row__check:not([aria-pressed="true"]) svg { border-color: var(--accent); }
+.task-drawer .task-row__start {
+  color: var(--accent-contrast);
+  border-left-color: color-mix(in srgb, var(--accent) 18%, var(--color-hairline));
+  background: color-mix(in srgb, var(--accent) 7%, #fff);
+}
+.task-drawer .task-row__start:hover:not(:disabled),
+.task-drawer .task-row__start.is-active {
+  color: var(--accent-contrast);
+  background: var(--accent);
+}
+.task-launcher__task > i { border-color: var(--accent); }
+.save-state::before,
+.save-state--saving::before { background: var(--accent); }

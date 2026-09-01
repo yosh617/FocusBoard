@@ -82,7 +82,7 @@ export function ClockWidget({ now, settings, textColor, onChange, onMessage, ori
       window.removeEventListener("resize", keepInsideViewport);
       observer?.disconnect();
     };
-  }, [clampPosition, onChange, orientation, settings.clockDateAlignment, settings.clockFontSize, settings.dateFontSize, settings.dateFormat, settings.showClock, settings.showDate, settings.showSeconds]);
+  }, [clampPosition, onChange, orientation, settings.clockDateAlignment, settings.clockFontSize, settings.dateDisplayStyle, settings.dateFontSize, settings.dateFormat, settings.showClock, settings.showDate, settings.showSeconds]);
 
   useEffect(() => {
     if (!open) return;
@@ -194,7 +194,7 @@ export function ClockWidget({ now, settings, textColor, onChange, onMessage, ori
         ref={displayRef}
       >
         <span className="clock-widget__hint" aria-hidden="true">タップで表示設定・ドラッグで移動</span>
-        {settings.showDate && <DateDisplay now={now} fontSize={settings.dateFontSize} format={settings.dateFormat} />}
+        {settings.showDate && <DateDisplay now={now} fontSize={settings.dateFontSize} format={settings.dateFormat} displayStyle={settings.dateDisplayStyle} />}
         {settings.showClock && <ClockDisplay now={now} settings={settings} />}
       </button>
 
@@ -221,6 +221,13 @@ export function ClockWidget({ now, settings, textColor, onChange, onMessage, ori
             <label><input type="checkbox" checked={settings.showClock} onChange={(event) => onChange({ showClock: event.target.checked })} />時計</label>
             <label><input type="checkbox" checked={settings.showDate} onChange={(event) => onChange({ showDate: event.target.checked })} />日付</label>
             <label><input type="checkbox" checked={settings.showSeconds} onChange={(event) => onChange({ showSeconds: event.target.checked })} />秒</label>
+          </div>
+          <div className="clock-editor__date-style">
+            <span>日付の表示</span>
+            <div className="segmented-control" role="radiogroup" aria-label="日付の表示形式">
+              <button type="button" role="radio" aria-checked={settings.dateDisplayStyle === "text"} className={settings.dateDisplayStyle === "text" ? "is-active" : ""} onClick={() => onChange({ dateDisplayStyle: "text" })}>標準</button>
+              <button type="button" role="radio" aria-checked={settings.dateDisplayStyle === "calendar"} className={settings.dateDisplayStyle === "calendar" ? "is-active" : ""} onClick={() => onChange({ dateDisplayStyle: "calendar" })}>カレンダー</button>
+            </div>
           </div>
           <div className="clock-editor__color">
             <div className="clock-editor__color-heading"><span>時計・日付の色</span><label><input type="checkbox" aria-label="時計の色を自動調整" checked={settings.matchClockBackgroundColors} onChange={(event) => onChange({ matchClockBackgroundColors: event.target.checked })} />自動調整</label></div>

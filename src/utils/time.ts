@@ -40,6 +40,20 @@ export function formatDate(date: Date, pattern = defaultDateFormat) {
   return tokens.reduce((result, [token, value]) => result.replaceAll(token, value), pattern);
 }
 
+export function formatCalendarMonth(date: Date) {
+  return new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "long" }).format(date);
+}
+
+export function formatCalendarDay(date: Date) {
+  return new Intl.DateTimeFormat("ja-JP", { day: "numeric" })
+    .formatToParts(date)
+    .find(({ type }) => type === "day")?.value ?? "";
+}
+
+export function formatCalendarWeekday(date: Date) {
+  return new Intl.DateTimeFormat("ja-JP", { weekday: "long" }).format(date);
+}
+
 export function formatDuration(milliseconds: number) {
   const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
   const minutes = Math.floor(totalSeconds / 60);

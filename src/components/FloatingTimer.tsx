@@ -185,8 +185,6 @@ export function FloatingTimer({ timer, taskTitle, taskProgress, onStart, onPause
           </div>
         ) : (
             <div className="floating-timer__content">
-              <span className="floating-timer__session">{sessionLabel}</span>
-              <span className="floating-timer__status" role="status">{statusLabel}</span>
               {programText && <span className="floating-timer__program">{programText}</span>}
               <strong aria-label={`${statusLabel} ${formatDuration(displayMs)}`}>{formatDuration(displayMs)}</strong>
               <div className="floating-timer__controls" role="group" aria-label="タイマー操作" onPointerDown={(event) => event.stopPropagation()}>

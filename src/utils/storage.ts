@@ -1,4 +1,4 @@
-import { backgroundChoices, colorPresets, defaultSettings, fontOptions, isDateFormat, orientations, positionPresets, taskThemePresets, type AppSettings, type BackgroundChoice, type BackgroundFrames, type ClockBackgroundSettings, type ClockDateAlignment, type ColorPreset, type FreePosition, type Orientation, type OrientationPositions, type OrientationPositionPresets, type PositionPreset, type TaskLauncherVisibility, type TaskThemePreset } from "../types/settings";
+import { backgroundChoices, colorPresets, defaultSettings, fontOptions, isDateFormat, orientations, positionPresets, taskThemePresets, type AppSettings, type BackgroundChoice, type BackgroundFrames, type ClockBackgroundSettings, type ClockDateAlignment, type ColorPreset, type DateDisplayStyle, type FreePosition, type Orientation, type OrientationPositions, type OrientationPositionPresets, type PositionPreset, type TaskLauncherVisibility, type TaskThemePreset } from "../types/settings";
 import type { SessionCategory, TimerMode, TimerProgram, TimerState, TimerStatus } from "../types/timer";
 import { BACKGROUND_DB_NAME } from "./backgroundStorage";
 import { PRODUCTIVITY_DB_NAME } from "./productivityStorage";
@@ -29,6 +29,7 @@ const isTaskLauncherVisibility = (value: unknown): value is TaskLauncherVisibili
   value === "always" || value === "background-tap";
 const isTaskThemePreset = (value: unknown): value is TaskThemePreset =>
   typeof value === "string" && value in taskThemePresets;
+const isDateDisplayStyle = (value: unknown): value is DateDisplayStyle => value === "text" || value === "calendar";
 
 const readHiddenBackgroundIds = (value: unknown) => {
   if (!Array.isArray(value)) return [...defaultSettings.hiddenBackgroundIds];
@@ -137,6 +138,7 @@ export function migrateSettings(value: unknown): AppSettings {
     showSeconds: booleanValue(value.showSeconds, defaultSettings.showSeconds),
     use12Hour: booleanValue(value.use12Hour, defaultSettings.use12Hour),
     dateFormat: isDateFormat(value.dateFormat) ? value.dateFormat : defaultSettings.dateFormat,
+    dateDisplayStyle: isDateDisplayStyle(value.dateDisplayStyle) ? value.dateDisplayStyle : defaultSettings.dateDisplayStyle,
     clockFontSize: isLegacyLayout ? defaultSettings.clockFontSize : numberValue(value.clockFontSize, defaultSettings.clockFontSize, 56, 220),
     dateFontSize: isLegacyLayout ? defaultSettings.dateFontSize : numberValue(value.dateFontSize, defaultSettings.dateFontSize, 16, 64),
     timerFontSize: isLegacyLayout ? defaultSettings.timerFontSize : numberValue(value.timerFontSize, defaultSettings.timerFontSize, 36, 120),

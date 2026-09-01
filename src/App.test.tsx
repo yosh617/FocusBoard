@@ -331,6 +331,7 @@ describe("App", () => {
 
     expect(screen.queryByRole("dialog", { name: "どのタスクを始めますか？" })).toBeNull();
     expect(screen.getByLabelText("数学の復習の集中タイマー").textContent).toContain("SESSION 1/1");
+    expect(screen.getByLabelText("数学の復習の集中タイマー").textContent).not.toContain("進行中");
   });
 
   it("shows the current task session beyond its planned count", () => {
@@ -610,7 +611,7 @@ describe("App", () => {
     openSettings();
     fireEvent.click(screen.getByRole("tab", { name: "表示" }));
     fireEvent.click(screen.getByText("時計・日付の見やすさ"));
-    expect(screen.getAllByText("標準").length).toBe(2);
+    expect(screen.getAllByText("標準").length).toBe(3);
     expect(screen.queryByText(/px/)).toBeNull();
   });
 
@@ -989,11 +990,27 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("tab", { name: "表示" }));
     expect(screen.getByLabelText("時計を表示")).toBeTruthy();
     expect(screen.getByLabelText("日付を表示")).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "標準" })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "カレンダー" })).toBeTruthy();
     expect(screen.queryByLabelText("タイマーを表示")).toBeNull();
 
     fireEvent.click(screen.getByRole("tab", { name: "タイマー" }));
     expect(screen.getByLabelText("タイマーを表示")).toBeTruthy();
     expect(screen.queryByLabelText("時計を表示")).toBeNull();
+  });
+
+  it("offers a calendar date layout while keeping the clock independently optional", async () => {
+    render(<App />);
+    openSettings();
+    fireEvent.click(screen.getByRole("tab", { name: "表示" }));
+    fireEvent.click(screen.getByRole("radio", { name: "カレンダー" }));
+    fireEvent.click(screen.getByLabelText("時計を表示"));
+    await waitFor(() => {
+      const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}");
+      expect(saved.dateDisplayStyle).toBe("calendar");
+      expect(saved.showClock).toBe(false);
+      expect(saved.showDate).toBe(true);
+    });
   });
 
   it("opens the task workspace from a persistent touch-sized launcher", async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatClock, formatDate, formatDuration, getCountupLap, getDurationMs, getTimerProgress } from "./time";
+import { formatCalendarDay, formatCalendarMonth, formatCalendarWeekday, formatClock, formatDate, formatDuration, getCountupLap, getDurationMs, getTimerProgress } from "./time";
 import { defaultSettings } from "../types/settings";
 
 describe("time helpers", () => {
@@ -30,5 +30,12 @@ describe("time helpers", () => {
     const date = new Date(2026, 6, 18);
     expect(formatDate(date, "yyyy/mm/dd weekday")).toBe("2026/07/18 土曜日");
     expect(formatDate(date, "mm/dd weekdayShort")).toBe("07/18 土");
+  });
+
+  it("formats the calendar date parts in Japanese", () => {
+    const date = new Date(2026, 8, 1);
+    expect(formatCalendarMonth(date)).toBe("2026年9月");
+    expect(formatCalendarDay(date)).toBe("1");
+    expect(formatCalendarWeekday(date)).toBe("火曜日");
   });
 });
