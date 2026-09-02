@@ -143,7 +143,7 @@ export function useTasks() {
   const updateSession = useCallback(async (id: string, patch: Partial<FocusSessionRecord>) => {
     const previous = sessionsRef.current.find((session) => session.id === id);
     if (!previous || !storageAvailable) return false;
-    const candidate = validateFocusSessionRecord({ ...previous, ...patch, id, version: 1 });
+    const candidate = validateFocusSessionRecord({ ...previous, ...patch, id, version: 2 });
     if (!candidate) {
       setMessage("集中記録の入力内容を確認してください。");
       return false;
@@ -331,7 +331,7 @@ export function useTasks() {
     const task = event.taskId ? tasksRef.current.find((item) => item.id === event.taskId) : null;
     const project = task?.projectId ? projectsRef.current.find((item) => item.id === task.projectId) : null;
     const session: FocusSessionRecord = {
-      version: 1,
+      version: 2,
       id: event.id,
       taskId: task?.id ?? null,
       taskTitleSnapshot: task?.title ?? null,
@@ -343,7 +343,8 @@ export function useTasks() {
       startedAt: event.startedAt,
       endedAt: event.endedAt,
       plannedDurationMs: event.plannedDurationMs,
-      focusedDurationMs: event.focusedDurationMs
+      focusedDurationMs: event.focusedDurationMs,
+      pauseIntervals: event.pauseIntervals
     };
     void saveFocusSessionRecord(session)
       .then(() => setSessions((current) => current.some((item) => item.id === session.id)

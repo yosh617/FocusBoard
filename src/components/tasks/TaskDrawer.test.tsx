@@ -39,7 +39,7 @@ const project: ProjectRecord = {
 };
 
 const session: FocusSessionRecord = {
-  version: 1,
+  version: 2,
   id: "session-1",
   taskId: task.id,
   taskTitleSnapshot: task.title,
@@ -51,7 +51,8 @@ const session: FocusSessionRecord = {
   startedAt: 1,
   endedAt: new Date(`${today}T09:00:00`).getTime(),
   plannedDurationMs: 25 * 60_000,
-  focusedDurationMs: 25 * 60_000
+  focusedDurationMs: 25 * 60_000,
+  pauseIntervals: []
 };
 
 function renderDrawer(overrides: Partial<React.ComponentProps<typeof TaskDrawer>> = {}) {

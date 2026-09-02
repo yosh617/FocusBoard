@@ -1,5 +1,5 @@
 import { backgroundChoices, colorPresets, defaultSettings, fontOptions, isDateFormat, orientations, positionPresets, taskThemePresets, type AppSettings, type BackgroundChoice, type BackgroundFrames, type ClockBackgroundSettings, type ClockDateAlignment, type ColorPreset, type DateDisplayStyle, type FreePosition, type Orientation, type OrientationPositions, type OrientationPositionPresets, type PositionPreset, type TaskLauncherVisibility, type TaskThemePreset } from "../types/settings";
-import type { SessionCategory, TimerMode, TimerProgram, TimerState, TimerStatus } from "../types/timer";
+import type { PauseInterval, SessionCategory, TimerMode, TimerProgram, TimerState, TimerStatus } from "../types/timer";
 import { BACKGROUND_DB_NAME } from "./backgroundStorage";
 import { PRODUCTIVITY_DB_NAME } from "./productivityStorage";
 import { isEntityId } from "./taskValidation";
@@ -212,7 +212,7 @@ export function createInitialTimerState(workMinutes: number, orientation: Orient
   const durationMs = workMinutes * 60_000;
   const floatingPositions: OrientationPositions = { portrait: { x: 0.18, y: 0.38 }, landscape: { x: 0.18, y: 0.38 } };
   return {
-    version: 5,
+    version: 6,
     program: "pomodoro",
     mode: "work",
     category: "focus",
@@ -226,7 +226,9 @@ export function createInitialTimerState(workMinutes: number, orientation: Orient
     floatingPositions,
     activeTaskId: null,
     activeSessionId: null,
-    sessionStartedAt: null
+    sessionStartedAt: null,
+    pauseIntervals: [],
+    pauseStartedAt: null
   };
 }
 
@@ -242,11 +244,21 @@ const readFloatingPositions = (value: unknown): OrientationPositions => {
   })) as OrientationPositions;
 };
 
+const readPauseIntervals = (value: unknown): PauseInterval[] => {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!isRecord(item)) return [];
+    const startedAt = numberValue(item.startedAt, -1, 0, Number.MAX_SAFE_INTEGER);
+    const endedAt = numberValue(item.endedAt, -1, 0, Number.MAX_SAFE_INTEGER);
+    return startedAt >= 0 && endedAt >= startedAt ? [{ startedAt, endedAt }] : [];
+  }).slice(0, 1_000);
+};
+
 export function loadTimerState(workMinutes: number, orientation: Orientation = "portrait"): TimerState {
   try {
     const parsed: unknown = JSON.parse(localStorage.getItem(TIMER_KEY) ?? "null");
     const version = isRecord(parsed) && typeof parsed.version === "number" ? parsed.version : null;
-    if (!isRecord(parsed) || version === null || ![1, 2, 3, 4, 5].includes(version)) return createInitialTimerState(workMinutes, orientation);
+    if (!isRecord(parsed) || version === null || ![1, 2, 3, 4, 5, 6].includes(version)) return createInitialTimerState(workMinutes, orientation);
     if (!timerModes.includes(parsed.mode as TimerMode) || !timerStatuses.includes(parsed.status as TimerStatus)) {
       return createInitialTimerState(workMinutes, orientation);
     }
@@ -267,6 +279,10 @@ export function loadTimerState(workMinutes: number, orientation: Orientation = "
       : { portrait: legacyPosition, landscape: legacyPosition };
     const durationMs = numberValue(parsed.durationMs, workMinutes * 60_000, 60_000, 24 * 60 * 60_000);
     const customDurationMs = numberValue(parsed.customDurationMs, 30 * 60_000, 60_000, 24 * 60 * 60_000);
+    const pauseIntervals = readPauseIntervals(parsed.pauseIntervals);
+    const pauseStartedAt = typeof parsed.pauseStartedAt === "number" && Number.isFinite(parsed.pauseStartedAt) && parsed.pauseStartedAt >= 0
+      ? parsed.pauseStartedAt
+      : null;
     let normalizedStatus = status;
     let normalizedRemainingMs = program === "countup"
       ? numberValue(parsed.remainingMs, 0, 0, 7 * 24 * 60 * 60_000)
@@ -284,7 +300,7 @@ export function loadTimerState(workMinutes: number, orientation: Orientation = "
       }
     }
     return {
-      version: 5,
+      version: 6,
       program,
       mode: parsed.mode as TimerMode,
       category,
@@ -298,7 +314,9 @@ export function loadTimerState(workMinutes: number, orientation: Orientation = "
       floatingPositions,
       activeTaskId: isEntityId(parsed.activeTaskId) ? parsed.activeTaskId : null,
       activeSessionId: typeof parsed.activeSessionId === "string" && parsed.activeSessionId.length > 0 ? parsed.activeSessionId : null,
-      sessionStartedAt: typeof parsed.sessionStartedAt === "number" && Number.isFinite(parsed.sessionStartedAt) ? parsed.sessionStartedAt : null
+      sessionStartedAt: typeof parsed.sessionStartedAt === "number" && Number.isFinite(parsed.sessionStartedAt) ? parsed.sessionStartedAt : null,
+      pauseIntervals,
+      pauseStartedAt
     };
   } catch {
     return createInitialTimerState(workMinutes, orientation);

@@ -13,10 +13,10 @@ const completedTask: TaskRecord = {
   repeatSeriesId: null, estimatedPomodoros: 2, order: 0, createdAt: 1, updatedAt: 1, completedAt: endedAt
 };
 const todaySession: FocusSessionRecord = {
-  version: 1, id: "session-1", taskId: completedTask.id, taskTitleSnapshot: completedTask.title,
+  version: 2, id: "session-1", taskId: completedTask.id, taskTitleSnapshot: completedTask.title,
   projectIdSnapshot: "project-1", projectNameSnapshot: "勉強", program: "pomodoro", mode: "work",
   result: "completed", startedAt: endedAt - 25 * 60_000, endedAt,
-  plannedDurationMs: 25 * 60_000, focusedDurationMs: 25 * 60_000
+  plannedDurationMs: 25 * 60_000, focusedDurationMs: 25 * 60_000, pauseIntervals: []
 };
 const previousDaySession: FocusSessionRecord = {
   ...todaySession,
@@ -31,6 +31,7 @@ describe("ProductivityReport", () => {
     expect(screen.getAllByText("50分").length).toBeGreaterThan(0);
     expect(screen.getAllByText("25分").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: "勉強時間" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "実施時間帯" })).toBeTruthy();
     expect(screen.getByLabelText("直近1年の勉強時間ヒートマップ").querySelectorAll("[role=\"img\"]")).toHaveLength(371);
     expect(screen.getByRole("img", { name: /2026年7月18日 25分/ })).toBeTruthy();
     expect(screen.getAllByText("集中時間").length).toBeGreaterThan(0);

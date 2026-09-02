@@ -1,7 +1,7 @@
-import type { TimerMode, TimerProgram } from "./timer";
+import type { PauseInterval, TimerMode, TimerProgram } from "./timer";
 
 export type FocusSessionRecord = {
-  version: 1;
+  version: 2;
   id: string;
   taskId: string | null;
   taskTitleSnapshot: string | null;
@@ -14,4 +14,5 @@ export type FocusSessionRecord = {
   endedAt: number;
   plannedDurationMs: number;
   focusedDurationMs: number;
+  pauseIntervals: PauseInterval[];
 };

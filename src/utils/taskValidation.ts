@@ -1,7 +1,7 @@
 import type { FocusSessionRecord } from "../types/focusSession";
 import type { ProjectRecord } from "../types/project";
 import type { RepeatRule, TaskPriority, TaskRecord, TaskStatus } from "../types/task";
-import type { TimerMode, TimerProgram } from "../types/timer";
+import type { PauseInterval, TimerMode, TimerProgram } from "../types/timer";
 
 const idPattern = /^[a-zA-Z0-9_-]{1,128}$/;
 const colorPattern = /^#[0-9a-f]{6}$/i;
@@ -132,16 +132,31 @@ export function validateProjectRecord(value: unknown): ProjectRecord | null {
 }
 
 export function validateFocusSessionRecord(value: unknown): FocusSessionRecord | null {
-  if (!isRecord(value) || value.version !== 1 || !isEntityId(value.id)) return null;
+  if (!isRecord(value) || (value.version !== 1 && value.version !== 2) || !isEntityId(value.id)) return null;
   if (!isOptionalId(value.taskId) || !isOptionalId(value.projectIdSnapshot)) return null;
   if (value.taskTitleSnapshot !== null && (typeof value.taskTitleSnapshot !== "string" || value.taskTitleSnapshot.length > 200)) return null;
   if (value.projectNameSnapshot !== null && (typeof value.projectNameSnapshot !== "string" || value.projectNameSnapshot.length > 80)) return null;
   if (!timerPrograms.includes(value.program as TimerProgram) || !timerModes.includes(value.mode as TimerMode)) return null;
   if (value.result !== "completed" && value.result !== "cancelled") return null;
   if (!isTimestamp(value.startedAt) || !isTimestamp(value.endedAt) || value.endedAt < value.startedAt) return null;
+  const startedAt = value.startedAt;
+  const endedAt = value.endedAt;
   if (!isTimestamp(value.plannedDurationMs) || !isTimestamp(value.focusedDurationMs)) return null;
+  const pauseIntervals: PauseInterval[] = [];
+  if (value.version === 2) {
+    if (!Array.isArray(value.pauseIntervals)) return null;
+    let previousEndedAt = startedAt;
+    for (const item of value.pauseIntervals) {
+      if (!isRecord(item) || !isTimestamp(item.startedAt) || !isTimestamp(item.endedAt)) return null;
+      const pauseStartedAt = item.startedAt;
+      const pauseEndedAt = item.endedAt;
+      if (pauseStartedAt < startedAt || pauseEndedAt < pauseStartedAt || pauseEndedAt > endedAt || pauseStartedAt < previousEndedAt) return null;
+      pauseIntervals.push({ startedAt: pauseStartedAt, endedAt: pauseEndedAt });
+      previousEndedAt = pauseEndedAt;
+    }
+  }
   return {
-    version: 1,
+    version: 2,
     id: value.id,
     taskId: value.taskId,
     taskTitleSnapshot: value.taskTitleSnapshot,
@@ -150,9 +165,10 @@ export function validateFocusSessionRecord(value: unknown): FocusSessionRecord |
     program: value.program as TimerProgram,
     mode: value.mode as TimerMode,
     result: value.result,
-    startedAt: value.startedAt,
-    endedAt: value.endedAt,
+    startedAt,
+    endedAt,
     plannedDurationMs: value.plannedDurationMs,
-    focusedDurationMs: value.focusedDurationMs
+    focusedDurationMs: value.focusedDurationMs,
+    pauseIntervals
   };
 }

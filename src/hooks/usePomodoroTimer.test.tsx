@@ -122,4 +122,53 @@ describe("usePomodoroTimer", () => {
     expect(event.focusedDurationMs).toBeGreaterThanOrEqual(5_000);
     expect(event.focusedDurationMs).toBeLessThan(6_000);
   });
+
+  it("records the elapsed time when an active task timer is ended", () => {
+    const onSessionEnd = vi.fn();
+    const { result } = renderHook(() => usePomodoroTimer({ ...defaultSettings, soundEnabled: false }, onSessionEnd));
+
+    act(() => result.current.start("task-1"));
+    act(() => { vi.advanceTimersByTime(5_000); });
+    act(() => result.current.end());
+
+    expect(result.current.timer.status).toBe("idle");
+    expect(result.current.timer.activeTaskId).toBeNull();
+    expect(result.current.announcement).toBe("集中時間を記録して終了しました。");
+    expect(onSessionEnd).toHaveBeenCalledTimes(1);
+    expect(onSessionEnd.mock.calls[0][0]).toEqual(expect.objectContaining({
+      taskId: "task-1",
+      result: "cancelled",
+      focusedDurationMs: expect.any(Number)
+    }));
+  });
+
+  it("records each pause interval and excludes it from focused time", () => {
+    const onSessionEnd = vi.fn();
+    const { result } = renderHook(() => usePomodoroTimer({ ...defaultSettings, soundEnabled: false }, onSessionEnd));
+
+    act(() => result.current.start("task-1"));
+    act(() => { vi.advanceTimersByTime(5_000); result.current.pause(); });
+    act(() => { vi.advanceTimersByTime(10_000); result.current.start(); });
+    act(() => { vi.advanceTimersByTime(5_000); result.current.end(); });
+
+    const event = onSessionEnd.mock.calls[0][0];
+    expect(event.pauseIntervals).toHaveLength(1);
+    expect(event.pauseIntervals[0].endedAt - event.pauseIntervals[0].startedAt).toBe(10_000);
+    expect(event.focusedDurationMs).toBeGreaterThanOrEqual(9_000);
+    expect(event.focusedDurationMs).toBeLessThan(11_000);
+  });
+
+  it("records real elapsed time for a countup session", () => {
+    const onSessionEnd = vi.fn();
+    const { result } = renderHook(() => usePomodoroTimer({ ...defaultSettings, soundEnabled: false }, onSessionEnd));
+
+    act(() => {
+      result.current.selectProgram("countup");
+      result.current.start("task-1");
+    });
+    act(() => { vi.advanceTimersByTime(5_000); result.current.end(); });
+
+    expect(onSessionEnd.mock.calls[0][0].focusedDurationMs).toBeGreaterThanOrEqual(5_000);
+    expect(onSessionEnd.mock.calls[0][0].focusedDurationMs).toBeLessThan(6_000);
+  });
 });

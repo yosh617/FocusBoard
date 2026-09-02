@@ -30,6 +30,19 @@ export type FocusHeatmap = {
   totalFocusedMs: number;
 };
 
+export type FocusTimelineSegment = {
+  sessionId: string;
+  taskTitle: string;
+  startAt: number;
+  endAt: number;
+  result: FocusSessionRecord["result"];
+};
+
+export type FocusTimelineDay = {
+  date: string;
+  segments: FocusTimelineSegment[];
+};
+
 export type ProductivityReport = {
   period: ReportPeriod;
   periodLabel: string;
@@ -44,6 +57,7 @@ export type ProductivityReport = {
   projectBreakdown: ReportBreakdown[];
   taskComparisons: ReportTaskComparison[];
   dailyFocus: { date: string; focusedMs: number }[];
+  timeline: FocusTimelineDay[];
   history: FocusSessionRecord[];
 };
 
@@ -116,6 +130,57 @@ export function createFocusHeatmap(sessions: FocusSessionRecord[], now = new Dat
   };
 }
 
+function getSessionFocusSegments(session: FocusSessionRecord) {
+  const intervals = [...(session.pauseIntervals ?? [])]
+    .filter((interval) => interval.endedAt > session.startedAt && interval.startedAt < session.endedAt)
+    .sort((left, right) => left.startedAt - right.startedAt);
+  const segments: { startAt: number; endAt: number }[] = [];
+  let cursor = session.startedAt;
+  for (const interval of intervals) {
+    const pauseStart = Math.max(session.startedAt, interval.startedAt);
+    const pauseEnd = Math.min(session.endedAt, interval.endedAt);
+    if (pauseStart > cursor) segments.push({ startAt: cursor, endAt: pauseStart });
+    cursor = Math.max(cursor, pauseEnd);
+  }
+  if (cursor < session.endedAt) segments.push({ startAt: cursor, endAt: session.endedAt });
+  return segments;
+}
+
+function createFocusTimeline(sessions: FocusSessionRecord[], startAt: number, endAt: number): FocusTimelineDay[] {
+  const days: FocusTimelineDay[] = [];
+  const day = new Date(startAt);
+  day.setHours(0, 0, 0, 0);
+  while (day.getTime() < endAt) {
+    days.push({ date: toLocalDateKey(day), segments: [] });
+    day.setDate(day.getDate() + 1);
+  }
+  const dayByDate = new Map(days.map((item) => [item.date, item]));
+
+  for (const session of sessions) {
+    if (session.mode !== "work" || session.endedAt <= startAt || session.startedAt >= endAt) continue;
+    for (const segment of getSessionFocusSegments(session)) {
+      let segmentStart = Math.max(segment.startAt, startAt);
+      const segmentEnd = Math.min(segment.endAt, endAt);
+      while (segmentStart < segmentEnd) {
+        const segmentDate = new Date(segmentStart);
+        const date = toLocalDateKey(segmentDate);
+        const dayEnd = new Date(segmentDate);
+        dayEnd.setHours(24, 0, 0, 0);
+        const clippedEnd = Math.min(segmentEnd, dayEnd.getTime());
+        dayByDate.get(date)?.segments.push({
+          sessionId: session.id,
+          taskTitle: session.taskTitleSnapshot ?? "タスクなし",
+          startAt: segmentStart,
+          endAt: clippedEnd,
+          result: session.result
+        });
+        segmentStart = clippedEnd;
+      }
+    }
+  }
+  return days;
+}
+
 export function createProductivityReport(
   tasks: TaskRecord[],
   sessions: FocusSessionRecord[],
@@ -160,6 +225,7 @@ export function createProductivityReport(
     dailyFocus.push({ date, focusedMs: dailyTotals.get(date) ?? 0 });
     day.setDate(day.getDate() + 1);
   }
+  const timeline = createFocusTimeline(sessions, startAt, endAt);
 
   return {
     period,
@@ -186,6 +252,7 @@ export function createProductivityReport(
       }))
       .sort((a, b) => b.focusedMs - a.focusedMs || a.title.localeCompare(b.title, "ja")),
     dailyFocus,
+    timeline,
     history: periodSessions
   };
 }

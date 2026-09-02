@@ -69,6 +69,7 @@ describe("App", () => {
 
   const revealSettings = () => fireEvent.pointerUp(document.querySelector<HTMLElement>(".background")!);
   const openSettings = () => {
+    if (!screen.queryByRole("navigation", { name: "ホーム操作" })) revealSettings();
     fireEvent.click(screen.getByRole("button", { name: "タスク" }));
     fireEvent.click(screen.getByRole("button", { name: "設定を開く" }));
   };
@@ -125,8 +126,10 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "数学の復習を詳細から開始" }));
   };
 
-  it("keeps task and settings entry points in the home dock", () => {
+  it("reveals task and settings entry points in the home dock after a background tap", () => {
     render(<App />);
+    expect(screen.queryByRole("navigation", { name: "ホーム操作" })).toBeNull();
+    revealSettings();
     const homeDock = screen.getByRole("navigation", { name: "ホーム操作" });
     expect(within(homeDock).getByRole("button", { name: "タスク" })).toBeTruthy();
     expect(within(homeDock).getByRole("button", { name: "設定" })).toBeTruthy();
@@ -164,7 +167,7 @@ describe("App", () => {
     }
   });
 
-  it("keeps the task dock available while the detailed task card fades in background-tap mode", () => {
+  it("fades the home dock together with the detailed task card", () => {
     vi.useFakeTimers();
     try {
       localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...defaultSettings, taskLauncherVisibility: "background-tap" }));
@@ -173,16 +176,19 @@ describe("App", () => {
 
       revealSettings();
       const launcher = screen.getByRole("button", { name: /タスクを開く/ });
+      const homeDock = screen.getByRole("navigation", { name: "ホーム操作" });
       expect(document.querySelector(".settings-button")).toBeNull();
 
       act(() => { vi.advanceTimersByTime(2_500); });
       expect(launcher.classList.contains("task-launcher--fading")).toBe(true);
+      expect(homeDock.classList.contains("home-dock--fading")).toBe(true);
       act(() => { vi.advanceTimersByTime(280); });
       expect(screen.queryByRole("button", { name: /タスクを開く/ })).toBeNull();
-      expect(screen.getByRole("button", { name: "タスク" })).toBeTruthy();
+      expect(screen.queryByRole("navigation", { name: "ホーム操作" })).toBeNull();
 
       revealSettings();
       expect(screen.getByRole("button", { name: /タスクを開く/ })).toBeTruthy();
+      expect(screen.getByRole("navigation", { name: "ホーム操作" })).toBeTruthy();
     } finally {
       vi.useRealTimers();
     }
@@ -190,6 +196,7 @@ describe("App", () => {
 
   it("switches between task and settings panels from the home dock", async () => {
     render(<App />);
+    revealSettings();
     const homeDock = screen.getByRole("navigation", { name: "ホーム操作" });
     expect(within(homeDock).getByRole("button", { name: "タスク" }).textContent).toContain("タスク");
     expect(within(homeDock).getByRole("button", { name: "設定" })).toBeTruthy();
@@ -212,6 +219,7 @@ describe("App", () => {
 
   it("returns focus to the trigger that remains available after closing or switching panels", async () => {
     render(<App />);
+    revealSettings();
     const homeDock = screen.getByRole("navigation", { name: "ホーム操作" });
     const homeTasks = within(homeDock).getByRole("button", { name: "タスク" });
 
@@ -336,7 +344,7 @@ describe("App", () => {
 
   it("shows the current task session beyond its planned count", () => {
     mockTasksState.sessions = [1, 2].map((index) => ({
-      version: 1,
+      version: 2,
       id: `session-${index}`,
       taskId: focusTask.id,
       taskTitleSnapshot: focusTask.title,
@@ -348,7 +356,8 @@ describe("App", () => {
       startedAt: index,
       endedAt: index + 1,
       plannedDurationMs: 25 * 60_000,
-      focusedDurationMs: 25 * 60_000
+      focusedDurationMs: 25 * 60_000,
+      pauseIntervals: []
     }));
 
     prepareTaskFlow();
@@ -424,6 +433,22 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "タイマー表示へ戻る" }));
     expect(screen.getByLabelText("集中タイマー")).toBeTruthy();
+  });
+
+  it("records an active timer when it is ended from the setup card", () => {
+    render(<App />);
+    startWithoutTask();
+    expect(screen.getByRole("button", { name: "タイマーを終了して記録" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "タイマーセット（タイマーは継続）" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "タイマーを終了して記録" }));
+
+    expect(mockTasksState.recordTimerSession).toHaveBeenCalledTimes(1);
+    expect(mockTasksState.recordTimerSession).toHaveBeenCalledWith(expect.objectContaining({
+      result: "cancelled",
+      focusedDurationMs: expect.any(Number)
+    }));
+    expect(screen.getByLabelText("タイマー設定")).toBeTruthy();
   });
 
   it("opens the session complete dialog and lets the user start the break flow", async () => {

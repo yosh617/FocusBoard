@@ -18,9 +18,26 @@ function formatHistoryDate(timestamp: number) {
   });
 }
 
+function formatTimelineDate(date: string) {
+  return new Date(`${date}T00:00:00`).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short" });
+}
+
+function formatTimelineTime(timestamp: number) {
+  return new Date(timestamp).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+}
+
+function getTimelinePosition(timestamp: number, date: string) {
+  const startOfDay = new Date(`${date}T00:00:00`).getTime();
+  return Math.max(0, Math.min(100, (timestamp - startOfDay) / 86_400_000 * 100));
+}
+
 function toDateTimeLocal(timestamp: number) {
   const localTimestamp = timestamp - new Date(timestamp).getTimezoneOffset() * 60_000;
   return new Date(localTimestamp).toISOString().slice(0, 16);
+}
+
+function getPausedDurationMs(session: FocusSessionRecord) {
+  return (session.pauseIntervals ?? []).reduce((total, interval) => total + Math.max(0, interval.endedAt - interval.startedAt), 0);
 }
 
 function SessionEditForm({ session, onCancel, onSave }: {
@@ -28,7 +45,9 @@ function SessionEditForm({ session, onCancel, onSave }: {
   onCancel: () => void;
   onSave: (patch: Partial<FocusSessionRecord>) => Promise<boolean>;
 }) {
+  const pauseIntervals = session.pauseIntervals ?? [];
   const [endedAt, setEndedAt] = useState(toDateTimeLocal(session.endedAt));
+  const [startedAt, setStartedAt] = useState(toDateTimeLocal(session.startedAt));
   const [durationMinutes, setDurationMinutes] = useState(String(Math.round(session.focusedDurationMs / 60_000)));
   const [result, setResult] = useState<FocusSessionRecord["result"]>(session.result);
   const [error, setError] = useState("");
@@ -36,16 +55,17 @@ function SessionEditForm({ session, onCancel, onSave }: {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const startedAtMs = new Date(startedAt).getTime();
     const endedAtMs = new Date(endedAt).getTime();
     const minutes = Number(durationMinutes);
-    if (!Number.isFinite(endedAtMs) || !Number.isInteger(minutes) || minutes < 0 || minutes > 1_440) {
+    if (!Number.isFinite(startedAtMs) || !Number.isFinite(endedAtMs) || endedAtMs < startedAtMs || !Number.isInteger(minutes) || minutes < 0 || minutes > 1_440) {
       setError("終了日時と勉強時間を確認してください。");
       return;
     }
     setError("");
     setSaving(true);
     const saved = await onSave({
-      startedAt: endedAtMs - minutes * 60_000,
+      startedAt: pauseIntervals.length > 0 ? startedAtMs : endedAtMs - minutes * 60_000,
       endedAt: endedAtMs,
       focusedDurationMs: minutes * 60_000,
       result
@@ -57,10 +77,12 @@ function SessionEditForm({ session, onCancel, onSave }: {
   return (
     <form className="session-history__editor" onSubmit={handleSubmit} aria-label="集中記録を編集">
       <div className="session-history__fields">
+        <label>開始日時<input type="datetime-local" value={startedAt} onChange={(event) => setStartedAt(event.target.value)} required /></label>
         <label>終了日時<input type="datetime-local" value={endedAt} onChange={(event) => setEndedAt(event.target.value)} required /></label>
-        <label>勉強時間（分）<input type="number" min={0} max={1_440} step={1} inputMode="numeric" value={durationMinutes} onChange={(event) => setDurationMinutes(event.target.value)} required /></label>
+        <label>勉強時間（分）<input type="number" min={0} max={1_440} step={1} inputMode="numeric" value={durationMinutes} onChange={(event) => setDurationMinutes(event.target.value)} readOnly={pauseIntervals.length > 0} required /></label>
         <label>結果<select value={result} onChange={(event) => setResult(event.target.value as FocusSessionRecord["result"])}><option value="completed">完了</option><option value="cancelled">中断</option></select></label>
       </div>
+      {pauseIntervals.length > 0 && <p className="session-history__pause-note">一時停止 {formatFocusedTime(getPausedDurationMs(session))}（{pauseIntervals.length}回）</p>}
       {error && <p role="alert">{error}</p>}
       <div className="session-history__editor-actions">
         <button type="submit" disabled={saving}>{saving ? "保存中" : "記録を保存"}</button>
@@ -86,7 +108,6 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
   );
   const focusHeatmap = useMemo(() => createFocusHeatmap(sessions, now), [now, sessions]);
   const periodLabel = period === "day" ? "日" : period === "week" ? "週" : "月";
-  const maxDailyFocus = Math.max(1, ...report.dailyFocus.map((day) => day.focusedMs));
   const todayTaskCount = report.todayRemainingTasks + report.todayCompletedTasks;
   const todayCompletionRate = todayTaskCount === 0 ? 0 : Math.round((report.todayCompletedTasks / todayTaskCount) * 100);
 
@@ -174,17 +195,49 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V5M16 20v-7M22 20H2" /></svg>
         <div><h4 id="report-empty-title">この期間の集中記録はまだありません。</h4><p>{report.periodLabel}</p></div>
       </section> : <>
-      <section aria-labelledby="focus-trend-title">
-        <div className="report-section-heading"><div><h4 id="focus-trend-title">集中時間</h4><p>{report.periodLabel}</p></div><strong>{formatFocusedTime(report.focusedMs)}</strong></div>
-        <div className="report-bars" aria-label="日別集中時間">
-          {report.dailyFocus.map((day) => (
-            <div className="report-bar" key={day.date}>
-              <span>{day.date.slice(5).replace("-", "/")}</span>
-              <i><b style={{ width: `${day.focusedMs / maxDailyFocus * 100}%` }} /></i>
-              <strong>{formatFocusedTime(day.focusedMs)}</strong>
+      <section className="focus-timeline-section" aria-labelledby="focus-timeline-title">
+        <div className="report-section-heading"><div><h4 id="focus-timeline-title">実施時間帯</h4><p>{report.periodLabel}・色付きの帯が実施時間</p></div><strong>{formatFocusedTime(report.focusedMs)}</strong></div>
+        <div className="focus-timeline__scroll">
+          <div className="focus-timeline" aria-label={`${report.periodLabel}の集中タイムライン`}>
+            <div className="focus-timeline__axis" aria-hidden="true">
+              <span />
+              <div>{[0, 4, 8, 12, 16, 20, 24].map((hour) => <span key={hour} style={{ left: `${hour / 24 * 100}%` }}>{`${String(hour).padStart(2, "0")}:00`}</span>)}</div>
             </div>
-          ))}
+            <div className="focus-timeline__rows">
+              {report.timeline.map((day) => (
+                <div className="focus-timeline__row" key={day.date}>
+                  <time dateTime={day.date}>{formatTimelineDate(day.date)}</time>
+                  <div className="focus-timeline__track">
+                    <div className="focus-timeline__grid" aria-hidden="true">{Array.from({ length: 24 }, (_, hour) => <i key={hour} />)}</div>
+                    {day.segments.map((segment, index) => {
+                      const left = getTimelinePosition(segment.startAt, day.date);
+                      const right = getTimelinePosition(segment.endAt, day.date);
+                      return <span
+                        className={`focus-timeline__segment${segment.result === "cancelled" ? " is-cancelled" : ""}`}
+                        style={{ left: `${left}%`, width: `${Math.max(.4, right - left)}%` }}
+                        role="img"
+                        aria-label={`${segment.taskTitle} ${formatTimelineTime(segment.startAt)}〜${formatTimelineTime(segment.endAt)} ${segment.result === "completed" ? "完了" : "中断"}`}
+                        title={`${segment.taskTitle}・${formatTimelineTime(segment.startAt)}〜${formatTimelineTime(segment.endAt)}`}
+                        key={`${segment.sessionId}-${segment.startAt}-${index}`}
+                      />;
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
+        <details className="focus-timeline__details">
+          <summary>実施記録を時刻で確認</summary>
+          <ol>
+            {report.timeline.flatMap((day) => day.segments.map((segment, index) => <li key={`${segment.sessionId}-${segment.startAt}-${index}`}>
+              <time dateTime={new Date(segment.startAt).toISOString()}>{formatTimelineDate(day.date)} {formatTimelineTime(segment.startAt)}〜{formatTimelineTime(segment.endAt)}</time>
+              <span>{segment.taskTitle}</span>
+              <em>{segment.result === "completed" ? "完了" : "中断"}</em>
+            </li>))}
+          </ol>
+        </details>
+        <p className="report-caption">一時停止中は帯を分けて表示しています。帯と一覧で実施時刻を確認できます。</p>
       </section>
 
       <section aria-labelledby="project-report-title">
@@ -220,7 +273,7 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
                 onClick={() => setEditingSessionId((current) => current === session.id ? null : session.id)}
               >
                 <div><strong>{session.taskTitleSnapshot ?? "タスクなし"}</strong><span>{session.projectNameSnapshot ?? "プロジェクトなし"}・{formatHistoryDate(session.endedAt)}</span></div>
-                <div><strong>{formatFocusedTime(session.focusedDurationMs)}</strong><span>{session.result === "completed" ? "完了" : "中断"}</span></div>
+                <div><strong>{formatFocusedTime(session.focusedDurationMs)}</strong><span>{session.result === "completed" ? "完了" : "中断"}{getPausedDurationMs(session) > 0 ? `・休止 ${formatFocusedTime(getPausedDurationMs(session))}` : ""}</span></div>
               </button>
               {isEditing && <SessionEditForm
                 session={session}

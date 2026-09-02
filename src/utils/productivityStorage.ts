@@ -1,7 +1,7 @@
 import type { FocusSessionRecord } from "../types/focusSession";
 import type { ProjectRecord } from "../types/project";
 import type { TaskRecord } from "../types/task";
-import { validateFocusSessionRecord, validateProjectRecord, validateTaskRecord } from "./taskValidation";
+import { isRecord, validateFocusSessionRecord, validateProjectRecord, validateTaskRecord } from "./taskValidation";
 
 export const PRODUCTIVITY_DB_NAME = "focusboard-productivity";
 export const PRODUCTIVITY_DB_VERSION = 1;
@@ -17,6 +17,10 @@ type ProductivityData = {
   invalidRecordCount: number;
   repairedRecordCount: number;
 };
+
+function isLegacyFocusSession(value: unknown): boolean {
+  return isRecord(value) && value.version === 1;
+}
 
 function createIndexes(store: IDBObjectStore, indexes: { name: string; keyPath: string | string[] }[]) {
   for (const index of indexes) {
@@ -218,6 +222,7 @@ export async function replaceProductivityData(records: { tasks: TaskRecord[]; pr
 
 export async function loadProductivityData(): Promise<ProductivityData> {
   let repairedTasksToSave: TaskRecord[];
+  let migratedSessionsToSave: FocusSessionRecord[];
   let result: ProductivityData;
   const database = await openDatabase();
   try {
@@ -231,7 +236,12 @@ export async function loadProductivityData(): Promise<ProductivityData> {
 
     const tasks = rawTasks.map(validateTaskRecord).filter((task): task is TaskRecord => task !== null);
     const projects = rawProjects.map(validateProjectRecord).filter((project): project is ProjectRecord => project !== null);
-    const sessions = rawSessions.map(validateFocusSessionRecord).filter((session): session is FocusSessionRecord => session !== null);
+    migratedSessionsToSave = [];
+    const sessions = rawSessions.map((rawSession) => {
+      const session = validateFocusSessionRecord(rawSession);
+      if (session && isLegacyFocusSession(rawSession)) migratedSessionsToSave.push(session);
+      return session;
+    }).filter((session): session is FocusSessionRecord => session !== null);
     const { repairedTasks, repairedTaskIds } = repairTaskRelationships(tasks, projects);
     repairedTasksToSave = repairedTasks.filter((task) => repairedTaskIds.has(task.id));
     result = {
@@ -246,6 +256,9 @@ export async function loadProductivityData(): Promise<ProductivityData> {
   }
   if (repairedTasksToSave.length > 0) {
     await saveProductivityRecords({ tasks: repairedTasksToSave }).catch(() => undefined);
+  }
+  if (migratedSessionsToSave.length > 0) {
+    await saveProductivityRecords({ sessions: migratedSessionsToSave }).catch(() => undefined);
   }
   return result;
 }

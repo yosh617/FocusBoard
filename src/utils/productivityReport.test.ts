@@ -11,9 +11,9 @@ const task: TaskRecord = {
 
 function session(id: string, endedAt: number, focusedDurationMs: number, result: FocusSessionRecord["result"] = "completed"): FocusSessionRecord {
   return {
-    version: 1, id, taskId: task.id, taskTitleSnapshot: task.title, projectIdSnapshot: "project-1",
+    version: 2, id, taskId: task.id, taskTitleSnapshot: task.title, projectIdSnapshot: "project-1",
     projectNameSnapshot: "勉強", program: "pomodoro", mode: "work", result,
-    startedAt: endedAt - focusedDurationMs, endedAt, plannedDurationMs: 25 * 60_000, focusedDurationMs
+    startedAt: endedAt - focusedDurationMs, endedAt, plannedDurationMs: 25 * 60_000, focusedDurationMs, pauseIntervals: []
   };
 }
 
@@ -45,6 +45,26 @@ describe("productivityReport", () => {
     expect(report.todayEstimatedMinutes).toBe(50);
     expect(report.todayRemainingTasks).toBe(1);
     expect(report.projectBreakdown[0]).toMatchObject({ label: "勉強", focusedMs: 15 * 60_000, ratio: 1 });
+  });
+
+  it("splits sessions around pauses and local midnight for the timeline", () => {
+    const now = new Date(2026, 6, 18, 12);
+    const startedAt = new Date(2026, 6, 18, 10).getTime();
+    const endedAt = new Date(2026, 6, 18, 10, 40).getTime();
+    const report = createProductivityReport([task], [{
+      ...session("timeline", endedAt, 20 * 60_000),
+      startedAt,
+      pauseIntervals: [{
+        startedAt: new Date(2026, 6, 18, 10, 10).getTime(),
+        endedAt: new Date(2026, 6, 18, 10, 30).getTime()
+      }]
+    }], "day", now, 25);
+
+    expect(report.timeline).toHaveLength(1);
+    expect(report.timeline[0].segments.map((segment) => [segment.startAt, segment.endAt])).toEqual([
+      [startedAt, new Date(2026, 6, 18, 10, 10).getTime()],
+      [new Date(2026, 6, 18, 10, 30).getTime(), endedAt]
+    ]);
   });
 
   it("uses local calendar boundaries for week and month ranges", () => {

@@ -80,7 +80,8 @@ html.focusboard-background-gesturing .clock-editor,
 body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer-events: none; }
 
 .dashboard { position: absolute; inset: 0; padding: max(32px, env(safe-area-inset-top)) max(32px, env(safe-area-inset-right)) max(32px, env(safe-area-inset-bottom)) max(32px, env(safe-area-inset-left)); }
-.dashboard--timer-setup { z-index: 4; }
+.dashboard--timer-setup { z-index: 4; pointer-events: none; }
+.dashboard--timer-setup > .slot { pointer-events: auto; }
 .slot { position: absolute; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: clamp(14px, 2vh, 24px); width: min(92vw, 900px); color: inherit; text-align: center; }
 .slot:empty { display: none; }
 .slot--center { top: 48%; left: 50%; transform: translate(-50%, -50%); }
@@ -203,6 +204,8 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .timer-return-button:hover { filter: brightness(1.12); box-shadow: 0 11px 25px rgba(0,0,0,.24); }
 .timer-return-button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .timer-setup__actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.timer-end-button { min-height: 50px; padding: 10px 17px; color: #fff; border: 1px solid var(--timer-accent, #20a9ee); border-radius: 16px; background: color-mix(in srgb, var(--timer-accent, #20a9ee) 72%, #071421); font-weight: 800; transition: filter .2s, box-shadow .2s, background-color .2s; }
+.timer-end-button:hover { filter: brightness(1.12); box-shadow: 0 11px 25px rgba(0,0,0,.18); }
 .timer-reset-button { min-height: 50px; padding: 10px 17px; color: #ffdce3; border: 1px solid rgba(228, 128, 151, .45); border-radius: 16px; background: rgba(184, 75, 100, .16); font-weight: 800; transition: filter .2s, box-shadow .2s, background-color .2s; }
 .timer-reset-button:hover { filter: brightness(1.12); background: rgba(184, 75, 100, .25); box-shadow: 0 11px 25px rgba(0,0,0,.18); }
 .primary-button, .secondary-button, .danger-button { min-height: 48px; padding: 10px 16px; border-radius: 15px; font-weight: 750; transition: background-color .2s, border-color .2s, color .2s, box-shadow .2s; }
@@ -596,6 +599,7 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
   .timer-setup__footer--active { grid-template-columns: 1fr; align-items: stretch; }
   .timer-setup__actions { flex-direction: column; align-items: stretch; width: 100%; }
   .timer-return-button { width: 100%; }
+  .timer-end-button { width: 100%; }
   .timer-reset-button { width: 100%; }
   .timer-task-picker { padding: 17px; border-radius: 21px; }
   .timer-task-picker__heading h2 { font-size: 20px; }
@@ -674,6 +678,8 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .task-navigation__label { margin: 0 10px 9px; color: #6b7e95; font-size: 11px; font-weight: 850; letter-spacing: .12em; }
 .task-navigation__views { display: grid; gap: 4px; padding: 0; overflow: visible; }
 .task-navigation__views button { width: 100%; min-height: 44px; justify-content: space-between; padding: 0 12px; border-radius: 10px; font-size: 13px; }
+.task-navigation button,
+.task-navigation button * { -webkit-user-select: none; user-select: none; }
 .task-navigation__views button:hover { color: #17375f; background: rgba(255,255,255,.72); }
 .task-navigation__views button.is-active { color: #17375f; border-color: #c4d7ed; background: #fff; box-shadow: 0 4px 12px rgba(41,75,116,.08); }
 .task-navigation__views button strong { display: grid; place-items: center; min-width: 24px; height: 24px; border-radius: 999px; background: #e5edf7; color: #435b78; }
@@ -946,6 +952,33 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .report-activity__day[data-future="true"] { opacity: .38; }
 .report-activity__legend { display: flex; align-items: center; justify-content: flex-end; gap: 5px; color: #7890a8; font-size: 10px; }
 .report-activity__legend i { width: 11px; height: 11px; }
+.focus-timeline-section { display: grid; gap: 14px; }
+.focus-timeline__scroll { overflow-x: auto; padding-bottom: 5px; scrollbar-color: #b8cddd transparent; }
+.focus-timeline { min-width: 760px; }
+.focus-timeline__axis,
+.focus-timeline__row { display: grid; grid-template-columns: 76px minmax(680px, 1fr); gap: 12px; }
+.focus-timeline__axis { align-items: end; min-height: 24px; }
+.focus-timeline__axis > div { position: relative; height: 12px; color: #7890a8; font-size: 10px; font-variant-numeric: tabular-nums; }
+.focus-timeline__axis > div span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+.focus-timeline__axis > div span:first-child { transform: none; }
+.focus-timeline__axis > div span:last-child { transform: translateX(-100%); }
+.focus-timeline__rows { display: grid; gap: 4px; }
+.focus-timeline__row { align-items: center; min-height: 32px; }
+.focus-timeline__row > time { color: #60768f; font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.focus-timeline__track { position: relative; height: 26px; overflow: hidden; border: 1px solid #e1e8ef; border-radius: 7px; background: #fbfcfe; }
+.focus-timeline__grid { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); pointer-events: none; }
+.focus-timeline__grid i { border-left: 1px solid #e7edf3; }
+.focus-timeline__grid i:first-child { border-left: 0; }
+.focus-timeline__segment { position: absolute; top: 3px; bottom: 3px; min-width: 4px; border-radius: 4px; background: var(--accent); box-shadow: 0 2px 5px color-mix(in srgb, var(--accent) 24%, transparent); }
+.focus-timeline__segment.is-cancelled { background: color-mix(in srgb, var(--accent) 62%, #fff); box-shadow: none; }
+.focus-timeline__segment:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.focus-timeline__details { border-top: 1px solid #e7edf3; }
+.focus-timeline__details summary { min-height: 40px; padding: 11px 0 8px; color: #294767; font-size: 12px; font-weight: 800; cursor: pointer; }
+.focus-timeline__details ol { display: grid; gap: 6px; margin: 0; padding: 0 0 4px 18px; }
+.focus-timeline__details li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; min-width: 0; color: #60768f; font-size: 11px; }
+.focus-timeline__details time { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.focus-timeline__details li span { overflow: hidden; color: #294767; text-overflow: ellipsis; white-space: nowrap; }
+.focus-timeline__details em { color: #7890a8; font-size: 10px; font-style: normal; white-space: nowrap; }
 .productivity-report section, .productivity-backup section { padding: 22px; border-color: #d6e1ed; background: #fff; box-shadow: 0 5px 16px rgba(36,68,108,.05); }
 .productivity-report section h4, .productivity-backup section h4 { color: #294767; font-size: 15px; }
 .report-stats { gap: 10px; }
@@ -964,7 +997,7 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
   align-items: center;
   justify-content: center;
   gap: 8px;
-  margin-top: -8px;
+  padding-top: 8px;
 }
 .report-period-navigation > span {
   min-width: 150px;
@@ -996,6 +1029,8 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 }
 .session-history li {
   display: grid;
+  align-items: stretch;
+  justify-content: stretch;
   gap: 0;
   min-height: 0;
   padding: 0;
@@ -1050,6 +1085,7 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
   background: #fff;
 }
 .session-history__editor p { margin: 0; color: #913b4e; font-size: 11px; }
+.session-history__editor .session-history__pause-note { color: #60768f; }
 .session-history__editor-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .session-history__editor-actions button {
   min-height: 44px;
@@ -1663,6 +1699,7 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .task-editor__quick-group { min-width: 0; gap: 6px; }
 .task-editor__quick-group > span { color: #6b6f76; }
 .task-editor__quick-group > div {
+  grid-column: 1 / -1;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 4px;
@@ -2064,6 +2101,14 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .task-list__completed-toggle svg { width: 18px; height: 18px; margin-left: auto; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform .18s ease; }
 .task-list__completed-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
 .task-editor__project { padding-block: 8px; }
+.task-editor > .task-editor__advanced {
+  overflow: hidden;
+  border: 1px solid #e6e8eb;
+  border-radius: 10px;
+  background: #fff;
+}
+.task-editor > .task-editor__advanced > summary { padding-inline: 12px; }
+.task-editor > .task-editor__advanced > .task-editor__details-body { padding-inline: 12px; }
 .task-editor__advanced > .task-editor__details-body { gap: 14px; }
 .task-editor__advanced .task-editor__details { border: 1px solid #e6e8eb; border-radius: 8px; }
 .task-editor__advanced .task-editor__details summary { padding-inline: 12px; }
@@ -2950,6 +2995,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .timer-card__time { color: var(--color-ink); }
 .timer-start-button, .timer-return-button { min-height: 48px; color: #fff; border: 0; border-radius: var(--radius-pill); background: var(--color-ink-soft); box-shadow: none; }
 .timer-start-button:hover, .timer-return-button:hover { background: var(--color-ink); filter: none; box-shadow: none; }
+.timer-end-button { min-height: 48px; color: var(--color-paper); border: 0; border-radius: var(--radius-pill); background: var(--accent); box-shadow: none; }
+.timer-end-button:hover { color: var(--color-paper); background: var(--color-ink); filter: none; box-shadow: none; }
 .timer-reset-button { min-height: 48px; color: var(--color-mid-gray); border: 1px solid var(--color-hairline); border-radius: var(--radius-pill); background: var(--color-canvas); box-shadow: none; }
 .timer-reset-button:hover { color: var(--color-ink); border-color: var(--color-ink); background: var(--color-paper); filter: none; box-shadow: none; }
 
@@ -3064,7 +3111,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .timer-setup__preview > span { font-size: 10px; }
   .timer-card__time { font-size: 42px !important; }
   .timer-setup__footer { padding-top: 8px; margin-top: 4px; }
-  .timer-start-button, .timer-return-button, .timer-reset-button { min-height: 40px; }
+  .timer-start-button, .timer-return-button, .timer-end-button, .timer-reset-button { min-height: 40px; }
   .dashboard--timer-setup ~ .task-launcher { top: auto !important; bottom: 64px; min-width: 180px; max-width: 180px; min-height: 44px; height: 44px; padding: 7px 9px; border-radius: var(--radius-pill); }
   .dashboard--timer-setup ~ .task-launcher .task-launcher__main { display: flex; align-items: center; gap: 8px; }
   .dashboard--timer-setup ~ .task-launcher .task-launcher__topline { gap: 4px; }
@@ -3223,6 +3270,15 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 /* The home dock remains available; keep the larger task summary out of the setup surface. */
 .dashboard--timer-setup ~ .task-launcher { display: none; }
 
+/* Leave the bottom-left clock clear while the larger timer setup is open on iPad portrait. */
+@media (orientation: portrait) and (min-width: 601px) {
+  .dashboard--timer-setup .slot--center { top: 43%; }
+}
+
+@media (orientation: landscape) and (min-width: 601px) and (max-width: 1100px) and (min-height: 600px) {
+  .dashboard--timer-setup .slot--center { top: 34%; }
+}
+
 /* Settings actions use the shared UI accent; task-theme colors stay inside Tasks. */
 .settings-drawer .primary-button {
   color: var(--accent-contrast);
@@ -3299,6 +3355,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .task-drawer .task-navigation__views button.is-active:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
+}
+.task-drawer .task-navigation__views button strong,
+.task-drawer .task-navigation__views button.is-active strong,
+.task-drawer .project-link > button:first-child strong,
+.task-drawer .project-link.is-active > button:first-child strong {
+  color: #8a9098;
+  background: transparent;
 }
 .task-drawer .task-row__check {
   color: var(--accent-contrast);

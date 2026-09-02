@@ -135,7 +135,8 @@ describe("useTasks", () => {
       startedAt: 10,
       endedAt: 20,
       plannedDurationMs: 10,
-      focusedDurationMs: 10
+      focusedDurationMs: 10,
+      pauseIntervals: []
     }));
     await waitFor(() => expect(result.current.sessions).toHaveLength(1));
     expect(saveFocusSessionRecord).toHaveBeenCalledWith(expect.objectContaining({ taskTitleSnapshot: savedTask.title, projectNameSnapshot: "勉強" }));
@@ -148,7 +149,8 @@ describe("useTasks", () => {
       startedAt: 10,
       endedAt: 20,
       plannedDurationMs: 10,
-      focusedDurationMs: 10
+      focusedDurationMs: 10,
+      pauseIntervals: []
     }));
     await waitFor(() => expect(saveFocusSessionRecord).toHaveBeenCalledTimes(2));
     expect(result.current.sessions).toHaveLength(1);

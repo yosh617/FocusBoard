@@ -371,7 +371,7 @@ function TaskEditor({ task, projects, availableTags, subtasks, timerStatus, acti
           onChange={setProjectId}
         />
       </section>
-      <details className="task-editor__details task-editor__advanced" style={{ overflow: "visible" }}>
+      <details className="task-editor__details task-editor__advanced">
         <summary>
           <span>詳細設定</span>
         </summary>

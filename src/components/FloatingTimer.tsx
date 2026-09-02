@@ -37,7 +37,7 @@ export function FloatingTimer({ timer, taskTitle, taskProgress, onStart, onPause
   const sessionLabel = timer.program === "pomodoro"
     ? modeLabels[timer.mode]
     : timer.category === "focus" ? "実施中" : "休憩";
-  const programText = taskProgress
+  const programText = taskProgress && taskProgress.planned > 0
     ? `SESSION ${taskProgress.current}/${taskProgress.planned}`
     : timer.program === "pomodoro"
       ? null
@@ -201,6 +201,9 @@ export function FloatingTimer({ timer, taskTitle, taskProgress, onStart, onPause
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6V6Z" /></svg>
                   </button>
                 ) : <span className="floating-timer__done">完了</span>}
+                {(timer.status === "running" || timer.status === "paused") && <button className="floating-timer__secondary floating-timer__end" type="button" onClick={onEnd} aria-label="タイマーを終了して記録" title="タイマーを終了して記録">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1" /></svg>
+                </button>}
                 <button className="floating-timer__secondary" type="button" onClick={onShowSetup} aria-label={returnToSetupLabel} title={returnToSetupLabel}>
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 4v6M17 14v6M4 17h16" /></svg>
                 </button>

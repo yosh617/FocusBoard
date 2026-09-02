@@ -10,8 +10,13 @@ export type FloatingPosition = {
   y: number;
 };
 
+export type PauseInterval = {
+  startedAt: number;
+  endedAt: number;
+};
+
 export type TimerState = {
-  version: 5;
+  version: 6;
   program: TimerProgram;
   mode: TimerMode;
   category: SessionCategory;
@@ -26,6 +31,8 @@ export type TimerState = {
   activeTaskId: string | null;
   activeSessionId: string | null;
   sessionStartedAt: number | null;
+  pauseIntervals: PauseInterval[];
+  pauseStartedAt: number | null;
 };
 
 export type TimerSessionEvent = {
@@ -38,4 +45,5 @@ export type TimerSessionEvent = {
   endedAt: number;
   plannedDurationMs: number;
   focusedDurationMs: number;
+  pauseIntervals: PauseInterval[];
 };

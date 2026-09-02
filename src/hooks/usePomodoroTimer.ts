@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { AppSettings, Orientation } from "../types/settings";
-import type { FloatingPosition, SessionCategory, TimerMode, TimerProgram, TimerSessionEvent, TimerState } from "../types/timer";
+import type { FloatingPosition, PauseInterval, SessionCategory, TimerMode, TimerProgram, TimerSessionEvent, TimerState } from "../types/timer";
 import { createInitialTimerState, loadTimerState, removeTimerState, saveTimerState } from "../utils/storage";
 import { getDurationMs, modeLabels } from "../utils/time";
 
@@ -63,6 +63,9 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
     const remainingMs = current.status === "running" && current.endAt !== null
       ? Math.max(0, current.endAt - endedAt)
       : current.remainingMs;
+    const pauseIntervals: PauseInterval[] = current.pauseStartedAt === null
+      ? current.pauseIntervals
+      : [...current.pauseIntervals, { startedAt: current.pauseStartedAt, endedAt }];
     onSessionEnd?.({
       id: current.activeSessionId,
       taskId: current.mode === "work" ? current.activeTaskId : null,
@@ -72,7 +75,10 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
       startedAt: current.sessionStartedAt,
       endedAt,
       plannedDurationMs: current.durationMs,
-      focusedDurationMs: Math.max(0, Math.min(current.durationMs, current.durationMs - remainingMs))
+      focusedDurationMs: current.program === "countup"
+        ? Math.max(0, current.status === "running" && current.endAt !== null ? endedAt - current.endAt : current.remainingMs)
+        : Math.max(0, Math.min(current.durationMs, current.durationMs - remainingMs)),
+      pauseIntervals
     });
   }, [onSessionEnd]);
 
@@ -133,7 +139,9 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
           completedWorkSessions,
           activeTaskId: null,
           activeSessionId: null,
-          sessionStartedAt: null
+          sessionStartedAt: null,
+          pauseIntervals: [],
+          pauseStartedAt: null
         };
       }
       return {
@@ -141,7 +149,9 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
         status: "overtime",
         remainingMs: Math.max(0, now - current.endAt),
         activeSessionId: null,
-        sessionStartedAt: null
+        sessionStartedAt: null,
+        pauseIntervals: [],
+        pauseStartedAt: null
       };
     });
   }, []);
@@ -190,6 +200,9 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
       const now = Date.now();
       if (current.program === "countup") {
         const elapsedMs = Math.max(0, current.remainingMs);
+        const pauseIntervals = current.pauseStartedAt === null
+          ? current.pauseIntervals
+          : [...current.pauseIntervals, { startedAt: current.pauseStartedAt, endedAt: now }];
         return {
           ...current,
           status: "running",
@@ -197,10 +210,15 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
           endAt: now - elapsedMs,
           activeTaskId: taskId === undefined ? current.activeTaskId : taskId,
           activeSessionId: current.activeSessionId ?? createId(),
-          sessionStartedAt: current.sessionStartedAt ?? now
+          sessionStartedAt: current.sessionStartedAt ?? now,
+          pauseIntervals,
+          pauseStartedAt: null
         };
       }
       const remainingMs = current.remainingMs > 0 ? current.remainingMs : current.durationMs;
+      const pauseIntervals = current.pauseStartedAt === null
+        ? current.pauseIntervals
+        : [...current.pauseIntervals, { startedAt: current.pauseStartedAt, endedAt: now }];
       return {
         ...current,
         status: "running",
@@ -208,7 +226,9 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
         endAt: now + remainingMs,
         activeTaskId: taskId === undefined ? current.activeTaskId : taskId,
         activeSessionId: current.activeSessionId ?? createId(),
-        sessionStartedAt: current.sessionStartedAt ?? now
+        sessionStartedAt: current.sessionStartedAt ?? now,
+        pauseIntervals,
+        pauseStartedAt: null
       };
     });
   }, []);
@@ -216,12 +236,13 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
   const pause = useCallback(() => {
     setTimer((current) => {
       if (current.status !== "running") return current;
+      const pausedAt = Date.now();
       if (current.program === "countup") {
-        const elapsedMs = current.endAt ? Math.max(0, Date.now() - current.endAt) : current.remainingMs;
-        return { ...current, status: "paused", remainingMs: elapsedMs, endAt: null };
+        const elapsedMs = current.endAt ? Math.max(0, pausedAt - current.endAt) : current.remainingMs;
+        return { ...current, status: "paused", remainingMs: elapsedMs, endAt: null, pauseStartedAt: pausedAt };
       }
-      const remainingMs = current.endAt ? Math.max(0, current.endAt - Date.now()) : current.remainingMs;
-      return { ...current, status: "paused", remainingMs, endAt: null };
+      const remainingMs = current.endAt ? Math.max(0, current.endAt - pausedAt) : current.remainingMs;
+      return { ...current, status: "paused", remainingMs, endAt: null, pauseStartedAt: pausedAt };
     });
   }, []);
 
@@ -241,9 +262,28 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
         endAt: null,
         activeTaskId: null,
         activeSessionId: null,
-        sessionStartedAt: null
+        sessionStartedAt: null,
+        pauseIntervals: [],
+        pauseStartedAt: null
       };
     });
+  }, [emitSession]);
+
+  const end = useCallback(() => {
+    const current = timerRef.current;
+    if (current.activeSessionId) emitSession(current, "cancelled", Date.now());
+    setAnnouncement("集中時間を記録して終了しました。");
+    setTimer((state) => ({
+      ...state,
+      status: "idle",
+      remainingMs: state.program === "countup" ? 0 : state.durationMs,
+      endAt: null,
+      activeTaskId: null,
+      activeSessionId: null,
+      sessionStartedAt: null,
+      pauseIntervals: [],
+      pauseStartedAt: null
+    }));
   }, [emitSession]);
 
   const selectMode = useCallback((mode: TimerMode) => {
@@ -260,7 +300,9 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
       endAt: null,
       activeTaskId: null,
       activeSessionId: null,
-      sessionStartedAt: null
+      sessionStartedAt: null,
+      pauseIntervals: [],
+      pauseStartedAt: null
     }));
   }, []);
 
@@ -281,7 +323,9 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
         endAt: null,
         activeTaskId: null,
         activeSessionId: null,
-        sessionStartedAt: null
+        sessionStartedAt: null,
+        pauseIntervals: [],
+        pauseStartedAt: null
       };
     });
   }, []);
@@ -321,6 +365,7 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
     start,
     pause,
     reset,
+    end,
     selectMode,
     selectProgram,
     selectCategory,
@@ -337,6 +382,7 @@ function createTimerApi(api: {
   start: (taskId?: string | null) => void;
   pause: () => void;
   reset: () => void;
+  end: () => void;
   selectMode: (mode: TimerMode) => void;
   selectProgram: (program: TimerProgram) => void;
   selectCategory: (category: SessionCategory) => void;

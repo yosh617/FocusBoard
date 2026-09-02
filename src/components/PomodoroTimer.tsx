@@ -10,6 +10,7 @@ type Props = {
   onSelectCategory: (category: SessionCategory) => void;
   onSetDuration: (minutes: number) => void;
   onReset: () => void;
+  onEnd: () => void;
   onCollapse: () => void;
   onShowFloating: () => void;
   taskSelectionEnabled: boolean;
@@ -40,6 +41,7 @@ export function PomodoroTimer({
   onSelectCategory,
   onSetDuration,
   onReset,
+  onEnd,
   onCollapse,
   onShowFloating,
   taskSelectionEnabled,
@@ -161,6 +163,8 @@ export function PomodoroTimer({
         {isActive ? <div className="timer-setup__actions"><button className="timer-return-button" type="button" onClick={onShowFloating}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
           タイマー表示へ戻る
+        </button><button className="timer-end-button" type="button" onClick={onEnd} aria-label="タイマーを終了して記録" title="タイマーを終了して記録">
+          終了
         </button><button className="timer-reset-button" type="button" onClick={onReset} aria-label="タイマーをリセット" title="タイマーをリセット">
           リセット
         </button></div> : <button className="timer-start-button" type="button" onClick={onStart}>

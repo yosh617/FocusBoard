@@ -277,7 +277,7 @@ describe("timer storage", () => {
     }));
 
     const timer = loadTimerState(25);
-    expect(timer.version).toBe(5);
+    expect(timer.version).toBe(6);
     expect(timer.program).toBe("countup");
     expect(timer.remainingMs).toBe(45_000);
     expect(timer.status).toBe("paused");
@@ -295,7 +295,7 @@ describe("timer storage", () => {
     }));
 
     const timer = loadTimerState(25);
-    expect(timer.version).toBe(5);
+    expect(timer.version).toBe(6);
     expect(timer.floatingPositions).toEqual({
       portrait: { x: 0.18, y: 0.38 },
       landscape: { x: 0.18, y: 0.38 }
@@ -326,7 +326,7 @@ describe("timer storage", () => {
     }));
 
     const timer = loadTimerState(25, "landscape");
-    expect(timer.version).toBe(5);
+    expect(timer.version).toBe(6);
     expect(timer.activeTaskId).toBe("task_1");
     expect(timer.activeSessionId).toBe("session-1");
     expect(timer.sessionStartedAt).toBe(1234);

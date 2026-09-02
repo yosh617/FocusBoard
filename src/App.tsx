@@ -75,6 +75,7 @@ export default function App() {
     start,
     pause,
     reset,
+    end,
     selectMode,
     selectProgram,
     selectCategory,
@@ -269,10 +270,6 @@ export default function App() {
   const restoreOverlayFocus = useCallback(() => {
     window.setTimeout(() => overlayReturnTargetRef.current?.focus(), 0);
   }, []);
-  const closeSettings = useCallback(() => {
-    setSettingsOpen(false);
-    restoreOverlayFocus();
-  }, [restoreOverlayFocus]);
   const closeCompletedSession = useCallback(() => setCompletedSession(null), []);
   const startTask = useCallback((taskId: string) => {
     setTaskMessage("");
@@ -290,19 +287,8 @@ export default function App() {
     setTaskDetailCardFading(false);
     setTaskDetailCardVisible(false);
   }, []);
-  const openSettings = useCallback((returnTarget: HTMLElement | null = homeTasksRef.current) => {
-    overlayReturnTargetRef.current = returnTarget;
-    hideTaskDetailCard();
-    setTasksOpen(false);
-    setSettingsOpen(true);
-  }, [hideTaskDetailCard]);
-  const openTasks = useCallback((returnTarget: HTMLElement | null = homeTasksRef.current) => {
-    overlayReturnTargetRef.current = returnTarget;
-    setSettingsOpen(false);
-    setTasksOpen(true);
-  }, []);
   const revealTaskDetailCard = useCallback((force = false) => {
-    if (settingsOpen || backgroundEditing || (!force && tasksOpen)) return;
+    if (backgroundEditing || (!force && (settingsOpen || tasksOpen))) return;
     if (taskDetailCardTimeoutRef.current !== null) window.clearTimeout(taskDetailCardTimeoutRef.current);
     if (taskDetailCardFadeTimeoutRef.current !== null) window.clearTimeout(taskDetailCardFadeTimeoutRef.current);
     setTaskDetailCardFading(false);
@@ -317,6 +303,22 @@ export default function App() {
       setTaskDetailCardVisible(false);
     }, taskDetailCardDisplayMs + taskDetailCardFadeMs);
   }, [backgroundEditing, settingsOpen, tasksOpen]);
+  const closeSettings = useCallback(() => {
+    setSettingsOpen(false);
+    revealTaskDetailCard(true);
+    restoreOverlayFocus();
+  }, [restoreOverlayFocus, revealTaskDetailCard]);
+  const openSettings = useCallback((returnTarget: HTMLElement | null = homeTasksRef.current) => {
+    overlayReturnTargetRef.current = returnTarget;
+    hideTaskDetailCard();
+    setTasksOpen(false);
+    setSettingsOpen(true);
+  }, [hideTaskDetailCard]);
+  const openTasks = useCallback((returnTarget: HTMLElement | null = homeTasksRef.current) => {
+    overlayReturnTargetRef.current = returnTarget;
+    setSettingsOpen(false);
+    setTasksOpen(true);
+  }, []);
   const revealTaskDetailCardOnBackgroundTap = useCallback((event: ReactPointerEvent<HTMLElement>) => {
     if (!(event.target instanceof Element)) return;
     const interactiveTarget = event.target.closest("button, input, select, textarea, a, [role='dialog'], .clock-widget, .floating-timer, .timer-card");
@@ -325,9 +327,9 @@ export default function App() {
   const closeTasks = useCallback(() => {
     setTaskDrawerResumeContext(null);
     setTasksOpen(false);
-    if (settings.taskLauncherVisibility === "background-tap") revealTaskDetailCard(true);
+    revealTaskDetailCard(true);
     restoreOverlayFocus();
-  }, [restoreOverlayFocus, revealTaskDetailCard, settings.taskLauncherVisibility]);
+  }, [restoreOverlayFocus, revealTaskDetailCard]);
   const startBackgroundEditing = useCallback(() => {
     hideTaskDetailCard();
     setSettingsOpen(false);
@@ -389,7 +391,11 @@ export default function App() {
     setTimerSetupVisible(false);
     updateSettings({ timerSetupCollapsed: false });
   }, [reset, updateSettings]);
-  const endTimer = resetTimer;
+  const endTimer = useCallback(() => {
+    end();
+    setTimerSetupVisible(false);
+    updateSettings({ timerSetupCollapsed: false });
+  }, [end, updateSettings]);
 
   const slotContent = useMemo(() => {
     const slots = Object.fromEntries(positionPresets.map((position) => [position, [] as ReactNode[]])) as Record<PositionPreset, ReactNode[]>;
@@ -400,6 +406,7 @@ export default function App() {
         fontSize={settings.timerFontSize}
         onStart={startTimer}
         onReset={resetTimer}
+        onEnd={endTimer}
         onSelectMode={selectMode}
         onSelectProgram={selectProgram}
         onSelectCategory={selectCategory}
@@ -579,14 +586,14 @@ export default function App() {
         onStart={(taskId) => beginTimer(taskId)}
         onClose={() => setTimerTaskPickerIntent(null)}
       />
-      <nav className="home-dock" aria-label="ホーム操作">
+      {(taskDetailCardVisible || settingsOpen || tasksOpen) && <nav className={`home-dock home-dock--transient${taskDetailCardFading && !settingsOpen && !tasksOpen ? " home-dock--fading" : ""}`} aria-label="ホーム操作">
         <button className="home-dock__button home-dock__button--tasks" type="button" aria-label="タスク" aria-pressed={tasksOpen} onClick={() => openTasks(homeTasksRef.current)} ref={homeTasksRef}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h10M9 12h10M9 18h10M4 6h.01M4 12h.01M4 18h.01" /></svg><span>タスク</span>
         </button>
         <button className="home-dock__button home-dock__button--settings" type="button" aria-label="設定" aria-pressed={settingsOpen} onClick={() => openSettings(homeSettingsRef.current)} ref={homeSettingsRef}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z" /><circle cx="12" cy="12" r="3" /></svg><span>設定</span>
         </button>
-      </nav>
+      </nav>}
       {((settings.taskLauncherVisibility === "always" && !(settings.dateDisplayStyle === "calendar" && timer.status === "idle" && !settings.timerSetupCollapsed)) || taskDetailCardVisible) && <TaskLauncher
         todayCount={todayOpenTaskCount}
         todaySummary={{

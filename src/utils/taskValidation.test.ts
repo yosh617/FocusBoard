@@ -50,7 +50,7 @@ describe("task data validation", () => {
 
   it("rejects a session with an invalid time range", () => {
     const session: FocusSessionRecord = {
-      version: 1,
+      version: 2,
       id: "session-1",
       taskId: task.id,
       taskTitleSnapshot: task.title,
@@ -62,9 +62,12 @@ describe("task data validation", () => {
       startedAt: 10,
       endedAt: 20,
       plannedDurationMs: 1_500_000,
-      focusedDurationMs: 1_500_000
+      focusedDurationMs: 1_500_000,
+      pauseIntervals: []
     };
     expect(validateFocusSessionRecord(session)).toEqual(session);
     expect(validateFocusSessionRecord({ ...session, endedAt: 9 })).toBeNull();
+    expect(validateFocusSessionRecord({ ...session, version: 1, pauseIntervals: undefined })).toMatchObject({ version: 2, pauseIntervals: [] });
+    expect(validateFocusSessionRecord({ ...session, pauseIntervals: [{ startedAt: 15, endedAt: 19 }, { startedAt: 18, endedAt: 20 }] })).toBeNull();
   });
 });

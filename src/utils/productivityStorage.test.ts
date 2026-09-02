@@ -274,7 +274,7 @@ const project: ProjectRecord = {
 };
 
 const session: FocusSessionRecord = {
-  version: 1,
+  version: 2,
   id: "session-1",
   taskId: task.id,
   taskTitleSnapshot: task.title,
@@ -286,7 +286,8 @@ const session: FocusSessionRecord = {
   startedAt: 10,
   endedAt: 20,
   plannedDurationMs: 10,
-  focusedDurationMs: 10
+  focusedDurationMs: 10,
+  pauseIntervals: []
 };
 
 async function deleteProductivityDb() {
