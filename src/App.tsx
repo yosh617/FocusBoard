@@ -57,6 +57,7 @@ export default function App() {
     deleteTask,
     moveTask,
     addProject,
+    updateProjectColor,
     archiveProject,
     undo: undoTask,
     recordTimerSession,
@@ -689,6 +690,7 @@ export default function App() {
         onDeleteTask={deleteTask}
         onMoveTask={moveTask}
         onAddProject={addProject}
+        onUpdateProjectColor={updateProjectColor}
         onArchiveProject={archiveProject}
         onUndo={undoTask}
         timerStatus={timer.status}

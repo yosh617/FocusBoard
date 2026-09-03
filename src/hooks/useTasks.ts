@@ -22,7 +22,7 @@ import {
   saveProjectRecord,
   saveTaskRecord
 } from "../utils/productivityStorage";
-import { validateFocusSessionRecord, validateTaskRecord } from "../utils/taskValidation";
+import { validateFocusSessionRecord, validateProjectRecord, validateTaskRecord } from "../utils/taskValidation";
 import { createNextRepeatedTask } from "../utils/repeatRule";
 
 const createId = (prefix: string) =>
@@ -292,6 +292,22 @@ export function useTasks() {
     }
   }, [fail, storageAvailable]);
 
+  const updateProjectColor = useCallback(async (id: string, color: string) => {
+    const project = projectsRef.current.find((item) => item.id === id);
+    if (!project || !storageAvailable) return false;
+    const updated = validateProjectRecord({ ...project, color, updatedAt: Date.now() });
+    if (!updated) return false;
+    try {
+      await saveProjectRecord(updated);
+      setProjects((current) => current.map((item) => item.id === id ? updated : item));
+      setMessage("プロジェクトの色を更新しました。");
+      return true;
+    } catch {
+      fail();
+      return false;
+    }
+  }, [fail, storageAvailable]);
+
   const archiveProject = useCallback(async (id: string) => {
     const project = projectsRef.current.find((item) => item.id === id);
     if (!project || !storageAvailable) return false;
@@ -420,6 +436,7 @@ export function useTasks() {
     deleteTask,
     moveTask,
     addProject,
+    updateProjectColor,
     archiveProject,
     undo,
     recordTimerSession,

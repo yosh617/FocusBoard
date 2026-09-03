@@ -77,6 +77,7 @@ function renderDrawer(overrides: Partial<React.ComponentProps<typeof TaskDrawer>
     onDeleteTask: vi.fn().mockResolvedValue(true),
     onMoveTask: vi.fn().mockResolvedValue(true),
     onAddProject: vi.fn().mockResolvedValue(true),
+    onUpdateProjectColor: vi.fn().mockResolvedValue(true),
     onArchiveProject: vi.fn().mockResolvedValue(true),
     onUndo: vi.fn().mockResolvedValue(true),
     onStartTask: vi.fn(),
@@ -182,6 +183,17 @@ describe("TaskDrawer", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "新規" }));
     expect(within(screen.getByRole("group", { name: "プロジェクトの色を選択" })).getByRole("button", { name: "推奨テーマ ブルー #0A84FF" }).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("edits the color of an existing project and persists the selected preset", async () => {
+    const props = renderDrawer();
+    fireEvent.click(screen.getByRole("button", { name: "勉強の色を編集" }));
+
+    const picker = screen.getByRole("region", { name: "勉強の色" });
+    const red = within(picker).getByRole("button", { name: "推奨テーマ レッド #FF453A" });
+    fireEvent.click(red);
+
+    await waitFor(() => expect(props.onUpdateProjectColor).toHaveBeenCalledWith("project-1", "#FF453A"));
   });
 
   it("opens the suggested task in the dedicated editor and returns to the list", async () => {
