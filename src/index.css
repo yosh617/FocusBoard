@@ -1077,7 +1077,7 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 }
 .session-history__fields {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(100px, .8fr) minmax(100px, .8fr);
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.4fr) minmax(0, .8fr) minmax(0, .8fr);
   gap: 10px;
 }
 .session-history__fields label {
@@ -1120,6 +1120,11 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
   .session-history__fields { grid-template-columns: 1fr 1fr; }
   .session-history__fields label:first-child { grid-column: 1 / -1; }
   .session-history__editor-actions { display: grid; grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 760px) {
+  .session-history__fields { grid-template-columns: 1fr 1fr; }
+  .session-history__fields label:first-child { grid-column: 1 / -1; }
 }
 .session-history strong { font-size: 13px; }
 .session-history span { font-size: 11px; }

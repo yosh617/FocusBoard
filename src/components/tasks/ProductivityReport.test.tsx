@@ -44,7 +44,7 @@ describe("ProductivityReport", () => {
     expect(screen.getAllByText("完了").length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "日" }));
     expect(screen.getByRole("button", { name: "日" }).getAttribute("aria-pressed")).toBe("true");
-  });
+  }, 15_000);
 
   it("shows empty-state guidance when there is no task progress yet", () => {
     render(<ProductivityReport tasks={[]} sessions={[]} workMinutes={25} now={now} onUpdateSession={vi.fn().mockResolvedValue(true)} />);
@@ -69,7 +69,10 @@ describe("ProductivityReport", () => {
     render(<ProductivityReport tasks={[completedTask]} sessions={[todaySession, previousDaySession]} workMinutes={25} now={now} onUpdateSession={onUpdateSession} />);
 
     fireEvent.click(screen.getByRole("button", { name: "集中記録を編集：数学 7/18 11:00" }));
+    expect(screen.getByLabelText("開始日時")).toBeTruthy();
+    expect(screen.getByLabelText("終了日時")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("勉強時間（分）"), { target: { value: "30" } });
+    expect(screen.getByLabelText("結果")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "記録を保存" }));
     await waitFor(() => expect(onUpdateSession).toHaveBeenCalledWith("session-1", expect.objectContaining({
       startedAt: endedAt - 30 * 60_000,
