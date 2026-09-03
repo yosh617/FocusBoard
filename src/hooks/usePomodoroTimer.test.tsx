@@ -105,6 +105,46 @@ describe("usePomodoroTimer", () => {
     }));
   });
 
+  it("keeps a pomodoro in overtime until the user ends it when configured", async () => {
+    const onSessionEnd = vi.fn();
+    const { result } = renderHook(() => usePomodoroTimer({ ...defaultSettings, workMinutes: 1, soundEnabled: false, pomodoroEndBehavior: "overtime" }, onSessionEnd));
+
+    act(() => result.current.start("task-1"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_250); });
+
+    expect(result.current.timer.mode).toBe("work");
+    expect(result.current.timer.status).toBe("overtime");
+    expect(onSessionEnd).toHaveBeenCalledWith(expect.objectContaining({ taskId: "task-1", result: "completed" }));
+
+    act(() => result.current.end());
+    expect(result.current.timer.status).toBe("idle");
+  });
+
+  it("sends a system notification when a pomodoro finishes", async () => {
+    const NotificationMock = vi.fn();
+    Object.defineProperty(globalThis, "Notification", { configurable: true, value: NotificationMock });
+    Object.defineProperty(NotificationMock, "permission", { configurable: true, value: "granted" });
+    const { result } = renderHook(() => usePomodoroTimer({ ...defaultSettings, workMinutes: 1, soundEnabled: false }));
+
+    act(() => result.current.start());
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_250); });
+
+    expect(NotificationMock).toHaveBeenCalledWith("FocusBoard", expect.objectContaining({ body: expect.stringContaining("終了しました") }));
+  });
+
+  it("sends timer notifications only while the document is hidden when configured", async () => {
+    const NotificationMock = vi.fn();
+    Object.defineProperty(globalThis, "Notification", { configurable: true, value: NotificationMock });
+    Object.defineProperty(NotificationMock, "permission", { configurable: true, value: "granted" });
+    Object.defineProperty(document, "hidden", { configurable: true, value: true });
+    const { result } = renderHook(() => usePomodoroTimer({ ...defaultSettings, workMinutes: 1, soundEnabled: false, timerNotificationBehavior: "background" }));
+
+    act(() => result.current.start());
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_250); });
+
+    expect(NotificationMock).toHaveBeenCalledTimes(1);
+  });
+
   it("emits a cancelled session when an active task timer is reset", () => {
     const onSessionEnd = vi.fn();
     const { result } = renderHook(() => usePomodoroTimer({ ...defaultSettings, soundEnabled: false }, onSessionEnd));

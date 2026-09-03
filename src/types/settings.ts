@@ -24,6 +24,8 @@ export type ClockBackgroundSettings = Record<string, ClockBackgroundSetting>;
 export type DateFormat = string;
 export type DateDisplayStyle = "text" | "calendar";
 export type TaskLauncherVisibility = "always" | "background-tap";
+export type PomodoroEndBehavior = "next" | "overtime";
+export type TimerNotificationBehavior = "always" | "background" | "off";
 
 export const taskThemePresets = {
   coral: { label: "コーラル", primary: "#f4a6a8", hover: "#e58e92", soft: "#fff6f6", border: "#e9b1b4", text: "#5a1f24", shadow: "rgba(244, 166, 168, .32)" },
@@ -124,6 +126,8 @@ export type AppSettings = {
   shortBreakMinutes: number;
   longBreakMinutes: number;
   soundEnabled: boolean;
+  pomodoroEndBehavior: PomodoroEndBehavior;
+  timerNotificationBehavior: TimerNotificationBehavior;
   taskLauncherVisibility: TaskLauncherVisibility;
   taskLauncherPosition: FreePosition;
   taskTheme: TaskThemePreset;
@@ -186,6 +190,8 @@ export const defaultSettings: AppSettings = {
   shortBreakMinutes: 5,
   longBreakMinutes: 15,
   soundEnabled: true,
+  pomodoroEndBehavior: "next",
+  timerNotificationBehavior: "always",
   taskLauncherVisibility: "always",
   taskLauncherPosition: { x: .2, y: .86 },
   taskTheme: "coral"

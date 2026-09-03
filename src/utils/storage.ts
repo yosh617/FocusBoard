@@ -1,4 +1,4 @@
-import { backgroundChoices, colorPresets, defaultSettings, fontOptions, isDateFormat, orientations, positionPresets, taskThemePresets, type AppSettings, type BackgroundChoice, type BackgroundFrames, type ClockBackgroundSettings, type ClockDateAlignment, type ColorPreset, type DateDisplayStyle, type FreePosition, type Orientation, type OrientationPositions, type OrientationPositionPresets, type PositionPreset, type TaskLauncherVisibility, type TaskThemePreset } from "../types/settings";
+import { backgroundChoices, colorPresets, defaultSettings, fontOptions, isDateFormat, orientations, positionPresets, taskThemePresets, type AppSettings, type BackgroundChoice, type BackgroundFrames, type ClockBackgroundSettings, type ClockDateAlignment, type ColorPreset, type DateDisplayStyle, type FreePosition, type Orientation, type OrientationPositions, type OrientationPositionPresets, type PositionPreset, type PomodoroEndBehavior, type TaskLauncherVisibility, type TaskThemePreset, type TimerNotificationBehavior } from "../types/settings";
 import type { PauseInterval, SessionCategory, TimerMode, TimerProgram, TimerState, TimerStatus } from "../types/timer";
 import { BACKGROUND_DB_NAME } from "./backgroundStorage";
 import { PRODUCTIVITY_DB_NAME } from "./productivityStorage";
@@ -30,6 +30,8 @@ const isTaskLauncherVisibility = (value: unknown): value is TaskLauncherVisibili
 const isTaskThemePreset = (value: unknown): value is TaskThemePreset =>
   typeof value === "string" && value in taskThemePresets;
 const isDateDisplayStyle = (value: unknown): value is DateDisplayStyle => value === "text" || value === "calendar";
+const isPomodoroEndBehavior = (value: unknown): value is PomodoroEndBehavior => value === "next" || value === "overtime";
+const isTimerNotificationBehavior = (value: unknown): value is TimerNotificationBehavior => value === "always" || value === "background" || value === "off";
 
 const readHiddenBackgroundIds = (value: unknown) => {
   if (!Array.isArray(value)) return [...defaultSettings.hiddenBackgroundIds];
@@ -176,6 +178,8 @@ export function migrateSettings(value: unknown): AppSettings {
     shortBreakMinutes: numberValue(value.shortBreakMinutes, defaultSettings.shortBreakMinutes, 1, 60),
     longBreakMinutes: numberValue(value.longBreakMinutes, defaultSettings.longBreakMinutes, 1, 120),
     soundEnabled: booleanValue(value.soundEnabled, defaultSettings.soundEnabled),
+    pomodoroEndBehavior: isPomodoroEndBehavior(value.pomodoroEndBehavior) ? value.pomodoroEndBehavior : defaultSettings.pomodoroEndBehavior,
+    timerNotificationBehavior: isTimerNotificationBehavior(value.timerNotificationBehavior) ? value.timerNotificationBehavior : defaultSettings.timerNotificationBehavior,
     taskLauncherVisibility: isTaskLauncherVisibility(value.taskLauncherVisibility) ? value.taskLauncherVisibility : defaultSettings.taskLauncherVisibility,
     taskLauncherPosition: {
       x: numberValue(savedTaskLauncherPosition.x, defaultSettings.taskLauncherPosition.x, 0, 1),

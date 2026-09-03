@@ -34,6 +34,16 @@ function playChime() {
   }).catch(() => undefined);
 }
 
+function sendTimerNotification(body: string, behavior: AppSettings["timerNotificationBehavior"]) {
+  if (behavior === "off" || behavior === "background" && !document.hidden) return;
+  if (!("Notification" in globalThis) || Notification.permission !== "granted") return;
+  try {
+    new Notification("FocusBoard", { body, tag: `focusboard-timer-${Date.now()}` });
+  } catch {
+    // The in-app announcement remains available when system notifications fail.
+  }
+}
+
 const categoryLabel: Record<SessionCategory, string> = { focus: "実施中", break: "休憩" };
 const createId = () => globalThis.crypto?.randomUUID?.() ?? `session-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
@@ -124,6 +134,18 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
       }
       if (current.program === "pomodoro") {
         const completedWorkSessions = current.mode === "work" ? current.completedWorkSessions + 1 : current.completedWorkSessions;
+        if (settingsRef.current.pomodoroEndBehavior === "overtime") {
+          return {
+            ...current,
+            status: "overtime",
+            remainingMs: Math.max(0, now - current.endAt),
+            completedWorkSessions,
+            activeSessionId: null,
+            sessionStartedAt: null,
+            pauseIntervals: [],
+            pauseStartedAt: null
+          };
+        }
         const nextMode: TimerMode = current.mode === "work"
           ? (completedWorkSessions % 4 === 0 ? "longBreak" : "shortBreak")
           : "work";
@@ -174,10 +196,22 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
         && timer.program === "pomodoro"
         && timer.status === "paused"
         && timer.mode !== previous.mode;
+      const pomodoroOvertime = previous.program === "pomodoro"
+        && timer.program === "pomodoro"
+        && timer.status === "overtime";
       const countdownCompleted = previous.program !== "pomodoro" && timer.status === "overtime";
       if (pomodoroCompleted) {
         if (settingsRef.current.soundEnabled) playChime();
-        setAnnouncement(`${modeLabels[previous.mode]}が終了しました。次は${modeLabels[timer.mode]}です。`);
+        const message = `${modeLabels[previous.mode]}が終了しました。次は${modeLabels[timer.mode]}です。`;
+        setAnnouncement(message);
+        sendTimerNotification(message, settingsRef.current.timerNotificationBehavior);
+        emitSession(previous, "completed", endedAt);
+      }
+      if (pomodoroOvertime) {
+        if (settingsRef.current.soundEnabled) playChime();
+        const message = `${modeLabels[previous.mode]}が終了しました。止めるまで延長中です。`;
+        setAnnouncement(message);
+        sendTimerNotification(message, settingsRef.current.timerNotificationBehavior);
         emitSession(previous, "completed", endedAt);
       }
       if (countdownCompleted) emitSession(previous, "completed", endedAt);
@@ -186,10 +220,12 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
   }, [emitSession, timer]);
 
   useEffect(() => {
-    if (timer.status !== "overtime") return;
+    if (timer.status !== "overtime" || timer.program === "pomodoro") return;
     if (settingsRef.current.soundEnabled) playChime();
-    const direction = timer.program === "countup" ? "カウントアップ" : timer.program === "pomodoro" ? modeLabels[timer.mode] : "カウントダウン";
-    setAnnouncement(`${categoryLabel[timer.category]}の${direction}が終了しました。延長中です。`);
+    const direction = timer.program === "countup" ? "カウントアップ" : "カウントダウン";
+    const message = `${categoryLabel[timer.category]}の${direction}が終了しました。延長中です。`;
+    setAnnouncement(message);
+    sendTimerNotification(message, settingsRef.current.timerNotificationBehavior);
   }, [timer.status, timer.program, timer.mode, timer.category]);
 
   const start = useCallback((taskId?: string | null) => {
