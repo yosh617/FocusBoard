@@ -213,6 +213,60 @@ function FocusMeter({
   );
 }
 
+function UnsavedChangesDialog({ open, onCancel, onDiscard }: { open: boolean; onCancel: () => void; onDiscard: () => void }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement as HTMLElement | null;
+    cancelRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCancel();
+        return;
+      }
+      if (event.key !== "Tab" || !dialogRef.current) return;
+      const buttons = [...dialogRef.current.querySelectorAll<HTMLButtonElement>("button:not([disabled])")];
+      const first = buttons[0];
+      const last = buttons.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      previous?.focus();
+    };
+  }, [onCancel, open]);
+
+  if (!open) return null;
+  return (
+    <div className="unsaved-changes-backdrop" onPointerDown={(event) => { if (event.target === event.currentTarget) onCancel(); }}>
+      <div className="unsaved-changes-dialog" role="dialog" aria-modal="true" aria-labelledby="unsaved-changes-title" ref={dialogRef}>
+        <div className="unsaved-changes-dialog__heading">
+          <span className="unsaved-changes-dialog__icon" aria-hidden="true">!</span>
+          <div>
+            <span className="eyebrow">タスク詳細</span>
+            <h2 id="unsaved-changes-title">保存していない変更があります</h2>
+          </div>
+        </div>
+        <p>このまま戻ると、入力した内容は破棄されます。</p>
+        <div className="unsaved-changes-dialog__actions">
+          <button className="secondary-button" type="button" onClick={onCancel} ref={cancelRef}>編集を続ける</button>
+          <button className="danger-button" type="button" onClick={onDiscard}>変更を破棄</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TaskEditor({ task, projects, availableTags, subtasks, timerStatus, activeTaskId, nextTask, nextTaskDetail, onStartTask, onOpenNextTask, onReturnToTimer, onSave, onArchive, onDelete, onToggleStatus, onCompleteAndStartNextTask, onAddSubtask, onToggleSubtask, canMoveUp, canMoveDown, onMove, onClose }: {
   task: TaskRecord;
   projects: ProjectRecord[];
@@ -261,6 +315,7 @@ function TaskEditor({ task, projects, availableTags, subtasks, timerStatus, acti
   const [scheduleExpanded, setScheduleExpanded] = useState(task.reminderAt !== null || task.repeatRule !== null);
   const [noteExpanded, setNoteExpanded] = useState(task.note.trim().length > 0);
   const [subtasksExpanded, setSubtasksExpanded] = useState(subtasks.length > 0);
+  const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
   const isActiveTask = activeTaskId === task.id && timerStatus !== "idle";
   const canStartTask = isActiveTask || (timerStatus === "idle" && task.status === "open");
   const canCompleteAndStartNext = task.status === "open" && timerStatus === "idle" && nextTask !== null && onCompleteAndStartNextTask !== undefined;
@@ -310,17 +365,26 @@ function TaskEditor({ task, projects, availableTags, subtasks, timerStatus, acti
     await saveChanges();
   };
   const closeEditor = () => {
-    if (isDirty && !window.confirm("保存していない変更を破棄しますか？")) return;
+    if (isDirty) {
+      setDiscardDialogOpen(true);
+      return;
+    }
+    onClose?.();
+  };
+
+  const discardChanges = () => {
+    setDiscardDialogOpen(false);
     onClose?.();
   };
 
   return (
-    <form className="task-editor" onSubmit={submit} aria-label={`${task.title}の詳細`} onKeyDown={(event) => {
-      if (event.key !== "Escape") return;
-      event.stopPropagation();
-      if (event.currentTarget.querySelector('[aria-expanded="true"]')) return;
-      closeEditor();
-    }}>
+    <>
+      <form className="task-editor" onSubmit={submit} aria-label={`${task.title}の詳細`} onKeyDown={(event) => {
+        if (event.key !== "Escape") return;
+        event.stopPropagation();
+        if (event.currentTarget.querySelector('[aria-expanded="true"]')) return;
+        closeEditor();
+      }}>
       <div className="task-editor__heading">
         <div className="task-editor__heading-title">
           {onClose && <button className="task-editor__back" type="button" onClick={closeEditor} aria-label="タスク一覧へ戻る"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7" /></svg></button>}
@@ -454,7 +518,9 @@ function TaskEditor({ task, projects, availableTags, subtasks, timerStatus, acti
           <button className="task-editor__bottom-save primary-button" type="submit" disabled={saving || !isDirty || !title.trim()}>{saving ? "保存中" : "変更を保存"}</button>
         </div>
       </details>
-    </form>
+      </form>
+      <UnsavedChangesDialog open={discardDialogOpen} onCancel={() => setDiscardDialogOpen(false)} onDiscard={discardChanges} />
+    </>
   );
 }
 

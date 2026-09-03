@@ -200,13 +200,14 @@ export function FloatingTimer({ timer, taskTitle, taskProgress, onStart, onPause
                   <button className="floating-timer__primary" type="button" onClick={onStart} aria-label={timer.status === "idle" ? "開始" : "再開"} title={timer.status === "idle" ? "開始" : "再開"}>
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6V6Z" /></svg>
                   </button>
-                ) : <span className="floating-timer__done">完了</span>}
-                {(timer.status === "running" || timer.status === "paused") && <button className="floating-timer__secondary floating-timer__end" type="button" onClick={onEnd} aria-label="タイマーを終了して記録" title="タイマーを終了して記録">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1" /></svg>
+                ) : <button className="floating-timer__primary" type="button" disabled aria-label="タイマー完了" title="タイマー完了">
+                  <span className="floating-timer__done">完了</span>
                 </button>}
-                <button className="floating-timer__secondary" type="button" onClick={onShowSetup} aria-label={returnToSetupLabel} title={returnToSetupLabel}>
+                {(timer.status === "running" || timer.status === "paused") ? <button className="floating-timer__secondary floating-timer__end" type="button" onClick={onEnd} aria-label="タイマーを終了して記録" title="タイマーを終了して記録">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1" /></svg>
+                </button> : <button className="floating-timer__secondary" type="button" onClick={onShowSetup} aria-label={returnToSetupLabel} title={returnToSetupLabel}>
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 4v6M17 14v6M4 17h16" /></svg>
-                </button>
+                </button>}
               </div>
             </div>
         )}

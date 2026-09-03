@@ -126,13 +126,13 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "数学の復習を詳細から開始" }));
   };
 
-  it("reveals task and settings entry points in the home dock after a background tap", () => {
+  it("reveals the task entry point in the home dock after a background tap", () => {
     render(<App />);
     expect(screen.queryByRole("navigation", { name: "ホーム操作" })).toBeNull();
     revealSettings();
     const homeDock = screen.getByRole("navigation", { name: "ホーム操作" });
     expect(within(homeDock).getByRole("button", { name: "タスク" })).toBeTruthy();
-    expect(within(homeDock).getByRole("button", { name: "設定" })).toBeTruthy();
+    expect(within(homeDock).queryByRole("button", { name: "設定" })).toBeNull();
     expect(document.querySelector(".settings-button")).toBeNull();
   });
 
@@ -199,7 +199,7 @@ describe("App", () => {
     revealSettings();
     const homeDock = screen.getByRole("navigation", { name: "ホーム操作" });
     expect(within(homeDock).getByRole("button", { name: "タスク" }).textContent).toContain("タスク");
-    expect(within(homeDock).getByRole("button", { name: "設定" })).toBeTruthy();
+    expect(within(homeDock).queryByRole("button", { name: "設定" })).toBeNull();
 
     fireEvent.click(within(homeDock).getByRole("button", { name: "タスク" }));
     expect(screen.getByRole("dialog", { name: "Tasks" })).toBeTruthy();
@@ -211,10 +211,10 @@ describe("App", () => {
     expect(screen.getByRole("dialog", { name: "Tasks" })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "タスクを閉じる" }));
-    const homeSettings = within(homeDock).getByRole("button", { name: "設定" });
-    fireEvent.click(homeSettings);
+    fireEvent.click(within(homeDock).getByRole("button", { name: "タスク" }));
+    fireEvent.click(screen.getByRole("button", { name: "設定を開く" }));
     fireEvent.click(screen.getByRole("button", { name: "設定を閉じる" }));
-    await waitFor(() => expect(document.activeElement).toBe(homeSettings));
+    await waitFor(() => expect(document.activeElement).toBe(within(homeDock).getByRole("button", { name: "タスク" })));
   });
 
   it("returns focus to the trigger that remains available after closing or switching panels", async () => {
@@ -422,25 +422,19 @@ describe("App", () => {
     expect(screen.getByLabelText("タイマー設定")).toBeTruthy();
   });
 
-  it("returns to setup without stopping an active timer", () => {
+  it("hides timer setup while the timer is active", () => {
     render(<App />);
     startWithoutTask();
-    fireEvent.click(screen.getByRole("button", { name: "タイマーセット（タイマーは継続）" }));
-
-    expect(screen.getByLabelText("進行中タイマーの設定")).toBeTruthy();
-    expect(document.querySelector(".timer-setup__live-note")?.textContent).toBe("進行中");
-    expect(screen.queryByLabelText("集中タイマー")).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "タイマー表示へ戻る" }));
-    expect(screen.getByLabelText("集中タイマー")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "タイマーセット（タイマーは継続）" })).toBeNull();
+    expect(within(screen.getByRole("group", { name: "タイマー操作" })).getAllByRole("button")).toHaveLength(2);
   });
 
-  it("records an active timer when it is ended from the setup card", () => {
+  it("records an active timer when it is ended", () => {
     render(<App />);
     startWithoutTask();
+    expect(screen.queryByRole("button", { name: "タイマーセット（タイマーは継続）" })).toBeNull();
+    expect(within(screen.getByRole("group", { name: "タイマー操作" })).getAllByRole("button")).toHaveLength(2);
     expect(screen.getByRole("button", { name: "タイマーを終了して記録" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "タイマーセット（タイマーは継続）" }));
-
     fireEvent.click(screen.getByRole("button", { name: "タイマーを終了して記録" }));
 
     expect(mockTasksState.recordTimerSession).toHaveBeenCalledTimes(1);
@@ -756,10 +750,9 @@ describe("App", () => {
     expect(document.querySelector(".floating-timer--compact strong")?.textContent).toMatch(/^\d{2}:\d{2}$/);
     fireEvent.click(screen.getByRole("button", { name: /クリックで通常表示に戻す/ }));
     expect(document.querySelector(".floating-timer--compact")).toBeNull();
-    expect(screen.getByRole("button", { name: "タイマーセット（タイマーは継続）" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "タイマーセット（タイマーは継続）" })).toBeNull();
+    expect(within(screen.getByRole("group", { name: "タイマー操作" })).getAllByRole("button")).toHaveLength(2);
     expect(screen.queryByRole("button", { name: "タイマーをリセット" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "タイマーセット（タイマーは継続）" }));
-    expect(screen.getByRole("button", { name: "タイマーをリセット" })).toBeTruthy();
   });
 
   it("reclamps on expansion and restores the compact edge position on shrink", () => {

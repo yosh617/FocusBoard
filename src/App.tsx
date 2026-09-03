@@ -107,7 +107,6 @@ export default function App() {
   const taskDetailCardFadeTimeoutRef = useRef<number | null>(null);
   const taskLauncherRef = useRef<HTMLButtonElement>(null);
   const homeTasksRef = useRef<HTMLButtonElement>(null);
-  const homeSettingsRef = useRef<HTMLButtonElement>(null);
   const overlayReturnTargetRef = useRef<HTMLElement | null>(null);
   const overlayHistoryKindRef = useRef<"settings" | "tasks" | "session" | null>(null);
   const tasksOpenRef = useRef(false);
@@ -421,7 +420,7 @@ export default function App() {
       />
     );
     return slots;
-  }, [orientation, settings, timer, timerSetupVisible, startTimer, resetTimer, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, showFloatingTimer, timerAcceptsTask, selectedTimerTask?.title, updateSettings]);
+  }, [orientation, settings, timer, timerSetupVisible, startTimer, resetTimer, endTimer, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, showFloatingTimer, timerAcceptsTask, selectedTimerTask?.title, updateSettings]);
 
   const liveMessage = reminderMessage || taskMessage || backgroundMessage || announcement || storageMessage;
   const activeOverlay = completedSession !== null && completedTask !== null
@@ -590,9 +589,6 @@ export default function App() {
       {(taskDetailCardVisible || settingsOpen || tasksOpen) && <nav className={`home-dock home-dock--transient${taskDetailCardFading && !settingsOpen && !tasksOpen ? " home-dock--fading" : ""}`} aria-label="ホーム操作">
         <button className="home-dock__button home-dock__button--tasks" type="button" aria-label="タスク" aria-pressed={tasksOpen} onClick={() => openTasks(homeTasksRef.current)} ref={homeTasksRef}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h10M9 12h10M9 18h10M4 6h.01M4 12h.01M4 18h.01" /></svg><span>タスク</span>
-        </button>
-        <button className="home-dock__button home-dock__button--settings" type="button" aria-label="設定" aria-pressed={settingsOpen} onClick={() => openSettings(homeSettingsRef.current)} ref={homeSettingsRef}>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z" /><circle cx="12" cy="12" r="3" /></svg><span>設定</span>
         </button>
       </nav>}
       {((settings.taskLauncherVisibility === "always" && !(settings.dateDisplayStyle === "calendar" && timer.status === "idle" && !settings.timerSetupCollapsed)) || taskDetailCardVisible) && <TaskLauncher

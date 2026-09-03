@@ -590,18 +590,19 @@ describe("TaskDrawer", () => {
     expect(vi.mocked(props.onUpdateTask).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(props.onStartTask).mock.invocationCallOrder[0]);
   });
 
-  it("asks before leaving task details with unsaved changes", () => {
-    const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
+  it("uses the shared discard dialog before leaving task details with unsaved changes", () => {
     renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
     fireEvent.change(screen.getByLabelText("タスク名"), { target: { value: "変更中" } });
 
     fireEvent.click(screen.getByRole("button", { name: "タスク一覧へ戻る" }));
     expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "保存していない変更があります" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "編集を続ける" }));
+    expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "タスク一覧へ戻る" }));
+    fireEvent.click(screen.getByRole("button", { name: "変更を破棄" }));
     expect(screen.queryByRole("form", { name: "数学の復習の詳細" })).toBeNull();
-    expect(confirm).toHaveBeenCalledTimes(2);
-    confirm.mockRestore();
   });
 
   it("returns focus to the task row after returning from the dedicated editor", async () => {
