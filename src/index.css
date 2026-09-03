@@ -3407,3 +3407,14 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .task-launcher__task > i { border-color: var(--accent); }
 .save-state::before,
 .save-state--saving::before { background: var(--accent); }
+
+/* Keep the launcher compact and square on portrait phone screens. */
+@media (max-width: 520px) and (orientation: portrait) {
+  .task-launcher {
+    width: min(300px, calc(100vw - 32px));
+    height: min(300px, calc(100vw - 32px));
+    min-width: 0;
+    max-width: none;
+    min-height: 0;
+  }
+}
