@@ -12,7 +12,7 @@ import { AppCalendar } from "../ui/AppCalendar";
 import { AppDateField } from "../ui/AppDateField";
 import { AppDateTimeField } from "../ui/AppDateTimeField";
 import { AppSelect } from "../ui/AppSelect";
-import { ColorPicker, ColorPickerDisclosure } from "../ui/ColorPicker";
+import { ColorPickerDisclosure } from "../ui/ColorPicker";
 
 type Props = {
   open: boolean;
@@ -577,8 +577,6 @@ export function TaskDrawer({
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectColor, setNewProjectColor] = useState<string>(projectColorOptions[0].value);
   const [showProjectForm, setShowProjectForm] = useState(false);
-  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
-  const [projectColorPopoverPosition, setProjectColorPopoverPosition] = useState<{ top: number; left: number } | null>(null);
   const [showResumeBanner, setShowResumeBanner] = useState(false);
   const [showTodayCompleted, setShowTodayCompleted] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -588,7 +586,6 @@ export function TaskDrawer({
   const quickAddInputRef = useRef<HTMLInputElement>(null);
   const taskRowRefs = useRef(new Map<string, HTMLDivElement>());
   const taskContentButtonRefs = useRef(new Map<string, HTMLButtonElement>());
-  const projectColorButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const pendingTaskFocusIdRef = useRef<string | null>(null);
   const appliedResumeTaskIdRef = useRef<string | null>(null);
   const selectedTaskScrollModeRef = useRef<"nearest" | "start">("nearest");
@@ -603,25 +600,6 @@ export function TaskDrawer({
   const currentProject = projectId
     ? activeProjects.find((project) => project.id === projectId) ?? null
     : null;
-  const toggleProjectColorEditor = (id: string) => {
-    if (editingProjectId === id) {
-      setEditingProjectId(null);
-      setProjectColorPopoverPosition(null);
-      return;
-    }
-    const button = projectColorButtonRefs.current.get(id);
-    if (button && window.innerWidth > 760) {
-      const rect = button.getBoundingClientRect();
-      const width = Math.min(300, window.innerWidth - 32);
-      const height = Math.min(620, window.innerHeight - 32);
-      const left = Math.min(Math.max(16, rect.right - width), window.innerWidth - width - 16);
-      const top = rect.bottom + 6 + height <= window.innerHeight ? rect.bottom + 6 : Math.max(16, rect.top - height - 6);
-      setProjectColorPopoverPosition({ top, left });
-    } else {
-      setProjectColorPopoverPosition(null);
-    }
-    setEditingProjectId(id);
-  };
   const completedPomodorosByTask = useMemo(() => {
     const counts = new Map<string, number>();
     for (const session of sessions) {
@@ -1023,29 +1001,6 @@ export function TaskDrawer({
                 {activeProjects.map((project) => (
                   <div className={projectId === project.id ? "project-link is-active" : "project-link"} key={project.id}>
                     <button className="project-link__select" type="button" onClick={() => { setProjectId(project.id); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); }}><i style={{ background: project.color }} /><span>{project.name}</span><strong>{estimatedFocusTimeLabel(getTasksForProject(tasks, project.id), workMinutes)}</strong></button>
-                    <div className="project-link__color">
-                      <button
-                        className="project-link__color-button"
-                        type="button"
-                        aria-expanded={editingProjectId === project.id}
-                        aria-label={`${project.name}の色を編集`}
-                        title="プロジェクトの色を編集"
-                        ref={(button) => { if (button) projectColorButtonRefs.current.set(project.id, button); else projectColorButtonRefs.current.delete(project.id); }}
-                        onClick={() => toggleProjectColorEditor(project.id)}
-                      >
-                        <i style={{ background: project.color }} aria-hidden="true" />
-                      </button>
-                      {editingProjectId === project.id && <div className="project-link__color-popover" style={projectColorPopoverPosition ? { top: projectColorPopoverPosition.top, left: projectColorPopoverPosition.left } : undefined}>
-                        <ColorPicker
-                          value={project.color}
-                          label={`${project.name}の色`}
-                          modes={["grid", "spectrum", "sliders"]}
-                          themeColors={projectColorOptions.map(({ name, value }) => ({ label: name, color: value }))}
-                          onChange={(color) => void onUpdateProjectColor(project.id, projectColorOptions.find((option) => option.value.toLowerCase() === color.toLowerCase())?.value ?? color)}
-                          disabled={!storageAvailable}
-                        />
-                      </div>}
-                    </div>
                     <button className="project-link__archive" type="button" aria-label={`${project.name}をアーカイブ`} onClick={() => { if (window.confirm(`${project.name}をアーカイブし、タスクをInboxへ移しますか？`)) void onArchiveProject(project.id); }}>×</button>
                   </div>
                 ))}
@@ -1072,7 +1027,15 @@ export function TaskDrawer({
             <div className="task-workspace__scroll">
             <div className="task-workspace__toolbar">
               <div className="task-workspace__heading">
-                <div><button className="task-workspace__destination-button" type="button" aria-label="一覧を開く" onClick={openTaskNavigation}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5-7 7 7 7" /></svg></button><h3>{currentListLabel}</h3><span>{filteredTasks.length + (!projectId && view === "today" ? todayCompletedTasks.length : 0)}件のタスク</span></div>
+                <div className="task-workspace__heading-main"><button className="task-workspace__destination-button" type="button" aria-label="一覧を開く" onClick={openTaskNavigation}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5-7 7 7 7" /></svg></button>{currentProject && <i className="task-workspace__project-color" style={{ background: currentProject.color }} aria-hidden="true" />}<h3>{currentListLabel}</h3><span>{filteredTasks.length + (!projectId && view === "today" ? todayCompletedTasks.length : 0)}件のタスク</span></div>
+                {currentProject && <ColorPickerDisclosure
+                  value={currentProject.color}
+                  label={`${currentProject.name}の色`}
+                  modes={["grid", "spectrum", "sliders"]}
+                  themeColors={projectColorOptions.map(({ name, value }) => ({ label: name, color: value }))}
+                  onChange={(color) => void onUpdateProjectColor(currentProject.id, projectColorOptions.find((option) => option.value.toLowerCase() === color.toLowerCase())?.value ?? color)}
+                  disabled={!storageAvailable}
+                />}
               </div>
               {view !== "completed" && <form className="task-quick-add task-capture" id="task-quick-add-form" onSubmit={addTask}>
                 <div className="task-capture__title">

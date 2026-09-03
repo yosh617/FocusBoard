@@ -185,9 +185,10 @@ describe("TaskDrawer", () => {
     expect(within(screen.getByRole("group", { name: "プロジェクトの色を選択" })).getByRole("button", { name: "推奨テーマ ブルー #0A84FF" }).getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("edits the color of an existing project and persists the selected preset", async () => {
+  it("edits the color from the selected project page", async () => {
     const props = renderDrawer();
-    fireEvent.click(screen.getByRole("button", { name: "勉強の色を編集" }));
+    expect(screen.queryByRole("button", { name: "勉強の色を編集" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "勉強 0h 50m" }));
 
     const picker = screen.getByRole("region", { name: "勉強の色" });
     const red = within(picker).getByRole("button", { name: "推奨テーマ レッド #FF453A" });
