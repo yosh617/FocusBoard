@@ -87,7 +87,9 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
       plannedDurationMs: current.durationMs,
       focusedDurationMs: current.program === "countup"
         ? Math.max(0, current.status === "running" && current.endAt !== null ? endedAt - current.endAt : current.remainingMs)
-        : Math.max(0, Math.min(current.durationMs, current.durationMs - remainingMs)),
+        : current.status === "overtime" && current.endAt !== null
+          ? current.durationMs + Math.max(0, endedAt - current.endAt)
+          : Math.max(0, Math.min(current.durationMs, current.durationMs - remainingMs)),
       pauseIntervals
     });
   }, [onSessionEnd]);
@@ -140,10 +142,10 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
             status: "overtime",
             remainingMs: Math.max(0, now - current.endAt),
             completedWorkSessions,
-            activeSessionId: null,
-            sessionStartedAt: null,
-            pauseIntervals: [],
-            pauseStartedAt: null
+            activeSessionId: current.activeSessionId,
+            sessionStartedAt: current.sessionStartedAt,
+            pauseIntervals: current.pauseIntervals,
+            pauseStartedAt: current.pauseStartedAt
           };
         }
         const nextMode: TimerMode = current.mode === "work"
@@ -170,10 +172,10 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
         ...current,
         status: "overtime",
         remainingMs: Math.max(0, now - current.endAt),
-        activeSessionId: null,
-        sessionStartedAt: null,
-        pauseIntervals: [],
-        pauseStartedAt: null
+        activeSessionId: current.activeSessionId,
+        sessionStartedAt: current.sessionStartedAt,
+        pauseIntervals: current.pauseIntervals,
+        pauseStartedAt: current.pauseStartedAt
       };
     });
   }, []);
@@ -212,7 +214,6 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
         const message = `${modeLabels[previous.mode]}が終了しました。止めるまで延長中です。`;
         setAnnouncement(message);
         sendTimerNotification(message, settingsRef.current.timerNotificationBehavior);
-        emitSession(previous, "completed", endedAt);
       }
       if (countdownCompleted) emitSession(previous, "completed", endedAt);
     }
@@ -307,7 +308,9 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
 
   const end = useCallback(() => {
     const current = timerRef.current;
-    if (current.activeSessionId) emitSession(current, "cancelled", Date.now());
+    if (current.activeSessionId) {
+      emitSession(current, current.status === "overtime" ? "completed" : "cancelled", Date.now());
+    }
     setAnnouncement("集中時間を記録して終了しました。");
     setTimer((state) => ({
       ...state,

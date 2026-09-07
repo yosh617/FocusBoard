@@ -114,10 +114,18 @@ describe("usePomodoroTimer", () => {
 
     expect(result.current.timer.mode).toBe("work");
     expect(result.current.timer.status).toBe("overtime");
-    expect(onSessionEnd).toHaveBeenCalledWith(expect.objectContaining({ taskId: "task-1", result: "completed" }));
+    expect(onSessionEnd).not.toHaveBeenCalled();
 
     act(() => result.current.end());
     expect(result.current.timer.status).toBe("idle");
+    expect(onSessionEnd).toHaveBeenCalledTimes(1);
+    expect(onSessionEnd).toHaveBeenCalledWith(expect.objectContaining({
+      taskId: "task-1",
+      result: "completed",
+      focusedDurationMs: expect.any(Number)
+    }));
+    expect(onSessionEnd.mock.calls[0][0].focusedDurationMs).toBeGreaterThanOrEqual(60_000);
+    expect(onSessionEnd.mock.calls[0][0].focusedDurationMs).toBeLessThan(61_000);
   });
 
   it("sends a system notification when a pomodoro finishes", async () => {
