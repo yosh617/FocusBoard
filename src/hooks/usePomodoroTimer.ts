@@ -324,6 +324,36 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
     }));
   }, [emitSession]);
 
+  const startBreak = useCallback(() => {
+    const current = timerRef.current;
+    if (current.program !== "pomodoro" || current.mode !== "work" || current.status !== "overtime") return;
+    const now = Date.now();
+    const completedWorkSessions = current.completedWorkSessions + 1;
+    const nextMode: TimerMode = completedWorkSessions % 4 === 0 ? "longBreak" : "shortBreak";
+    const nextDurationMs = getDurationMs(nextMode, settingsRef.current);
+    if (settingsRef.current.soundEnabled) prepareAudio();
+    emitSession(current, "completed", now);
+    setAnnouncement(`${modeLabels[nextMode]}を開始しました。`);
+    setTimer((state) => {
+      if (state.program !== "pomodoro" || state.mode !== "work" || state.status !== "overtime") return state;
+      return {
+        ...state,
+        mode: nextMode,
+        category: "break",
+        status: "running",
+        durationMs: nextDurationMs,
+        remainingMs: nextDurationMs,
+        endAt: now + nextDurationMs,
+        completedWorkSessions,
+        activeTaskId: null,
+        activeSessionId: createId(),
+        sessionStartedAt: now,
+        pauseIntervals: [],
+        pauseStartedAt: null
+      };
+    });
+  }, [emitSession]);
+
   const selectMode = useCallback((mode: TimerMode) => {
     const durationMs = getDurationMs(mode, settingsRef.current);
     setAnnouncement("");
@@ -404,6 +434,7 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
     pause,
     reset,
     end,
+    startBreak,
     selectMode,
     selectProgram,
     selectCategory,
@@ -421,6 +452,7 @@ function createTimerApi(api: {
   pause: () => void;
   reset: () => void;
   end: () => void;
+  startBreak: () => void;
   selectMode: (mode: TimerMode) => void;
   selectProgram: (program: TimerProgram) => void;
   selectCategory: (category: SessionCategory) => void;

@@ -463,6 +463,25 @@ describe("App", () => {
     }
   });
 
+  it("offers a break immediately when a focus session enters overtime", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-29T09:00:00+09:00"));
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...defaultSettings, workMinutes: 1, pomodoroEndBehavior: "overtime" }));
+    try {
+      prepareTaskFlow();
+      await act(async () => { await vi.advanceTimersByTimeAsync(60_250); });
+
+      expect(screen.getByRole("dialog", { name: "このまま延長しますか？" })).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "休憩に入る" }));
+      expect(screen.queryByRole("dialog", { name: "このまま延長しますか？" })).toBeNull();
+      expect(screen.queryByRole("dialog", { name: "集中セッション完了" })).toBeNull();
+      expect(screen.getByText("休憩中")).toBeTruthy();
+      expect(mockTasksState.recordTimerSession).toHaveBeenCalledWith(expect.objectContaining({ mode: "work", result: "completed" }));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("surfaces the post-break candidate from the launcher while resting", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-29T09:00:00+09:00"));

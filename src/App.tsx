@@ -7,6 +7,7 @@ import { SettingsPanel } from "./components/SettingsPanel";
 import { TaskDrawer } from "./components/tasks/TaskDrawer";
 import { TaskLauncher } from "./components/tasks/TaskLauncher";
 import { SessionCompleteDialog } from "./components/tasks/SessionCompleteDialog";
+import { TimerOvertimeDialog } from "./components/tasks/TimerOvertimeDialog";
 import { TimerTaskPicker } from "./components/tasks/TimerTaskPicker";
 import { useClock } from "./hooks/useClock";
 import { useLocalStorageSettings } from "./hooks/useLocalStorageSettings";
@@ -67,15 +68,19 @@ export default function App() {
   } = useTasks();
   const { reminderMessage, setReminderMessage, notificationPermission, requestNotificationPermission } = useTaskReminders(tasks);
   const [completedSession, setCompletedSession] = useState<TimerSessionEvent | null>(null);
+  const [overtimePromptOpen, setOvertimePromptOpen] = useState(false);
+  const suppressCompletedSessionDialogRef = useRef(false);
   const handleSessionEnd = useCallback((event: TimerSessionEvent) => {
     recordTimerSession(event);
-    if (event.result === "completed" && event.mode === "work" && event.taskId) setCompletedSession(event);
+    if (event.result === "completed" && event.mode === "work" && event.taskId && !suppressCompletedSessionDialogRef.current) setCompletedSession(event);
+    suppressCompletedSessionDialogRef.current = false;
   }, [recordTimerSession]);
   const {
     timer,
     announcement,
     setAnnouncement,
     start,
+    startBreak,
     pause,
     reset,
     end,
@@ -86,6 +91,10 @@ export default function App() {
     setFloatingPosition,
     clearTimer
   } = usePomodoroTimer(settings, orientation, handleSessionEnd);
+  useEffect(() => {
+    if (timer.status !== "overtime" || timer.program !== "pomodoro" || timer.mode !== "work") setOvertimePromptOpen(false);
+    else setOvertimePromptOpen(true);
+  }, [timer.mode, timer.program, timer.status]);
   const { backgrounds, addBackgrounds, removeBackground, reorderBackgrounds, backgroundMessage, setBackgroundMessage } = useCustomBackgrounds();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [tasksOpen, setTasksOpen] = useState(false);
@@ -398,6 +407,12 @@ export default function App() {
     setTimerSetupVisible(false);
     updateSettings({ timerSetupCollapsed: false });
   }, [end, updateSettings]);
+  const continueOvertime = useCallback(() => setOvertimePromptOpen(false), []);
+  const startBreakFromOvertime = useCallback(() => {
+    setOvertimePromptOpen(false);
+    suppressCompletedSessionDialogRef.current = true;
+    startBreak();
+  }, [startBreak]);
 
   const slotContent = useMemo(() => {
     const slots = Object.fromEntries(positionPresets.map((position) => [position, [] as ReactNode[]])) as Record<PositionPreset, ReactNode[]>;
@@ -700,6 +715,13 @@ export default function App() {
         onRequestNotification={requestNotificationPermission}
         onImportBackup={importProductivityBackup}
         resumeContext={taskDrawerResumeContext}
+      />
+      <TimerOvertimeDialog
+        open={overtimePromptOpen && timer.status === "overtime"}
+        taskTitle={activeTask?.title ?? "集中タイマー"}
+        overtimeLabel={formatDuration(getTimerOvertimeMs(timer))}
+        onContinue={continueOvertime}
+        onStartBreak={startBreakFromOvertime}
       />
       <SessionCompleteDialog
         open={completedSession !== null && completedTask !== null}

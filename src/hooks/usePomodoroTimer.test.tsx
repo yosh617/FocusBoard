@@ -128,6 +128,22 @@ describe("usePomodoroTimer", () => {
     expect(onSessionEnd.mock.calls[0][0].focusedDurationMs).toBeLessThan(61_000);
   });
 
+  it("starts the next break directly when leaving overtime", async () => {
+    const onSessionEnd = vi.fn();
+    const { result } = renderHook(() => usePomodoroTimer({ ...defaultSettings, workMinutes: 1, soundEnabled: false, pomodoroEndBehavior: "overtime" }, onSessionEnd));
+
+    act(() => result.current.start("task-1"));
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_250); });
+
+    act(() => result.current.startBreak());
+
+    expect(result.current.timer.mode).toBe("shortBreak");
+    expect(result.current.timer.category).toBe("break");
+    expect(result.current.timer.status).toBe("running");
+    expect(result.current.timer.activeTaskId).toBeNull();
+    expect(onSessionEnd).toHaveBeenCalledWith(expect.objectContaining({ mode: "work", taskId: "task-1", result: "completed" }));
+  });
+
   it("sends a system notification when a pomodoro finishes", async () => {
     const NotificationMock = vi.fn();
     Object.defineProperty(globalThis, "Notification", { configurable: true, value: NotificationMock });
