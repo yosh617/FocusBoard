@@ -21,6 +21,7 @@ export type TaskRecord = {
   reminderAt: number | null;
   repeatRule: RepeatRule | null;
   repeatSeriesId: string | null;
+  repeatSkipDates?: string[];
   estimatedPomodoros: number;
   priority?: TaskPriority;
   tags?: string[];

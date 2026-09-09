@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProductivityBackup } from "../utils/productivityBackup";
 import type { TaskRecord } from "../types/task";
 import { createProductivityBackup } from "../utils/productivityBackup";
+import { addLocalDays, toLocalDateKey } from "../utils/taskQueries";
 import {
   deleteProductivityRecords,
   loadProductivityData,
@@ -156,22 +157,58 @@ describe("useTasks", () => {
     expect(result.current.sessions).toHaveLength(1);
   });
 
-  it("creates one next occurrence when a repeating task is completed", async () => {
+  it("creates today's occurrence while the previous repeating task remains overdue", async () => {
+    const today = toLocalDateKey(new Date());
     vi.mocked(loadProductivityData).mockResolvedValue({
-      tasks: [{ ...savedTask, dueDate: "2026-07-18", repeatRule: { type: "daily", interval: 1 } }],
+      tasks: [{ ...savedTask, dueDate: addLocalDays(today, -1), repeatRule: { type: "daily", interval: 1 } }],
       projects: [],
       sessions: [],
       invalidRecordCount: 0,
       repairedRecordCount: 0
     });
     const { result } = renderHook(() => useTasks());
-    await waitFor(() => expect(result.current.tasks).toHaveLength(1));
-    await act(async () => { await result.current.toggleTask(savedTask.id); });
+    await waitFor(() => expect(result.current.tasks).toHaveLength(2));
     expect(result.current.tasks).toHaveLength(2);
     expect(result.current.tasks).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: savedTask.id, status: "completed" }),
-      expect.objectContaining({ status: "open", dueDate: "2026-07-19", repeatSeriesId: savedTask.id })
+      expect.objectContaining({ id: savedTask.id, status: "open", dueDate: addLocalDays(today, -1) }),
+      expect.objectContaining({ status: "open", dueDate: today, repeatSeriesId: savedTask.id })
     ]));
+  });
+
+  it("does not create another occurrence immediately when a repeating task is completed", async () => {
+    const today = toLocalDateKey(new Date());
+    vi.mocked(loadProductivityData).mockResolvedValue({
+      tasks: [{ ...savedTask, dueDate: today, repeatRule: { type: "daily", interval: 1 } }],
+      projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0
+    });
+    const { result } = renderHook(() => useTasks());
+    await waitFor(() => expect(result.current.tasks).toHaveLength(1));
+    await act(async () => { await result.current.toggleTask(savedTask.id); });
+    expect(result.current.tasks).toHaveLength(1);
+    expect(result.current.tasks[0].status).toBe("completed");
+  });
+
+  it("deletes only one repeating occurrence and remembers its skipped date", async () => {
+    const today = toLocalDateKey(new Date());
+    const root = { ...savedTask, dueDate: addLocalDays(today, -1), repeatRule: { type: "daily", interval: 1 } as const };
+    const occurrence = { ...root, id: "task-2", dueDate: today, repeatSeriesId: root.id };
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [root, occurrence], projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0 });
+    const { result } = renderHook(() => useTasks());
+    await waitFor(() => expect(result.current.tasks).toHaveLength(2));
+    await act(async () => { expect(await result.current.deleteTask(occurrence.id)).toBe(true); });
+    expect(result.current.tasks).toHaveLength(1);
+    expect(result.current.tasks[0].repeatSkipDates).toEqual([today]);
+  });
+
+  it("stops a repeating series while keeping its existing tasks", async () => {
+    const today = toLocalDateKey(new Date());
+    const root = { ...savedTask, dueDate: addLocalDays(today, -1), repeatRule: { type: "daily", interval: 1 } as const };
+    const occurrence = { ...root, id: "task-2", dueDate: today, repeatSeriesId: root.id };
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [root, occurrence], projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0 });
+    const { result } = renderHook(() => useTasks());
+    await waitFor(() => expect(result.current.tasks).toHaveLength(2));
+    await act(async () => { expect(await result.current.deleteRecurringSeries(root.id)).toBe(true); });
+    expect(result.current.tasks.every((task) => task.repeatRule === null && task.repeatSeriesId === null)).toBe(true);
   });
 
   it("does not complete a subtask when its parent is completed", async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TaskRecord } from "../types/task";
-import { createNextRepeatedTask, getNextDueDate } from "./repeatRule";
+import { createNextRepeatedTask, createTodayRepeatedTasks, getNextDueDate, isRepeatDueOnDate } from "./repeatRule";
 
 describe("task repeat rules", () => {
   it("handles daily, weekday, and weekly schedules", () => {
@@ -35,5 +35,28 @@ describe("task repeat rules", () => {
       completedAt: 2
     };
     expect(createNextRepeatedTask(task, "task-2", 3)).toMatchObject({ id: "task-2", status: "open", dueDate: "2026-07-19", repeatSeriesId: "task-1", completedAt: null });
+  });
+
+  it("recognizes today's occurrence without requiring the previous task to be completed", () => {
+    const task: TaskRecord = {
+      version: 1, id: "task-1", title: "復習", status: "open", bucket: "inbox", projectId: null,
+      parentTaskId: null, note: "", dueDate: "2026-07-18", reminderAt: null,
+      repeatRule: { type: "daily", interval: 1 }, repeatSeriesId: null, estimatedPomodoros: 1,
+      order: 0, createdAt: 1, updatedAt: 2, completedAt: null
+    };
+    expect(isRepeatDueOnDate(task, "2026-07-19")).toBe(true);
+    expect(createTodayRepeatedTasks([task], "2026-07-19", () => "task-2", 3)).toEqual([
+      expect.objectContaining({ id: "task-2", dueDate: "2026-07-19", repeatSeriesId: "task-1", status: "open" })
+    ]);
+  });
+
+  it("does not recreate an explicitly skipped date", () => {
+    const task: TaskRecord = {
+      version: 1, id: "task-1", title: "復習", status: "open", bucket: "inbox", projectId: null,
+      parentTaskId: null, note: "", dueDate: "2026-07-18", reminderAt: null,
+      repeatRule: { type: "daily", interval: 1 }, repeatSeriesId: null, repeatSkipDates: ["2026-07-19"], estimatedPomodoros: 1,
+      order: 0, createdAt: 1, updatedAt: 2, completedAt: null
+    };
+    expect(createTodayRepeatedTasks([task], "2026-07-19", () => "task-2", 3)).toEqual([]);
   });
 });

@@ -56,6 +56,7 @@ export default function App() {
     toggleTask,
     archiveTask,
     deleteTask,
+    deleteRecurringSeries,
     moveTask,
     addProject,
     updateProjectColor,
@@ -685,6 +686,7 @@ export default function App() {
         onToggleTask={toggleTask}
         onArchiveTask={archiveTask}
         onDeleteTask={deleteTask}
+        onDeleteRecurring={deleteRecurringSeries}
         onMoveTask={moveTask}
         onAddProject={addProject}
         onUpdateProjectColor={updateProjectColor}

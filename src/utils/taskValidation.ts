@@ -79,6 +79,9 @@ export function validateTaskRecord(value: unknown): TaskRecord | null {
   if (typeof value.note !== "string" || value.note.length > 10_000) return null;
   if (value.dueDate !== null && !isLocalDate(value.dueDate)) return null;
   if (!isOptionalTimestamp(value.reminderAt) || !isOptionalId(value.repeatSeriesId)) return null;
+  const repeatSkipDates = value.repeatSkipDates === undefined ? undefined : value.repeatSkipDates;
+  if (repeatSkipDates !== undefined && (!Array.isArray(repeatSkipDates) || repeatSkipDates.length > 3660 || repeatSkipDates.some((date) => !isLocalDate(date)))) return null;
+  const normalizedRepeatSkipDates = repeatSkipDates === undefined ? undefined : [...new Set(repeatSkipDates as string[])].sort();
   const repeatRule = validateRepeatRule(value.repeatRule);
   if (repeatRule === undefined) return null;
   if (!isBoundedInteger(value.estimatedPomodoros, 0, 99)) return null;
@@ -103,6 +106,7 @@ export function validateTaskRecord(value: unknown): TaskRecord | null {
     reminderAt: value.reminderAt,
     repeatRule,
     repeatSeriesId: value.repeatSeriesId,
+    ...(normalizedRepeatSkipDates !== undefined ? { repeatSkipDates: normalizedRepeatSkipDates } : {}),
     estimatedPomodoros: value.estimatedPomodoros,
     priority: priority as TaskPriority,
     tags: normalizedTags,

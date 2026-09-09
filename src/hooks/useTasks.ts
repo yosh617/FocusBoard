@@ -23,7 +23,8 @@ import {
   saveTaskRecord
 } from "../utils/productivityStorage";
 import { validateFocusSessionRecord, validateProjectRecord, validateTaskRecord } from "../utils/taskValidation";
-import { createNextRepeatedTask } from "../utils/repeatRule";
+import { createTodayRepeatedTasks, getRepeatSeriesId } from "../utils/repeatRule";
+import { toLocalDateKey } from "../utils/taskQueries";
 
 const createId = (prefix: string) =>
   globalThis.crypto?.randomUUID?.() ?? `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -41,6 +42,7 @@ export function useTasks() {
   const sessionsRef = useRef(sessions);
   const undoRef = useRef<(() => Promise<void>) | null>(null);
   const pendingTaskIdsRef = useRef(new Set<string>());
+  const recurringGenerationInFlightRef = useRef(false);
   tasksRef.current = tasks;
   projectsRef.current = projects;
   sessionsRef.current = sessions;
@@ -71,6 +73,37 @@ export function useTasks() {
   }, []);
 
   const fail = useCallback(() => setMessage("タスクを保存できませんでした。端末の保存設定を確認してください。"), []);
+
+  const materializeTodayRecurringTasks = useCallback(async (today = toLocalDateKey(new Date())) => {
+    if (!storageAvailable || recurringGenerationInFlightRef.current) return;
+    const generated = createTodayRepeatedTasks(tasksRef.current, today, () => createId("task"), Date.now());
+    if (generated.length === 0) return;
+    recurringGenerationInFlightRef.current = true;
+    try {
+      await saveProductivityRecords({ tasks: generated });
+      setTasks((current) => {
+        const existingIds = new Set(current.map((task) => task.id));
+        return [...current, ...generated.filter((task) => !existingIds.has(task.id))];
+      });
+      setMessage(generated.length === 1 ? "今日の繰り返しタスクを作成しました。前日のタスクは期限切れとして残っています。" : `今日の繰り返しタスクを${generated.length}件作成しました。`);
+    } catch {
+      fail();
+    } finally {
+      recurringGenerationInFlightRef.current = false;
+    }
+  }, [fail, storageAvailable]);
+
+  useEffect(() => {
+    if (loading || !storageAvailable) return;
+    const checkDate = () => { void materializeTodayRecurringTasks(); };
+    checkDate();
+    const interval = window.setInterval(checkDate, 60_000);
+    document.addEventListener("visibilitychange", checkDate);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", checkDate);
+    };
+  }, [loading, materializeTodayRecurringTasks, storageAvailable]);
 
   const setUndo = useCallback((action: () => Promise<void>) => {
     undoRef.current = action;
@@ -171,15 +204,13 @@ export function useTasks() {
       pendingTaskIdsRef.current.delete(id);
       return false;
     }
-    const nextTask = completed ? createNextRepeatedTask(changedTask, createId("task"), now + 1) : null;
     try {
-      await saveProductivityRecords({ tasks: nextTask ? [changedTask, nextTask] : [changedTask] });
-      setTasks((current) => [...current.map((task) => task.id === id ? changedTask : task), ...(nextTask ? [nextTask] : [])]);
-      setMessage(nextTask ? `タスクを完了し、次回分を${nextTask.dueDate}に作成しました。` : completed ? "タスクを完了しました。" : "タスクを未完了に戻しました。");
+      await saveProductivityRecords({ tasks: [changedTask] });
+      setTasks((current) => current.map((task) => task.id === id ? changedTask : task));
+      setMessage(completed ? "タスクを完了しました。次回分は対象日に作成します。" : "タスクを未完了に戻しました。");
       setUndo(async () => {
-        const archivedNext = nextTask ? { ...nextTask, status: "archived" as const, updatedAt: Date.now() } : null;
-        await saveProductivityRecords({ tasks: archivedNext ? [previous, archivedNext] : [previous] });
-        setTasks((current) => current.map((task) => task.id === id ? previous : archivedNext && task.id === archivedNext.id ? archivedNext : task));
+        await saveProductivityRecords({ tasks: [previous] });
+        setTasks((current) => current.map((task) => task.id === id ? previous : task));
       });
       return true;
     } catch {
@@ -228,13 +259,55 @@ export function useTasks() {
     }
     const previousRecords = tasksRef.current.filter((task) => taskIds.has(task.id));
     if (previousRecords.length === 0 || !storageAvailable) return false;
+    const deletedTask = previousRecords.find((task) => task.id === id) ?? previousRecords[0];
+    const seriesId = getRepeatSeriesId(deletedTask);
+    const seriesRoot = deletedTask.repeatRule || deletedTask.repeatSeriesId !== null
+      ? tasksRef.current.find((task) => task.id === seriesId && !taskIds.has(task.id)) ?? null
+      : null;
+    const previousSeriesRoot = seriesRoot;
+    const updatedSeriesRoot = seriesRoot && deletedTask.dueDate !== null
+      ? validateTaskRecord({
+        ...seriesRoot,
+        repeatSkipDates: [...new Set([...(seriesRoot.repeatSkipDates ?? []), deletedTask.dueDate])],
+        updatedAt: Date.now()
+      })
+      : null;
     try {
+      if (updatedSeriesRoot) await saveProductivityRecords({ tasks: [updatedSeriesRoot] });
       await deleteProductivityRecords({ taskIds: previousRecords.map((task) => task.id) });
-      setTasks((current) => current.filter((task) => !taskIds.has(task.id)));
-      setMessage(previousRecords.length > 1 ? "タスクとサブタスクを削除しました。" : "タスクを削除しました。");
+      setTasks((current) => current
+        .filter((task) => !taskIds.has(task.id))
+        .map((task) => updatedSeriesRoot && task.id === updatedSeriesRoot.id ? updatedSeriesRoot : task));
+      setMessage(deletedTask.repeatRule || deletedTask.repeatSeriesId !== null ? "この繰り返しタスクだけを削除しました。" : previousRecords.length > 1 ? "タスクとサブタスクを削除しました。" : "タスクを削除しました。");
+      setUndo(async () => {
+        await saveProductivityRecords({ tasks: [...previousRecords, ...(previousSeriesRoot ? [previousSeriesRoot] : [])] });
+        setTasks((current) => [...current.filter((task) => task.id !== previousSeriesRoot?.id), ...previousRecords, ...(previousSeriesRoot ? [previousSeriesRoot] : [])].sort((left, right) => left.order - right.order || left.createdAt - right.createdAt));
+      });
+      return true;
+    } catch {
+      fail();
+      return false;
+    }
+  }, [fail, setUndo, storageAvailable]);
+
+  const deleteRecurringSeries = useCallback(async (id: string) => {
+    const selectedTask = tasksRef.current.find((task) => task.id === id);
+    if (!selectedTask || (!selectedTask.repeatRule && selectedTask.repeatSeriesId === null) || !storageAvailable) return false;
+    const seriesId = getRepeatSeriesId(selectedTask);
+    const previousRecords = tasksRef.current.filter((task) => getRepeatSeriesId(task) === seriesId);
+    const now = Date.now();
+    const updatedRecords = previousRecords
+      .map((task) => validateTaskRecord({ ...task, repeatRule: null, repeatSeriesId: null, repeatSkipDates: undefined, updatedAt: now }))
+      .filter((task): task is TaskRecord => task !== null);
+    try {
+      await saveProductivityRecords({ tasks: updatedRecords });
+      const updatedById = new Map(updatedRecords.map((task) => [task.id, task]));
+      setTasks((current) => current.map((task) => updatedById.get(task.id) ?? task));
+      setMessage("繰り返しを削除しました。既存のタスクは残しています。");
       setUndo(async () => {
         await saveProductivityRecords({ tasks: previousRecords });
-        setTasks((current) => [...current, ...previousRecords].sort((left, right) => left.order - right.order || left.createdAt - right.createdAt));
+        const previousById = new Map(previousRecords.map((task) => [task.id, task]));
+        setTasks((current) => current.map((task) => previousById.get(task.id) ?? task));
       });
       return true;
     } catch {
@@ -434,6 +507,7 @@ export function useTasks() {
     toggleTask,
     archiveTask,
     deleteTask,
+    deleteRecurringSeries,
     moveTask,
     addProject,
     updateProjectColor,
