@@ -67,6 +67,23 @@ describe("productivityReport", () => {
     ]);
   });
 
+  it("calculates focused time from timestamps instead of the stored duration", () => {
+    const now = new Date(2026, 6, 18, 12);
+    const startedAt = new Date(2026, 6, 18, 10).getTime();
+    const endedAt = new Date(2026, 6, 18, 10, 40).getTime();
+    const report = createProductivityReport([task], [{
+      ...session("calculated", endedAt, 1_000),
+      startedAt,
+      pauseIntervals: [{
+        startedAt: new Date(2026, 6, 18, 10, 10).getTime(),
+        endedAt: new Date(2026, 6, 18, 10, 30).getTime()
+      }]
+    }], "day", now, 25);
+
+    expect(report.focusedMs).toBe(20 * 60_000);
+    expect(report.history[0].focusedDurationMs).toBe(1_000);
+  });
+
   it("uses local calendar boundaries for week and month ranges", () => {
     const now = new Date(2026, 7, 1, 0, 30);
     const week = getLocalPeriodRange("week", now);

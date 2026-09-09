@@ -131,6 +131,13 @@ describe("TaskDrawer", () => {
     expect(screen.getByRole("button", { name: "数学の復習のタイマーを開始" }).querySelector(".task-row__play-icon")).toBeTruthy();
   });
 
+  it("shows calculated focus records in task details", () => {
+    renderDrawer({ sessions: [{ ...session, startedAt: session.endedAt - 25 * 60_000 }] });
+    fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
+    expect(screen.getByLabelText("タスクの実績").textContent).toContain("25分");
+    expect(screen.getByLabelText("タスクの実績").textContent).toContain("完了セッション1回");
+  });
+
   it("keeps tasks completed today in a collapsible section and restores them from the checkbox", async () => {
     const completedTask: TaskRecord = {
       ...task,

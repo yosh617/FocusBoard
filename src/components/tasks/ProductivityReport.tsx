@@ -1,7 +1,9 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { FocusSessionRecord } from "../../types/focusSession";
 import type { TaskRecord } from "../../types/task";
+import { calculateFocusedDurationMs, getFocusedDurationMs } from "../../utils/focusSession";
 import { createFocusHeatmap, createProductivityReport, formatFocusedTime, type ReportPeriod } from "../../utils/productivityReport";
+import { toLocalDateKey } from "../../utils/taskQueries";
 
 const periods: { value: ReportPeriod; label: string }[] = [
   { value: "day", label: "日" },
@@ -48,7 +50,6 @@ function SessionEditForm({ session, onCancel, onSave }: {
   const pauseIntervals = session.pauseIntervals ?? [];
   const [endedAt, setEndedAt] = useState(toDateTimeLocal(session.endedAt));
   const [startedAt, setStartedAt] = useState(toDateTimeLocal(session.startedAt));
-  const [durationMinutes, setDurationMinutes] = useState(String(Math.round(session.focusedDurationMs / 60_000)));
   const [result, setResult] = useState<FocusSessionRecord["result"]>(session.result);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -57,17 +58,16 @@ function SessionEditForm({ session, onCancel, onSave }: {
     event.preventDefault();
     const startedAtMs = new Date(startedAt).getTime();
     const endedAtMs = new Date(endedAt).getTime();
-    const minutes = Number(durationMinutes);
-    if (!Number.isFinite(startedAtMs) || !Number.isFinite(endedAtMs) || endedAtMs < startedAtMs || !Number.isInteger(minutes) || minutes < 0 || minutes > 1_440) {
+    if (!Number.isFinite(startedAtMs) || !Number.isFinite(endedAtMs) || endedAtMs < startedAtMs) {
       setError("終了日時と勉強時間を確認してください。");
       return;
     }
     setError("");
     setSaving(true);
     const saved = await onSave({
-      startedAt: pauseIntervals.length > 0 ? startedAtMs : endedAtMs - minutes * 60_000,
+      startedAt: startedAtMs,
       endedAt: endedAtMs,
-      focusedDurationMs: minutes * 60_000,
+      focusedDurationMs: calculateFocusedDurationMs(startedAtMs, endedAtMs, pauseIntervals),
       result
     });
     setSaving(false);
@@ -79,7 +79,7 @@ function SessionEditForm({ session, onCancel, onSave }: {
       <div className="session-history__fields">
         <label>開始日時<input type="datetime-local" value={startedAt} onChange={(event) => setStartedAt(event.target.value)} required /></label>
         <label>終了日時<input type="datetime-local" value={endedAt} onChange={(event) => setEndedAt(event.target.value)} required /></label>
-        <label>勉強時間（分）<input type="number" min={0} max={1_440} step={1} inputMode="numeric" value={durationMinutes} onChange={(event) => setDurationMinutes(event.target.value)} readOnly={pauseIntervals.length > 0} required /></label>
+        <label>実働時間（自動計算）<output className="session-history__computed-time">{formatFocusedTime(calculateFocusedDurationMs(Number.isFinite(new Date(startedAt).getTime()) ? new Date(startedAt).getTime() : session.startedAt, Number.isFinite(new Date(endedAt).getTime()) ? new Date(endedAt).getTime() : session.endedAt, pauseIntervals))}</output></label>
         <label>結果<select value={result} onChange={(event) => setResult(event.target.value as FocusSessionRecord["result"])}><option value="completed">完了</option><option value="cancelled">中断</option></select></label>
       </div>
       {pauseIntervals.length > 0 && <p className="session-history__pause-note">一時停止 {formatFocusedTime(getPausedDurationMs(session))}（{pauseIntervals.length}回）</p>}
@@ -107,6 +107,18 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
     [now, period, periodOffset, sessions, tasks, workMinutes]
   );
   const focusHeatmap = useMemo(() => createFocusHeatmap(sessions, now), [now, sessions]);
+  const activityScrollRef = useRef<HTMLDivElement>(null);
+  const todayKey = toLocalDateKey(now);
+  useEffect(() => {
+    const scrollElement = activityScrollRef.current;
+    if (!scrollElement) return;
+    const alignToLatest = () => {
+      scrollElement.scrollLeft = Math.max(0, scrollElement.scrollWidth - scrollElement.clientWidth);
+    };
+    alignToLatest();
+    const frame = window.requestAnimationFrame(alignToLatest);
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusHeatmap.weeks.length]);
   const periodLabel = period === "day" ? "日" : period === "week" ? "週" : "月";
   const todayTaskCount = report.todayRemainingTasks + report.todayCompletedTasks;
   const todayCompletionRate = todayTaskCount === 0 ? 0 : Math.round((report.todayCompletedTasks / todayTaskCount) * 100);
@@ -130,11 +142,11 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
         <div className="report-activity__heading">
           <div>
             <h4 id="report-activity-title">勉強時間</h4>
-            <p>直近1年の集中記録</p>
+            <p>直近1年の集中記録・右端が今日</p>
           </div>
           <strong>{formatFocusedTime(focusHeatmap.totalFocusedMs)}</strong>
         </div>
-        <div className="report-activity__scroll">
+        <div className="report-activity__scroll" ref={activityScrollRef}>
           <div className="report-activity__calendar" aria-label="直近1年の勉強時間ヒートマップ">
             <div className="report-activity__weekdays" aria-hidden="true">
               <span className="report-activity__month-spacer" />
@@ -162,6 +174,7 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
                         className="report-activity__day"
                         data-level={day.level}
                         data-future={day.isFuture ? "true" : undefined}
+                        data-today={day.date === todayKey ? "true" : undefined}
                         key={day.date}
                         role="img"
                         aria-label={`${new Date(`${day.date}T00:00:00`).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" })} ${day.isFuture ? "予定" : formatFocusedTime(day.focusedMs)}`}
@@ -272,8 +285,8 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
                 aria-label={`集中記録を編集：${session.taskTitleSnapshot ?? "タスクなし"} ${formatHistoryDate(session.endedAt)}`}
                 onClick={() => setEditingSessionId((current) => current === session.id ? null : session.id)}
               >
-                <div><strong>{session.taskTitleSnapshot ?? "タスクなし"}</strong><span>{session.projectNameSnapshot ?? "プロジェクトなし"}・{formatHistoryDate(session.endedAt)}</span></div>
-                <div><strong>{formatFocusedTime(session.focusedDurationMs)}</strong><span>{session.result === "completed" ? "完了" : "中断"}{getPausedDurationMs(session) > 0 ? `・休止 ${formatFocusedTime(getPausedDurationMs(session))}` : ""}</span></div>
+                <div><strong>{session.taskTitleSnapshot ?? "タスクなし"}</strong><span>{session.projectNameSnapshot ?? "プロジェクトなし"}・{formatHistoryDate(session.startedAt)}〜{formatHistoryDate(session.endedAt)}</span></div>
+                <div><strong>{formatFocusedTime(getFocusedDurationMs(session))}</strong><span>{session.result === "completed" ? "完了" : "中断"}{getPausedDurationMs(session) > 0 ? `・休止 ${formatFocusedTime(getPausedDurationMs(session))}` : ""}</span></div>
               </button>
               {isEditing && <SessionEditForm
                 session={session}

@@ -199,11 +199,17 @@ describe("usePomodoroTimer", () => {
     act(() => { vi.advanceTimersByTime(10_000); result.current.start(); });
     act(() => { vi.advanceTimersByTime(5_000); result.current.end(); });
 
-    const event = onSessionEnd.mock.calls[0][0];
-    expect(event.pauseIntervals).toHaveLength(1);
-    expect(event.pauseIntervals[0].endedAt - event.pauseIntervals[0].startedAt).toBe(10_000);
-    expect(event.focusedDurationMs).toBeGreaterThanOrEqual(9_000);
-    expect(event.focusedDurationMs).toBeLessThan(11_000);
+    expect(onSessionEnd).toHaveBeenCalledTimes(2);
+    const [firstEvent, secondEvent] = onSessionEnd.mock.calls.map(([event]) => event);
+    expect(firstEvent.result).toBe("cancelled");
+    expect(firstEvent.pauseIntervals).toEqual([]);
+    expect(firstEvent.focusedDurationMs).toBeGreaterThanOrEqual(4_000);
+    expect(firstEvent.focusedDurationMs).toBeLessThan(6_000);
+    expect(secondEvent.result).toBe("cancelled");
+    expect(secondEvent.taskId).toBe("task-1");
+    expect(secondEvent.pauseIntervals).toEqual([]);
+    expect(secondEvent.focusedDurationMs).toBeGreaterThanOrEqual(4_000);
+    expect(secondEvent.focusedDurationMs).toBeLessThan(6_000);
   });
 
   it("records real elapsed time for a countup session", () => {

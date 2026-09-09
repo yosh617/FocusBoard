@@ -25,6 +25,11 @@ const previousDaySession: FocusSessionRecord = {
   endedAt: new Date(2026, 6, 17, 10, 25).getTime()
 };
 
+function toDateTimeLocal(timestamp: number) {
+  const localTimestamp = timestamp - new Date(timestamp).getTimezoneOffset() * 60_000;
+  return new Date(localTimestamp).toISOString().slice(0, 16);
+}
+
 describe("ProductivityReport", () => {
   it("shows one flat summary followed by trend, project, task, and history sections", () => {
     render(<ProductivityReport tasks={[completedTask]} sessions={[todaySession, previousDaySession]} workMinutes={25} now={now} onUpdateSession={vi.fn().mockResolvedValue(true)} />);
@@ -44,6 +49,7 @@ describe("ProductivityReport", () => {
     expect(screen.getAllByText("完了").length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "日" }));
     expect(screen.getByRole("button", { name: "日" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText("直近1年の集中記録・右端が今日")).toBeTruthy();
   }, 15_000);
 
   it("shows empty-state guidance when there is no task progress yet", () => {
@@ -71,7 +77,7 @@ describe("ProductivityReport", () => {
     fireEvent.click(screen.getByRole("button", { name: "集中記録を編集：数学 7/18 11:00" }));
     expect(screen.getByLabelText("開始日時")).toBeTruthy();
     expect(screen.getByLabelText("終了日時")).toBeTruthy();
-    fireEvent.change(screen.getByLabelText("勉強時間（分）"), { target: { value: "30" } });
+    fireEvent.change(screen.getByLabelText("開始日時"), { target: { value: toDateTimeLocal(endedAt - 30 * 60_000) } });
     expect(screen.getByLabelText("結果")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "記録を保存" }));
     await waitFor(() => expect(onUpdateSession).toHaveBeenCalledWith("session-1", expect.objectContaining({

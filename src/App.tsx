@@ -19,6 +19,7 @@ import { useTaskReminders } from "./hooks/useTaskReminders";
 import { defaultSettings, fontOptions, positionPresets, taskThemePresets, type OrientationPositions, type PositionPreset } from "./types/settings";
 import type { TimerSessionEvent } from "./types/timer";
 import { getAdaptivePalette, fallbackBackgroundRgb, getReadableTextColorForHex, getStrongAccent, type AdaptivePalette } from "./utils/adaptiveColor";
+import { getFocusedDurationMs } from "./utils/focusSession";
 import { formatFocusedTime } from "./utils/productivityReport";
 import { getTasksForView, sortTasksForFocus, toLocalDateKey } from "./utils/taskQueries";
 import { formatDuration, getTimerElapsedMs, getTimerOvertimeMs, modeLabels } from "./utils/time";
@@ -148,7 +149,7 @@ export default function App() {
   const todayFocusedMs = useMemo(
     () => sessions
       .filter((session) => session.mode === "work" && toLocalDateKey(new Date(session.endedAt)) === todayKey)
-      .reduce((sum, session) => sum + session.focusedDurationMs, 0),
+      .reduce((sum, session) => sum + getFocusedDurationMs(session), 0),
     [sessions, todayKey]
   );
   const todayOverdueTaskCount = useMemo(

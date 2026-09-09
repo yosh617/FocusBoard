@@ -1,5 +1,6 @@
 import type { FocusSessionRecord } from "../types/focusSession";
 import type { TaskRecord } from "../types/task";
+import { getFocusedDurationMs } from "./focusSession";
 import { toLocalDateKey } from "./taskQueries";
 
 export type ReportPeriod = "day" | "week" | "month";
@@ -103,7 +104,7 @@ export function createFocusHeatmap(sessions: FocusSessionRecord[], now = new Dat
   for (const session of sessions) {
     if (session.mode !== "work" || session.endedAt > now.getTime() || session.endedAt < start.getTime() || session.endedAt >= end.getTime()) continue;
     const date = toLocalDateKey(new Date(session.endedAt));
-    dailyTotals.set(date, (dailyTotals.get(date) ?? 0) + session.focusedDurationMs);
+    dailyTotals.set(date, (dailyTotals.get(date) ?? 0) + getFocusedDurationMs(session));
   }
 
   const weeks: FocusHeatmapDay[][] = [];
@@ -195,7 +196,7 @@ export function createProductivityReport(
   const periodSessions = sessions
     .filter((session) => session.mode === "work" && session.endedAt >= startAt && session.endedAt < endAt)
     .sort((a, b) => b.endedAt - a.endedAt || b.startedAt - a.startedAt);
-  const focusedMs = periodSessions.reduce((sum, session) => sum + session.focusedDurationMs, 0);
+  const focusedMs = periodSessions.reduce((sum, session) => sum + getFocusedDurationMs(session), 0);
   const todayTasks = tasks.filter((task) => task.parentTaskId === null && task.status !== "archived" && (
     (task.status === "open" && task.dueDate !== null && task.dueDate <= todayKey)
     || (task.status === "completed" && task.completedAt !== null && task.completedAt >= todayRange.startAt && task.completedAt < todayRange.endAt)
@@ -208,14 +209,14 @@ export function createProductivityReport(
   for (const session of periodSessions) {
     const projectKey = session.projectIdSnapshot ?? "unassigned";
     const project = projectTotals.get(projectKey) ?? { label: session.projectNameSnapshot ?? "プロジェクトなし", focusedMs: 0 };
-    project.focusedMs += session.focusedDurationMs;
+    project.focusedMs += getFocusedDurationMs(session);
     projectTotals.set(projectKey, project);
     const taskKey = session.taskId ?? `session:${session.id}`;
     const task = taskTotals.get(taskKey) ?? { title: session.taskTitleSnapshot ?? "タスクなし", focusedMs: 0 };
-    task.focusedMs += session.focusedDurationMs;
+    task.focusedMs += getFocusedDurationMs(session);
     taskTotals.set(taskKey, task);
     const dateKey = toLocalDateKey(new Date(session.endedAt));
-    dailyTotals.set(dateKey, (dailyTotals.get(dateKey) ?? 0) + session.focusedDurationMs);
+    dailyTotals.set(dateKey, (dailyTotals.get(dateKey) ?? 0) + getFocusedDurationMs(session));
   }
 
   const dailyFocus: { date: string; focusedMs: number }[] = [];

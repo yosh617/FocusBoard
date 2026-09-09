@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateA
 import type { AppSettings, Orientation } from "../types/settings";
 import type { FloatingPosition, PauseInterval, SessionCategory, TimerMode, TimerProgram, TimerSessionEvent, TimerState } from "../types/timer";
 import { createInitialTimerState, loadTimerState, removeTimerState, saveTimerState } from "../utils/storage";
+import { calculateFocusedDurationMs } from "../utils/focusSession";
 import { getDurationMs, modeLabels } from "../utils/time";
 
 type AudioWindow = Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext };
@@ -70,9 +71,7 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
 
   const emitSession = useCallback((current: TimerState, result: TimerSessionEvent["result"], endedAt: number) => {
     if (!current.activeSessionId || current.sessionStartedAt === null) return;
-    const remainingMs = current.status === "running" && current.endAt !== null
-      ? Math.max(0, current.endAt - endedAt)
-      : current.remainingMs;
+    const startedAt = current.sessionStartedAt;
     const pauseIntervals: PauseInterval[] = current.pauseStartedAt === null
       ? current.pauseIntervals
       : [...current.pauseIntervals, { startedAt: current.pauseStartedAt, endedAt }];
@@ -85,11 +84,7 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
       startedAt: current.sessionStartedAt,
       endedAt,
       plannedDurationMs: current.durationMs,
-      focusedDurationMs: current.program === "countup"
-        ? Math.max(0, current.status === "running" && current.endAt !== null ? endedAt - current.endAt : current.remainingMs)
-        : current.status === "overtime" && current.endAt !== null
-          ? current.durationMs + Math.max(0, endedAt - current.endAt)
-          : Math.max(0, Math.min(current.durationMs, current.durationMs - remainingMs)),
+      focusedDurationMs: calculateFocusedDurationMs(startedAt, endedAt, pauseIntervals),
       pauseIntervals
     });
   }, [onSessionEnd]);
@@ -271,17 +266,21 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
   }, []);
 
   const pause = useCallback(() => {
+    const current = timerRef.current;
+    if (current.status !== "running") return;
+    const pausedAt = Date.now();
+    if (current.activeSessionId) emitSession(current, "cancelled", pausedAt);
+    setAnnouncement("一時停止しました。再開すると別の記録として続きます。");
     setTimer((current) => {
       if (current.status !== "running") return current;
-      const pausedAt = Date.now();
       if (current.program === "countup") {
         const elapsedMs = current.endAt ? Math.max(0, pausedAt - current.endAt) : current.remainingMs;
-        return { ...current, status: "paused", remainingMs: elapsedMs, endAt: null, pauseStartedAt: pausedAt };
+        return { ...current, status: "paused", remainingMs: elapsedMs, endAt: null, activeSessionId: null, sessionStartedAt: null, pauseIntervals: [], pauseStartedAt: null };
       }
       const remainingMs = current.endAt ? Math.max(0, current.endAt - pausedAt) : current.remainingMs;
-      return { ...current, status: "paused", remainingMs, endAt: null, pauseStartedAt: pausedAt };
+      return { ...current, status: "paused", remainingMs, endAt: null, activeSessionId: null, sessionStartedAt: null, pauseIntervals: [], pauseStartedAt: null };
     });
-  }, []);
+  }, [emitSession]);
 
   const reset = useCallback(() => {
     const current = timerRef.current;
