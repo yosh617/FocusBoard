@@ -2970,14 +2970,18 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
   --ink-muted: var(--color-mid-gray);
   --line: var(--color-hairline);
   --panel: var(--color-paper);
-  --radius-s: 6px;
-  --radius-m: 10px;
-  --radius-l: 16px;
-  --radius-cards: 16px;
   --radius-small: 6px;
-  --radius-nested: 10px;
-  --radius-buttons: 10px;
-  --radius-pill: 18px;
+  --radius-control: 8px;
+  --radius-card: 12px;
+  --radius-panel: 16px;
+  --radius-large: 20px;
+  --radius-pill: 999px;
+  --radius-s: var(--radius-small);
+  --radius-m: var(--radius-control);
+  --radius-l: var(--radius-panel);
+  --radius-cards: var(--radius-card);
+  --radius-nested: var(--radius-control);
+  --radius-buttons: var(--radius-control);
   --shadow-subtle: 0 0 0 1px rgba(23, 23, 23, .05), 0 1px 3px rgba(0, 0, 0, .08), 0 1px 2px -1px rgba(0, 0, 0, .08);
 }
 
@@ -3480,4 +3484,137 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 @media (max-width: 520px) {
   .task-workspace__heading { display: grid; align-items: start; gap: 8px; }
   .task-workspace__heading > .color-picker-field { width: 100%; }
+}
+
+/* UI review contract: one readable soft selection, one radius scale, and explicit narrow-screen layout. */
+.settings-drawer { min-height: 0; }
+.settings-content {
+  flex: 1;
+  min-height: 0;
+  padding-top: 16px;
+  scroll-padding-top: 16px;
+}
+.settings-section { scroll-margin-top: 16px; }
+
+.settings-tabs button.is-active,
+.settings-tabs button[aria-selected="true"],
+.task-mode-tabs button.is-active,
+.task-navigation__views button.is-active,
+.task-list-filters button.is-active,
+.task-quick-add__presets button.is-active,
+.task-editor__quick-group button.is-active,
+.task-editor__date-presets button.is-active,
+.report-period button[aria-pressed="true"],
+.choice-grid button.is-selected,
+.position-grid__cell.is-selected,
+.orientation-picker button.is-selected,
+.color-preset.is-selected,
+.clock-color-choice.is-selected {
+  color: var(--color-ink) !important;
+  border-color: var(--accent) !important;
+  background: var(--accent-soft) !important;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent) !important;
+}
+.settings-tabs button.is-active svg { stroke: currentColor; }
+.task-navigation__views button.is-active strong,
+.project-link.is-active > button:first-child strong,
+.task-list-filters button.is-active strong {
+  color: var(--color-mid-gray);
+  background: transparent;
+}
+.project-link.is-active {
+  color: var(--color-ink);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+.settings-drawer .background-option.background-option--active,
+.settings-drawer .background-option.background-option--active .background-option__preview {
+  color: var(--color-ink);
+  border-color: var(--accent);
+  background-color: var(--accent-soft);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+.settings-drawer .background-option.background-option--active .background-option__preview { border-width: 1px; }
+.task-drawer .report-period button[aria-pressed="true"] {
+  color: var(--color-ink);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+.range-control__inputs {
+  align-items: center;
+}
+.setting-control--three-choice .choice-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.setting-control--three-choice .choice-grid button {
+  justify-content: center;
+  text-align: center;
+}
+.settings-drawer .data-card--primary .primary-button {
+  color: var(--accent-contrast);
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.project-add__palette .color-picker__saved-colors {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+.project-add__palette .color-picker__saved-colors > * { justify-self: center; }
+
+@media (max-width: 600px) {
+  .range-control__inputs {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "range range" "value unit" "reset reset";
+    gap: 7px 8px;
+  }
+  .range-control__inputs input[type="range"] { grid-area: range; }
+  .range-control__inputs .number-input { grid-area: value; }
+  .range-control__inputs > span { grid-area: unit; }
+  .range-control__inputs .reset-value {
+    grid-area: reset;
+    width: 100%;
+  }
+
+  .task-capture__toolbar {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    padding: 6px 0;
+  }
+  .task-capture__toolbar button {
+    display: grid;
+    width: auto;
+    min-height: 52px;
+    padding: 4px 3px;
+    color: var(--color-mid-gray) !important;
+    border: 1px solid var(--color-hairline);
+    border-radius: var(--radius-control);
+    background: var(--color-paper);
+    font-size: 10px;
+  }
+  .task-capture__toolbar button.is-active { color: var(--color-ink) !important; border-color: var(--accent); background: var(--accent-soft); }
+  .task-capture__toolbar-copy { display: grid; min-width: 0; gap: 1px; }
+  .task-capture__toolbar-copy strong,
+  .task-capture__toolbar-copy small { overflow: hidden; max-width: 100%; text-overflow: ellipsis; white-space: nowrap; }
+  .task-capture__toolbar-copy strong { color: currentColor; font-size: 10px; }
+  .task-capture__toolbar-copy small { color: var(--color-mid-gray); font-size: 9px; font-weight: 600; }
+}
+
+@media (max-width: 600px) and (orientation: portrait) {
+  /* The launcher is a bottom-safe rectangular card; reserve the lower zone for it. */
+  .task-launcher {
+    width: min(420px, calc(100vw - 32px));
+    min-width: 0;
+    max-width: none;
+    min-height: 112px;
+    height: auto;
+    max-height: min(180px, calc(100dvh - 32px));
+    overflow: hidden;
+  }
+  .app-shell--task-launcher-visible .clock-widget { top: 48% !important; }
 }

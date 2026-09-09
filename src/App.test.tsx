@@ -202,13 +202,13 @@ describe("App", () => {
     expect(within(homeDock).queryByRole("button", { name: "設定" })).toBeNull();
 
     fireEvent.click(within(homeDock).getByRole("button", { name: "タスク" }));
-    expect(screen.getByRole("dialog", { name: "Tasks" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "タスク" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "設定を開く" }));
-    expect(screen.queryByRole("dialog", { name: "Tasks" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "タスク" })).toBeNull();
     expect(screen.getByRole("dialog", { name: "設定" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "タスクを開く" }));
     expect(screen.queryByRole("dialog", { name: "設定" })).toBeNull();
-    expect(screen.getByRole("dialog", { name: "Tasks" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "タスク" })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "タスクを閉じる" }));
     fireEvent.click(within(homeDock).getByRole("button", { name: "タスク" }));
@@ -556,7 +556,7 @@ describe("App", () => {
 
     expect(document.querySelector(".floating-timer__task")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "タスクを開く。取り組んでいるタスクは数学の復習。今日の未完了は2件" }));
-    expect(screen.getByRole("dialog", { name: "Tasks" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "タスク" })).toBeTruthy();
     expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "数学の復習の詳細からタイマーへ戻る" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "タスク一覧へ戻る" }));
@@ -569,13 +569,13 @@ describe("App", () => {
     const launcher = screen.getByRole("button", { name: "タスクを開く。取り組んでいるタスクは数学の復習。今日の未完了は2件" });
 
     fireEvent.click(launcher);
-    expect(screen.getByRole("dialog", { name: "Tasks" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "タスク" })).toBeTruthy();
 
     act(() => {
       window.dispatchEvent(new PopStateEvent("popstate"));
     });
 
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Tasks" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "タスク" })).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(launcher));
   });
 
@@ -589,7 +589,7 @@ describe("App", () => {
       fireEvent.click(screen.getByText("ほかの操作"));
       fireEvent.click(screen.getByRole("button", { name: "タスク一覧を開く" }));
       expect(screen.queryByRole("dialog", { name: "集中セッション完了" })).toBeNull();
-      expect(screen.getByRole("dialog", { name: "Tasks" })).toBeTruthy();
+      expect(screen.getByRole("dialog", { name: "タスク" })).toBeTruthy();
       expect(screen.getByRole("form", { name: "英語の宿題の詳細" })).toBeTruthy();
       fireEvent.click(screen.getByRole("button", { name: "タスク一覧へ戻る" }));
       expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("英語の宿題を次の候補として開いています");
@@ -1054,9 +1054,9 @@ describe("App", () => {
     render(<App />);
     const launcher = screen.getByRole("button", { name: /タスクを開く/ });
     fireEvent.click(launcher);
-    expect(screen.getByRole("dialog", { name: "Tasks" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "タスク" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "タスクを閉じる" }));
-    expect(screen.queryByRole("dialog", { name: "Tasks" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "タスク" })).toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(launcher));
   });
 
@@ -1100,7 +1100,7 @@ describe("App", () => {
     render(<App />);
 
     fireEvent.click(screen.getByRole("button", { name: "タスクを開く。今日の未完了は2件" }));
-    expect(screen.getByRole("dialog", { name: "Tasks" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "タスク" })).toBeTruthy();
     expect(screen.queryByRole("form", { name: "数学の復習の詳細" })).toBeNull();
     expect(screen.queryByText("今日のおすすめ")).toBeNull();
   });

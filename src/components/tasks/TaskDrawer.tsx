@@ -1014,7 +1014,7 @@ export function TaskDrawer({
         <a className="task-skip-link" href="#task-workspace-main">現在の一覧へ移動</a>
         <div className="task-drawer__sheet-handle" aria-hidden="true" />
         <header className="task-drawer__header">
-          <div><h2 id="task-drawer-title">Tasks</h2></div>
+          <div><h2 id="task-drawer-title">タスク</h2></div>
           <div className="task-drawer__header-actions">
             {notificationPermission === "default" && <button className="task-header-action" type="button" onClick={() => void onRequestNotification()}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 7h18s-3 0-3-7M10 20h4" /></svg><span>通知を許可</span></button>}
             {canUndo && <button className="task-header-action" type="button" onClick={() => void onUndo()}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7-5 5 5 5M5 12h8a6 6 0 0 1 6 6" /></svg><span>元に戻す</span></button>}

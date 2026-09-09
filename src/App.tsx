@@ -473,6 +473,7 @@ export default function App() {
     "--task-primary-text": taskTheme.text,
     "--task-primary-shadow": taskTheme.shadow
   } as CSSProperties;
+  const taskLauncherVisible = (settings.taskLauncherVisibility === "always" && !(settings.dateDisplayStyle === "calendar" && timer.status === "idle" && !settings.timerSetupCollapsed)) || taskDetailCardVisible;
 
   useEffect(() => {
     if (!liveMessage) return;
@@ -533,7 +534,7 @@ export default function App() {
 
   return (
     <main
-      className={`app-shell${backgroundEditing ? " app-shell--background-editing" : ""}`}
+      className={`app-shell${backgroundEditing ? " app-shell--background-editing" : ""}${taskLauncherVisible ? " app-shell--task-launcher-visible" : ""}`}
       style={appStyle}
       onPointerUp={revealTaskDetailCardOnBackgroundTap}
     >
@@ -609,7 +610,7 @@ export default function App() {
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h10M9 12h10M9 18h10M4 6h.01M4 12h.01M4 18h.01" /></svg><span>タスク</span>
         </button>
       </nav>}
-      {((settings.taskLauncherVisibility === "always" && !(settings.dateDisplayStyle === "calendar" && timer.status === "idle" && !settings.timerSetupCollapsed)) || taskDetailCardVisible) && <TaskLauncher
+      {taskLauncherVisible && <TaskLauncher
         todayCount={todayOpenTaskCount}
         todaySummary={{
           completedCount: todayCompletedTaskCount,
