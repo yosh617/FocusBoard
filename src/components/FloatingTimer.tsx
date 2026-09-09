@@ -23,7 +23,6 @@ export function FloatingTimer({ timer, taskTitle, taskProgress, onStart, onPause
   const [position, setPosition] = useState(timer.floatingPosition);
   const positionRef = useRef(timer.floatingPosition);
   const compactPositionRef = useRef<FloatingPosition | null>(null);
-  const movedWhileExpandedRef = useRef(false);
   const dragElementRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ pointerX: number; pointerY: number; position: FloatingPosition; moved: boolean } | null>(null);
   const suppressClickRef = useRef(false);
@@ -142,7 +141,6 @@ export function FloatingTimer({ timer, taskTitle, taskProgress, onStart, onPause
     if (!dragRef.current) return;
     if (Math.hypot(event.clientX - dragRef.current.pointerX, event.clientY - dragRef.current.pointerY) > 6) dragRef.current.moved = true;
     if (!dragRef.current.moved) return;
-    if (!isCompact) movedWhileExpandedRef.current = true;
     const next = clampPosition(
       dragRef.current.position.x + (event.clientX - dragRef.current.pointerX) / window.innerWidth,
       dragRef.current.position.y + (event.clientY - dragRef.current.pointerY) / window.innerHeight
@@ -173,7 +171,6 @@ export function FloatingTimer({ timer, taskTitle, taskProgress, onStart, onPause
   };
 
   const moveWithKeyboard = (x: number, y: number) => {
-    if (!isCompact) movedWhileExpandedRef.current = true;
     const next = clampPosition(position.x + x, position.y + y);
     positionRef.current = next;
     setPosition(next);
@@ -183,13 +180,12 @@ export function FloatingTimer({ timer, taskTitle, taskProgress, onStart, onPause
   const toggleCompact = () => {
     if (isCompact) {
       compactPositionRef.current = positionRef.current;
-      movedWhileExpandedRef.current = false;
       setIsCompact(false);
       return;
     }
 
     const compactPosition = compactPositionRef.current;
-    if (compactPosition && !movedWhileExpandedRef.current) {
+    if (compactPosition) {
       positionRef.current = compactPosition;
       setPosition(compactPosition);
       onPositionChange(compactPosition);
