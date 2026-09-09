@@ -175,6 +175,16 @@ describe("useTasks", () => {
     ]));
   });
 
+  it("clears an older undo after a successful task edit", async () => {
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask], projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0 });
+    const { result } = renderHook(() => useTasks());
+    await waitFor(() => expect(result.current.tasks).toHaveLength(1));
+    await act(async () => { await result.current.toggleTask(savedTask.id); });
+    expect(result.current.canUndo).toBe(true);
+    await act(async () => { await result.current.updateTask(savedTask.id, { title: "更新した数学" }); });
+    expect(result.current.canUndo).toBe(false);
+  });
+
   it("does not create another occurrence immediately when a repeating task is completed", async () => {
     const today = toLocalDateKey(new Date());
     vi.mocked(loadProductivityData).mockResolvedValue({
@@ -198,6 +208,18 @@ describe("useTasks", () => {
     await act(async () => { expect(await result.current.deleteTask(occurrence.id)).toBe(true); });
     expect(result.current.tasks).toHaveLength(1);
     expect(result.current.tasks[0].repeatSkipDates).toEqual([today]);
+  });
+
+  it("keeps a repeating series alive when its canonical root is deleted", async () => {
+    const today = toLocalDateKey(new Date());
+    const root = { ...savedTask, dueDate: today, repeatRule: { type: "daily", interval: 1 } as const };
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [root], projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0 });
+    const { result } = renderHook(() => useTasks());
+    await waitFor(() => expect(result.current.tasks).toHaveLength(1));
+    await act(async () => { expect(await result.current.deleteTask(root.id)).toBe(true); });
+    expect(result.current.tasks).toHaveLength(1);
+    expect(result.current.tasks[0]).toMatchObject({ id: root.id, dueDate: addLocalDays(today, 1), repeatRule: root.repeatRule });
+    expect(deleteProductivityRecords).toHaveBeenCalledWith({ taskIds: [] });
   });
 
   it("stops a repeating series while keeping its existing tasks", async () => {

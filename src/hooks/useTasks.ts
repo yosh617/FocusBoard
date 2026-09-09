@@ -23,7 +23,7 @@ import {
   saveTaskRecord
 } from "../utils/productivityStorage";
 import { validateFocusSessionRecord, validateProjectRecord, validateTaskRecord } from "../utils/taskValidation";
-import { createTodayRepeatedTasks, getRepeatSeriesId } from "../utils/repeatRule";
+import { createTodayRepeatedTasks, getNextDueDate, getRepeatSeriesId } from "../utils/repeatRule";
 import { toLocalDateKey } from "../utils/taskQueries";
 
 const createId = (prefix: string) =>
@@ -110,6 +110,11 @@ export function useTasks() {
     setCanUndo(true);
   }, []);
 
+  const clearUndo = useCallback(() => {
+    undoRef.current = null;
+    setCanUndo(false);
+  }, []);
+
   const addTask = useCallback(async (draft: TaskDraft) => {
     if (!storageAvailable) return null;
     const title = draft.title.trim();
@@ -124,7 +129,9 @@ export function useTasks() {
       title,
       status: "open",
       bucket: draft.bucket ?? "inbox",
-      projectId: draft.projectId ?? null,
+      projectId: draft.projectId && projectsRef.current.some((project) => project.id === draft.projectId && project.archivedAt === null)
+        ? draft.projectId
+        : null,
       parentTaskId: draft.parentTaskId ?? null,
       note: draft.note ?? "",
       dueDate: draft.dueDate ?? null,
@@ -148,12 +155,13 @@ export function useTasks() {
       await saveTaskRecord(validTask);
       setTasks((current) => [...current, validTask]);
       setMessage("タスクを追加しました。");
+      clearUndo();
       return validTask.id;
     } catch {
       fail();
       return null;
     }
-  }, [fail, storageAvailable]);
+  }, [clearUndo, fail, storageAvailable]);
 
   const updateTask = useCallback(async (id: string, patch: Partial<TaskRecord>) => {
     const previous = tasksRef.current.find((task) => task.id === id);
@@ -166,12 +174,13 @@ export function useTasks() {
     try {
       await saveTaskRecord(candidate);
       setTasks((current) => current.map((task) => task.id === id ? candidate : task));
+      clearUndo();
       return true;
     } catch {
       fail();
       return false;
     }
-  }, [fail, storageAvailable]);
+  }, [clearUndo, fail, storageAvailable]);
 
   const updateSession = useCallback(async (id: string, patch: Partial<FocusSessionRecord>) => {
     const previous = sessionsRef.current.find((session) => session.id === id);
@@ -262,26 +271,41 @@ export function useTasks() {
     const deletedTask = previousRecords.find((task) => task.id === id) ?? previousRecords[0];
     const seriesId = getRepeatSeriesId(deletedTask);
     const seriesRoot = deletedTask.repeatRule || deletedTask.repeatSeriesId !== null
-      ? tasksRef.current.find((task) => task.id === seriesId && !taskIds.has(task.id)) ?? null
+      ? tasksRef.current.find((task) => task.id === seriesId) ?? null
       : null;
-    const previousSeriesRoot = seriesRoot;
-    const updatedSeriesRoot = seriesRoot && deletedTask.dueDate !== null
-      ? validateTaskRecord({
+    const previousSeriesRoot = seriesRoot && seriesRoot.id !== deletedTask.id ? seriesRoot : null;
+    const now = Date.now();
+    let updatedSeriesRoot: TaskRecord | null = null;
+    if (seriesRoot && seriesRoot.id === deletedTask.id && seriesRoot.repeatRule && seriesRoot.dueDate !== null) {
+      let nextDueDate = getNextDueDate(seriesRoot.dueDate, seriesRoot.repeatRule);
+      const seriesDates = new Set(tasksRef.current
+        .filter((task) => getRepeatSeriesId(task) === seriesId && task.id !== seriesRoot.id)
+        .map((task) => task.dueDate));
+      while (seriesDates.has(nextDueDate)) nextDueDate = getNextDueDate(nextDueDate, seriesRoot.repeatRule);
+      updatedSeriesRoot = validateTaskRecord({
+        ...seriesRoot,
+        dueDate: nextDueDate,
+        repeatSkipDates: [...new Set([...(seriesRoot.repeatSkipDates ?? []), seriesRoot.dueDate])],
+        updatedAt: now
+      });
+    } else if (seriesRoot && deletedTask.dueDate !== null) {
+      updatedSeriesRoot = validateTaskRecord({
         ...seriesRoot,
         repeatSkipDates: [...new Set([...(seriesRoot.repeatSkipDates ?? []), deletedTask.dueDate])],
-        updatedAt: Date.now()
-      })
-      : null;
+        updatedAt: now
+      });
+    }
+    const deletedTaskIds = previousRecords.filter((task) => task.id !== updatedSeriesRoot?.id).map((task) => task.id);
     try {
       if (updatedSeriesRoot) await saveProductivityRecords({ tasks: [updatedSeriesRoot] });
-      await deleteProductivityRecords({ taskIds: previousRecords.map((task) => task.id) });
+      await deleteProductivityRecords({ taskIds: deletedTaskIds });
       setTasks((current) => current
-        .filter((task) => !taskIds.has(task.id))
+        .filter((task) => !taskIds.has(task.id) || task.id === updatedSeriesRoot?.id)
         .map((task) => updatedSeriesRoot && task.id === updatedSeriesRoot.id ? updatedSeriesRoot : task));
       setMessage(deletedTask.repeatRule || deletedTask.repeatSeriesId !== null ? "この繰り返しタスクだけを削除しました。" : previousRecords.length > 1 ? "タスクとサブタスクを削除しました。" : "タスクを削除しました。");
       setUndo(async () => {
         await saveProductivityRecords({ tasks: [...previousRecords, ...(previousSeriesRoot ? [previousSeriesRoot] : [])] });
-        setTasks((current) => [...current.filter((task) => task.id !== previousSeriesRoot?.id), ...previousRecords, ...(previousSeriesRoot ? [previousSeriesRoot] : [])].sort((left, right) => left.order - right.order || left.createdAt - right.createdAt));
+        setTasks((current) => [...current.filter((task) => task.id !== updatedSeriesRoot?.id && !taskIds.has(task.id)), ...previousRecords, ...(previousSeriesRoot ? [previousSeriesRoot] : [])].sort((left, right) => left.order - right.order || left.createdAt - right.createdAt));
       });
       return true;
     } catch {
@@ -334,12 +358,13 @@ export function useTasks() {
       const byId = new Map(updated.map((task) => [task.id, task]));
       setTasks((current) => current.map((task) => byId.get(task.id) ?? task));
       setMessage("タスクの順番を保存しました。");
+      clearUndo();
       return true;
     } catch {
       fail();
       return false;
     }
-  }, [fail, storageAvailable]);
+  }, [clearUndo, fail, storageAvailable]);
 
   const addProject = useCallback(async (name: string, color = "#3f6fab") => {
     if (!storageAvailable || !name.trim()) return false;
@@ -358,12 +383,13 @@ export function useTasks() {
       await saveProjectRecord(project);
       setProjects((current) => [...current, project]);
       setMessage("プロジェクトを追加しました。");
+      clearUndo();
       return true;
     } catch {
       fail();
       return false;
     }
-  }, [fail, storageAvailable]);
+  }, [clearUndo, fail, storageAvailable]);
 
   const updateProjectColor = useCallback(async (id: string, color: string) => {
     const project = projectsRef.current.find((item) => item.id === id);
@@ -374,12 +400,13 @@ export function useTasks() {
       await saveProjectRecord(updated);
       setProjects((current) => current.map((item) => item.id === id ? updated : item));
       setMessage("プロジェクトの色を更新しました。");
+      clearUndo();
       return true;
     } catch {
       fail();
       return false;
     }
-  }, [fail, storageAvailable]);
+  }, [clearUndo, fail, storageAvailable]);
 
   const archiveProject = useCallback(async (id: string) => {
     const project = projectsRef.current.find((item) => item.id === id);
@@ -394,12 +421,13 @@ export function useTasks() {
       setProjects((current) => current.map((item) => item.id === id ? archived : item));
       setTasks((current) => current.map((task) => affectedTasks.find((item) => item.id === task.id) ?? task));
       setMessage("プロジェクトをアーカイブし、タスクをInboxへ移しました。");
+      clearUndo();
       return true;
     } catch {
       fail();
       return false;
     }
-  }, [fail, storageAvailable]);
+  }, [clearUndo, fail, storageAvailable]);
 
   const undo = useCallback(async () => {
     const action = undoRef.current;

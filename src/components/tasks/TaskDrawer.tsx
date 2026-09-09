@@ -507,6 +507,10 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
               aria-label={task.status === "completed" ? `${task.title}を詳細から未完了に戻す` : `${task.title}を詳細から完了`}
               onClick={async () => {
                 setTogglingStatus(true);
+                if (isDirty && !(await saveChanges())) {
+                  setTogglingStatus(false);
+                  return;
+                }
                 await onToggleStatus();
                 setTogglingStatus(false);
               }}
@@ -516,6 +520,10 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
             {canCompleteAndStartNext && (
               <button className="secondary-button" type="button" disabled={togglingStatus || startingNextTask} aria-label={`${task.title}を完了して${nextTask.title}を開始`} onClick={async () => {
                 setStartingNextTask(true);
+                if (isDirty && !(await saveChanges())) {
+                  setStartingNextTask(false);
+                  return;
+                }
                 await onCompleteAndStartNextTask();
                 setStartingNextTask(false);
               }}>{startingNextTask ? "切り替え中" : "完了して次を開始"}</button>
@@ -839,6 +847,12 @@ export function TaskDrawer({
     }
   };
 
+  const handleArchiveProject = async (id: string) => {
+    if (!await onArchiveProject(id)) return;
+    if (projectId === id) setProjectId(null);
+    if (quickProjectId === id) setQuickProjectId("");
+  };
+
   const collapseNavigationIfCompact = useCallback(() => {
     if (!isCompactTaskNavigationViewport()) return;
     setNavigationCollapsed(true);
@@ -1017,7 +1031,7 @@ export function TaskDrawer({
                 {activeProjects.map((project) => (
                   <div className={projectId === project.id ? "project-link is-active" : "project-link"} key={project.id}>
                     <button className="project-link__select" type="button" onClick={() => { setProjectId(project.id); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); }}><i style={{ background: project.color }} /><span>{project.name}</span><strong>{estimatedFocusTimeLabel(getTasksForProject(tasks, project.id), workMinutes)}</strong></button>
-                    <button className="project-link__archive" type="button" aria-label={`${project.name}をアーカイブ`} onClick={() => { if (window.confirm(`${project.name}をアーカイブし、タスクをInboxへ移しますか？`)) void onArchiveProject(project.id); }}>×</button>
+                    <button className="project-link__archive" type="button" aria-label={`${project.name}をアーカイブ`} onClick={() => { if (window.confirm(`${project.name}をアーカイブし、タスクをInboxへ移しますか？`)) void handleArchiveProject(project.id); }}>×</button>
                   </div>
                 ))}
                 {showProjectForm && <form className="project-add" onSubmit={addProject}>

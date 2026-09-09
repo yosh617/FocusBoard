@@ -768,6 +768,17 @@ describe("TaskDrawer", () => {
     expect(props.onStartTask).not.toHaveBeenCalled();
   });
 
+  it("saves unsaved detail edits before completing a task", async () => {
+    const props = renderDrawer();
+    fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
+    const details = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
+    fireEvent.change(details.getByLabelText("タスク名"), { target: { value: "更新した数学" } });
+    fireEvent.click(details.getByRole("button", { name: "数学の復習を詳細から完了" }));
+    await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({ title: "更新した数学" })));
+    expect(props.onToggleTask).toHaveBeenCalledWith(task.id);
+    expect(vi.mocked(props.onUpdateTask).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(props.onToggleTask).mock.invocationCallOrder[0]);
+  });
+
   it("shows every task in the current list when all is selected", () => {
     renderDrawer({
       tasks: [task, { ...task, id: "task-2", title: "国語の予習", note: "教科書を読む", order: 1 }]
