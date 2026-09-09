@@ -69,7 +69,7 @@ type TaskListSection = {
 
 const views: { value: TaskView; label: string }[] = [
   { value: "inbox", label: "Inbox" },
-  { value: "today", label: "今日＋期限切れ" },
+  { value: "today", label: "今日" },
   { value: "tomorrow", label: "明日" },
   { value: "upcoming", label: "今後" },
   { value: "someday", label: "いつか" },

@@ -121,7 +121,7 @@ describe("App", () => {
     mockTasksState.tasks = tasks;
     mockTasksState.projects = [focusProject];
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: `タスクを開く。今日＋期限切れの未完了は${tasks.length}件` }));
+    fireEvent.click(screen.getByRole("button", { name: `タスクを開く。今日の未完了は${tasks.length}件` }));
     fireEvent.click(screen.getByRole("button", { name: /^数学の復習 集中回数/ }));
     fireEvent.click(screen.getByRole("button", { name: "数学の復習を詳細から開始" }));
   };
@@ -490,7 +490,7 @@ describe("App", () => {
       await act(async () => { await vi.advanceTimersByTimeAsync(25 * 60_000 + 250); });
 
       fireEvent.click(screen.getByRole("button", { name: "休憩を開始" }));
-      const launcher = screen.getByRole("button", { name: "タスクを開く。短い休憩中。次のおすすめは英語の宿題。今日＋期限切れの未完了は2件" });
+      const launcher = screen.getByRole("button", { name: "タスクを開く。短い休憩中。次のおすすめは英語の宿題。今日の未完了は2件" });
       expect(launcher.textContent).toContain("短い休憩");
       expect(launcher.textContent).toContain("次は 英語の宿題");
       fireEvent.click(launcher);
@@ -528,7 +528,7 @@ describe("App", () => {
       fireEvent.click(screen.getByText("ほかの操作"));
       fireEvent.click(screen.getByRole("button", { name: "同じタスクを続ける" }));
       expect(screen.queryByRole("dialog", { name: "集中セッション完了" })).toBeNull();
-      expect(screen.getByRole("button", { name: "タスクを開く。取り組んでいるタスクは数学の復習。今日＋期限切れの未完了は1件" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "タスクを開く。取り組んでいるタスクは数学の復習。今日の未完了は1件" })).toBeTruthy();
       expect(screen.getByText("FOCUS")).toBeTruthy();
     } finally {
       vi.useRealTimers();
@@ -545,7 +545,7 @@ describe("App", () => {
       expect(screen.getByRole("button", { name: "英語の宿題を開始" }).textContent).toContain("英語の宿題");
       fireEvent.click(screen.getByRole("button", { name: "英語の宿題を開始" }));
       expect(screen.queryByRole("dialog", { name: "集中セッション完了" })).toBeNull();
-      expect(screen.getByRole("button", { name: "タスクを開く。取り組んでいるタスクは英語の宿題。今日＋期限切れの未完了は2件" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "タスクを開く。取り組んでいるタスクは英語の宿題。今日の未完了は2件" })).toBeTruthy();
     } finally {
       vi.useRealTimers();
     }
@@ -555,7 +555,7 @@ describe("App", () => {
     prepareTaskFlow([focusTask, nextFocusTask]);
 
     expect(document.querySelector(".floating-timer__task")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "タスクを開く。取り組んでいるタスクは数学の復習。今日＋期限切れの未完了は2件" }));
+    fireEvent.click(screen.getByRole("button", { name: "タスクを開く。取り組んでいるタスクは数学の復習。今日の未完了は2件" }));
     expect(screen.getByRole("dialog", { name: "Tasks" })).toBeTruthy();
     expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "数学の復習の詳細からタイマーへ戻る" })).toBeTruthy();
@@ -566,7 +566,7 @@ describe("App", () => {
 
   it("closes the task drawer on browser back and restores focus to the launcher", async () => {
     prepareTaskFlow([focusTask, nextFocusTask]);
-    const launcher = screen.getByRole("button", { name: "タスクを開く。取り組んでいるタスクは数学の復習。今日＋期限切れの未完了は2件" });
+    const launcher = screen.getByRole("button", { name: "タスクを開く。取り組んでいるタスクは数学の復習。今日の未完了は2件" });
 
     fireEvent.click(launcher);
     expect(screen.getByRole("dialog", { name: "Tasks" })).toBeTruthy();
@@ -1099,7 +1099,7 @@ describe("App", () => {
     mockTasksState.projects = [focusProject];
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "タスクを開く。今日＋期限切れの未完了は2件" }));
+    fireEvent.click(screen.getByRole("button", { name: "タスクを開く。今日の未完了は2件" }));
     expect(screen.getByRole("dialog", { name: "Tasks" })).toBeTruthy();
     expect(screen.queryByRole("form", { name: "数学の復習の詳細" })).toBeNull();
     expect(screen.queryByText("今日のおすすめ")).toBeNull();

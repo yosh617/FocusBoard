@@ -36,23 +36,23 @@ export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLa
   const title = timerSummary?.title ?? activeTaskTitle ?? suggestedTask?.title ?? "Today";
   const detail = timerSummary?.detail
     ?? (activeTaskTitle
-      ? `今日＋期限切れの未完了 ${todayCount}件`
+      ? `今日の未完了 ${todayCount}件`
       : suggestedTask?.detail
         ?? (todayCount === 0 ? "今日の予定はありません" : `${todayCount}件を整理`));
   const status = timerSummary?.statusText ?? (activeTaskTitle ? "FOCUS" : suggestedTask ? "NEXT" : "TODAY");
   const isEmphasized = activeTaskTitle !== null || timerSummary !== null;
   const isBreakFlow = timerSummary !== null && timerSummary.statusText !== "FOCUS";
   const showTodayTasks = !isEmphasized && suggestedTask === null;
-  const queueLabel = todayCount === 0 ? "今日＋期限切れの未完了なし" : `未完了 ${todayCount}件`;
+  const queueLabel = todayCount === 0 ? "今日の未完了なし" : `未完了 ${todayCount}件`;
   const completionRate = todaySummary && todaySummary.totalCount > 0
     ? Math.round((todaySummary.completedCount / todaySummary.totalCount) * 100)
     : 0;
   const accessibleLabel = timerSummary?.accessibleLabel
     ?? (activeTaskTitle
-      ? `タスクを開く。取り組んでいるタスクは${activeTaskTitle}。今日＋期限切れの未完了は${todayCount}件`
+      ? `タスクを開く。取り組んでいるタスクは${activeTaskTitle}。今日の未完了は${todayCount}件`
       : suggestedTask
-        ? `タスクを開く。次のおすすめは${suggestedTask.title}。今日＋期限切れの未完了は${todayCount}件`
-        : `タスクを開く。今日＋期限切れの未完了は${todayCount}件`);
+        ? `タスクを開く。次のおすすめは${suggestedTask.title}。今日の未完了は${todayCount}件`
+        : `タスクを開く。今日の未完了は${todayCount}件`);
   const [isDimmed, setIsDimmed] = useState(false);
   const launcherRef = useRef<HTMLButtonElement>(null);
   const dimTimeoutRef = useRef<number | null>(null);

@@ -102,7 +102,7 @@ function openAdvancedSettings(container: ReturnType<typeof within>) {
 describe("TaskDrawer", () => {
   it("keeps settings below an independently scrolling task list", () => {
     renderDrawer({ sessions: [session] });
-    expect(screen.getByRole("heading", { name: "今日＋期限切れ" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "今日" })).toBeTruthy();
     expect(screen.getByLabelText("新しいタスク")).toBeTruthy();
     const taskList = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
     const settingsHeading = screen.getByRole("heading", { name: "設定" });
@@ -121,7 +121,7 @@ describe("TaskDrawer", () => {
 
   it("shows estimated focus time instead of task counts in navigation", () => {
     renderDrawer();
-    expect(screen.getByRole("button", { name: "今日＋期限切れ 0h 50m" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "今日 0h 50m" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "勉強 0h 50m" })).toBeTruthy();
   });
 

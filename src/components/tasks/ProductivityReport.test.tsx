@@ -49,7 +49,7 @@ describe("ProductivityReport", () => {
     expect(screen.getAllByText("完了").length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "日" }));
     expect(screen.getByRole("button", { name: "日" }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByText("直近1年の集中記録・右端が今日")).toBeTruthy();
+    expect(screen.queryByText("直近1年の集中記録・右端が今日")).toBeNull();
   }, 15_000);
 
   it("shows empty-state guidance when there is no task progress yet", () => {

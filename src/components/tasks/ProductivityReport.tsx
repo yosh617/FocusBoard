@@ -142,7 +142,6 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
         <div className="report-activity__heading">
           <div>
             <h4 id="report-activity-title">勉強時間</h4>
-            <p>直近1年の集中記録・右端が今日</p>
           </div>
           <strong>{formatFocusedTime(focusHeatmap.totalFocusedMs)}</strong>
         </div>
@@ -209,7 +208,7 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
         <div><h4 id="report-empty-title">この期間の集中記録はまだありません。</h4><p>{report.periodLabel}</p></div>
       </section> : <>
       <section className="focus-timeline-section" aria-labelledby="focus-timeline-title">
-        <div className="report-section-heading"><div><h4 id="focus-timeline-title">実施時間帯</h4><p>{report.periodLabel}・色付きの帯が実施時間</p></div><strong>{formatFocusedTime(report.focusedMs)}</strong></div>
+        <div className="report-section-heading"><h4 id="focus-timeline-title">実施時間帯</h4><strong>{formatFocusedTime(report.focusedMs)}</strong></div>
         <div className="focus-timeline__scroll">
           <div className="focus-timeline" aria-label={`${report.periodLabel}の集中タイムライン`}>
             <div className="focus-timeline__axis" aria-hidden="true">
@@ -250,7 +249,6 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
             </li>))}
           </ol>
         </details>
-        <p className="report-caption">一時停止中は帯を分けて表示しています。帯と一覧で実施時刻を確認できます。</p>
       </section>
 
       <section aria-labelledby="project-report-title">

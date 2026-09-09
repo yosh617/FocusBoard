@@ -242,10 +242,10 @@ export default function App() {
       ? `${detailPrefix} · 次は ${launcherSuggestedTask.title}`
       : detailPrefix;
     const accessibleLabel = isBreakFlow
-      ? `タスクを開く。${defaultTitle}中。${launcherSuggestedTask?.title ? `次のおすすめは${launcherSuggestedTask.title}。` : ""}今日＋期限切れの未完了は${todayOpenTaskCount}件`
+      ? `タスクを開く。${defaultTitle}中。${launcherSuggestedTask?.title ? `次のおすすめは${launcherSuggestedTask.title}。` : ""}今日の未完了は${todayOpenTaskCount}件`
       : activeTask?.title
-        ? `タスクを開く。取り組んでいるタスクは${activeTask.title}。今日＋期限切れの未完了は${todayOpenTaskCount}件`
-        : `タスクを開く。${statusText}。今日＋期限切れの未完了は${todayOpenTaskCount}件`;
+        ? `タスクを開く。取り組んでいるタスクは${activeTask.title}。今日の未完了は${todayOpenTaskCount}件`
+        : `タスクを開く。${statusText}。今日の未完了は${todayOpenTaskCount}件`;
     return { statusText, title, detail, accessibleLabel };
   }, [activeTask?.title, launcherSuggestedTask?.title, timer, todayOpenTaskCount]);
 
@@ -641,7 +641,7 @@ export default function App() {
             const activeTaskDetailParts = [
               activeTaskProject?.name ?? null,
               taskLauncherSummary?.detail ?? null,
-              todayOpenTaskCount > 0 ? `今日＋期限切れの未完了はあと${todayOpenTaskCount}件です。` : "今日はこのタスクが最後です。"
+              todayOpenTaskCount > 0 ? `今日の未完了はあと${todayOpenTaskCount}件です。` : "今日はこのタスクが最後です。"
             ].filter((item): item is string => item !== null);
             setTaskDrawerResumeContext({
               label: "いまの集中",
@@ -766,9 +766,9 @@ export default function App() {
             ? `${resumeTask.title}を次の候補として開いています`
             : "一覧で次のタスクを選べます";
           const resumeDetail = resumeTask
-            ? `${suggestedNextTaskDetail ?? "休憩前に次の候補を調整できます。"}${todayOpenTaskCount > 0 ? ` 今日＋期限切れの未完了はあと${todayOpenTaskCount}件です。` : ""}`
+            ? `${suggestedNextTaskDetail ?? "休憩前に次の候補を調整できます。"}${todayOpenTaskCount > 0 ? ` 今日の未完了はあと${todayOpenTaskCount}件です。` : ""}`
             : todayOpenTaskCount > 0
-              ? `今日＋期限切れの未完了はあと${todayOpenTaskCount}件です。休憩前に一覧で優先順位を整えられます。`
+              ? `今日の未完了はあと${todayOpenTaskCount}件です。休憩前に一覧で優先順位を整えられます。`
               : "今日は優先タスクがひと区切りです。一覧で次の候補を見直せます。";
           setCompletedSession(null);
           setSettingsOpen(false);
