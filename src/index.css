@@ -99,6 +99,12 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 
 .clock-widget { position: absolute; z-index: 3; width: min(86vw, 900px); }
 .clock-widget--left { text-align: left; transform: translate(0, -50%); }.clock-widget--center { text-align: center; transform: translate(-50%, -50%); }.clock-widget--right { text-align: right; transform: translate(-100%, -50%); }
+.clock-position-guides { position: fixed; z-index: 2; inset: 0; pointer-events: none; }
+.clock-position-guides__vertical, .clock-position-guides__horizontal { position: absolute; display: block; background: rgba(255,255,255,.86); box-shadow: 0 0 0 1px rgba(23,52,95,.24), 0 0 14px rgba(255,255,255,.9); animation: clock-position-guide-in .16s ease-out both; }
+.clock-position-guides__vertical { top: 0; bottom: 0; left: 50%; width: 1px; transform: translateX(-.5px); }
+.clock-position-guides__horizontal { top: 50%; right: 0; left: 0; height: 1px; transform: translateY(-.5px); }
+@keyframes clock-position-guide-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .clock-position-guides__vertical, .clock-position-guides__horizontal { animation: none; } }
 .clock-widget__display { display: flex; flex-direction: column; align-items: inherit; width: fit-content; max-width: 100%; padding: 12px 16px; color: inherit; text-align: inherit; border: 1px solid transparent; border-radius: 24px; background: transparent; cursor: grab; touch-action: none; transition: border-color .2s, background-color .2s, box-shadow .2s; }
 .clock-widget__display:active { cursor: grabbing; }.clock-widget__display:hover, .clock-widget--editing .clock-widget__display { border-color: rgba(255,255,255,.64); background: rgba(248,252,255,.17); box-shadow: 0 10px 32px rgba(23,52,95,.08); }
 .clock-widget--left .clock-widget__display { align-items: flex-start; }.clock-widget--center .clock-widget__display { align-items: center; margin-inline: auto; }.clock-widget--right .clock-widget__display { align-items: flex-end; margin-left: auto; }

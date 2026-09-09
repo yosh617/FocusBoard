@@ -28,14 +28,22 @@ type EditorPosition = {
   top: number;
 };
 
+type CenterGuides = {
+  vertical: boolean;
+  horizontal: boolean;
+};
+
+const centerSnapThreshold = 24;
+
 export function ClockWidget({ now, settings, textColor, onChange, onMessage, orientation }: Props) {
   const [open, setOpen] = useState(false);
   const [hintVisible, setHintVisible] = useState(false);
+  const [centerGuides, setCenterGuides] = useState<CenterGuides>({ vertical: false, horizontal: false });
   const [editorPosition, setEditorPosition] = useState<EditorPosition | null>(null);
   const widgetRef = useRef<HTMLDivElement>(null);
   const displayRef = useRef<HTMLButtonElement>(null);
   const editorRef = useRef<HTMLElement>(null);
-  const pointerStart = useRef<{ x: number; y: number; position: FreePosition } | null>(null);
+  const pointerStart = useRef<{ x: number; y: number; position: FreePosition; displayCenter: FreePosition } | null>(null);
   const position = settings.clockDatePosition;
   const positionRef = useRef(position);
   const hintTimeoutRef = useRef<number | null>(null);
@@ -65,6 +73,25 @@ export function ClockWidget({ now, settings, textColor, onChange, onMessage, ori
       y: clamp(y, bounds.minY, bounds.maxY)
     };
   }, [getPositionBounds]);
+
+  const getDisplayCenter = useCallback((fallbackPosition: FreePosition): FreePosition => {
+    const rect = displayRef.current?.getBoundingClientRect();
+    if (rect && rect.width > 0 && rect.height > 0) return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    return { x: fallbackPosition.x * window.innerWidth, y: fallbackPosition.y * window.innerHeight };
+  }, []);
+
+  const getSnapPosition = useCallback((x: number, y: number, displayCenter: FreePosition) => {
+    const next = clampPosition(x, y);
+    const vertical = Math.abs(displayCenter.x - window.innerWidth / 2) <= centerSnapThreshold;
+    const horizontal = Math.abs(displayCenter.y - window.innerHeight / 2) <= centerSnapThreshold;
+    return {
+      position: clampPosition(
+        vertical ? next.x + (window.innerWidth / 2 - displayCenter.x) / window.innerWidth : next.x,
+        horizontal ? next.y + (window.innerHeight / 2 - displayCenter.y) / window.innerHeight : next.y
+      ),
+      guides: { vertical, horizontal }
+    };
+  }, [clampPosition]);
 
   useLayoutEffect(() => {
     const keepInsideViewport = () => {
@@ -155,8 +182,16 @@ export function ClockWidget({ now, settings, textColor, onChange, onMessage, ori
     const dy = event.clientY - start.y;
     if (Math.abs(dx) > 4 || Math.abs(dy) > 4) moved.current = true;
     if (!moved.current) return;
-    moveBy(start.position.x + dx / window.innerWidth, start.position.y + dy / window.innerHeight);
+    const snap = getSnapPosition(
+      start.position.x + dx / window.innerWidth,
+      start.position.y + dy / window.innerHeight,
+      { x: start.displayCenter.x + dx, y: start.displayCenter.y + dy }
+    );
+    setCenterGuides((current) => current.vertical === snap.guides.vertical && current.horizontal === snap.guides.horizontal ? current : snap.guides);
+    moveBy(snap.position.x, snap.position.y);
   };
+
+  const showCenterGuides = centerGuides.vertical || centerGuides.horizontal;
 
   return (
     <div
@@ -172,17 +207,24 @@ export function ClockWidget({ now, settings, textColor, onChange, onMessage, ori
         aria-expanded={open}
         onPointerDown={(event) => {
           if (event.currentTarget.setPointerCapture) event.currentTarget.setPointerCapture(event.pointerId);
-          pointerStart.current = { x: event.clientX, y: event.clientY, position };
+          pointerStart.current = { x: event.clientX, y: event.clientY, position, displayCenter: getDisplayCenter(position) };
+          setCenterGuides({ vertical: false, horizontal: false });
           moved.current = false;
         }}
         onPointerMove={onPointerMove}
         onPointerUp={() => {
           pointerStart.current = null;
+          setCenterGuides({ vertical: false, horizontal: false });
           if (moved.current) onMessage("時計とカレンダーの位置を変更しました。");
           else {
             showHint();
             setOpen((current) => !current);
           }
+        }}
+        onPointerCancel={() => {
+          pointerStart.current = null;
+          setCenterGuides({ vertical: false, horizontal: false });
+          moved.current = true;
         }}
         onKeyDown={(event) => {
           const step = event.shiftKey ? .05 : .015;
@@ -197,6 +239,14 @@ export function ClockWidget({ now, settings, textColor, onChange, onMessage, ori
         {settings.showDate && <DateDisplay now={now} fontSize={settings.dateFontSize} format={settings.dateFormat} displayStyle={settings.dateDisplayStyle} />}
         {settings.showClock && <ClockDisplay now={now} settings={settings} />}
       </button>
+
+      {showCenterGuides && createPortal(
+        <div className="clock-position-guides" aria-hidden="true">
+          {centerGuides.vertical && <span className="clock-position-guides__vertical" />}
+          {centerGuides.horizontal && <span className="clock-position-guides__horizontal" />}
+        </div>,
+        document.body
+      )}
 
       {open && editorPosition && createPortal(
         <section
