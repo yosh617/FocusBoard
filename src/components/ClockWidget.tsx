@@ -5,6 +5,7 @@ import { getOrientation } from "../hooks/useOrientation";
 import { ClockDisplay } from "./ClockDisplay";
 import { DateDisplay } from "./DateDisplay";
 import { ColorPickerDisclosure } from "./ui/ColorPicker";
+import { getReadableTextColorForHex } from "../utils/adaptiveColor";
 
 type Props = {
   now: Date;
@@ -257,7 +258,10 @@ export function ClockWidget({ now, settings, textColor, onChange, onMessage, ori
           style={{
             left: `${editorPosition.left}px`,
             top: `${editorPosition.top}px`,
-            fontFamily: fontOptions[settings.fontFamily as keyof typeof fontOptions] ?? fontOptions.system
+            fontFamily: fontOptions[settings.fontFamily as keyof typeof fontOptions] ?? fontOptions.system,
+            "--accent": settings.uiAccentColor,
+            "--accent-soft": `color-mix(in srgb, ${settings.uiAccentColor} 12%, white)`,
+            "--accent-contrast": getReadableTextColorForHex(settings.uiAccentColor)
           } as CSSProperties}
         >
           <div className="clock-editor__title"><span>表示を整える</span><button type="button" aria-label="時計の設定を閉じる" onClick={() => setOpen(false)}>×</button></div>
@@ -288,7 +292,7 @@ export function ClockWidget({ now, settings, textColor, onChange, onMessage, ori
               onChange={(color) => onChange({ clockColor: color, colorPreset: "custom", matchClockBackgroundColors: false })}
             />}
           </div>
-          <label className="clock-editor__range">時計の大きさ <output>{describeFontSize(settings.clockFontSize, defaultSettings.clockFontSize, settingRanges.clockFontSize.min, settingRanges.clockFontSize.max)}</output><input aria-label="時計の大きさ" type="range" min="56" max="220" value={settings.clockFontSize} onChange={(event) => onChange({ clockFontSize: Number(event.target.value) })} /></label>
+          <label className="clock-editor__range">時計の大きさ <output>{describeFontSize(settings.clockFontSize, defaultSettings.clockFontSize, settingRanges.clockFontSize.min, settingRanges.clockFontSize.max)}</output><input className="clock-editor__range-input" aria-label="時計の大きさ" type="range" min="56" max="220" value={settings.clockFontSize} onChange={(event) => onChange({ clockFontSize: Number(event.target.value) })} /></label>
           <button className="clock-editor__reset" type="button" onClick={() => { onChange({ clockDatePosition: { x: .5, y: .5 }, clockDateAlignment: "center" }); onMessage("時計とカレンダーを中央にそろえました。"); }}>中央に戻す</button>
         </section>,
         document.body

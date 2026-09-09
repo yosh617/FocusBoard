@@ -283,18 +283,18 @@ describe("App", () => {
     expect(document.querySelector<HTMLElement>(".app-shell")?.style.getPropertyValue("--task-primary")).toBe("#f4a6a8");
   });
 
-  it("applies, persists, and resets the UI accent independently from clock and timer colors", () => {
+  it("applies, persists, and resets the theme independently from clock and timer colors", () => {
     render(<App />);
     openSettings();
     fireEvent.click(screen.getByRole("tab", { name: "表示" }));
-    const accentPicker = screen.getByRole("region", { name: "UIの差し色" });
+    const accentPicker = screen.getByRole("region", { name: "アプリのテーマ" });
     fireEvent.click(within(accentPicker).getByRole("button", { name: /推奨テーマ ピーチ/ }));
 
     const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}");
     expect(saved.uiAccentColor).toBe("#e5b49a");
     expect(saved.clockColor).toBe(defaultSettings.clockColor);
     expect(saved.timerColor).toBe(defaultSettings.timerColor);
-    expect(screen.getByRole("region", { name: "UIの差し色" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "アプリのテーマ" })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "初期値に戻す" }));
     expect(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}").uiAccentColor).toBe(defaultSettings.uiAccentColor);
@@ -972,6 +972,22 @@ describe("App", () => {
     expect(screen.getByRole("radio", { name: "中央" }).getAttribute("aria-checked")).toBe("true");
     fireEvent.change(screen.getByRole("slider", { name: "時計の大きさ" }), { target: { value: "128" } });
     expect(document.querySelector<HTMLElement>(".clock")?.style.fontSize).toBe("128px");
+  });
+
+  it("uses the selected theme color in the clock display editor", () => {
+    render(<App />);
+    openSettings();
+    fireEvent.click(screen.getByRole("tab", { name: "表示" }));
+    fireEvent.click(within(screen.getByRole("region", { name: "アプリのテーマ" })).getByRole("button", { name: /推奨テーマ ピーチ/ }));
+    fireEvent.click(screen.getByRole("button", { name: "設定を閉じる" }));
+
+    const display = screen.getByRole("button", { name: "時計とカレンダーの表示設定を開く" });
+    fireEvent.pointerDown(display, { pointerId: 1, clientX: 400, clientY: 500 });
+    fireEvent.pointerUp(display, { pointerId: 1, clientX: 400, clientY: 500 });
+
+    const editor = screen.getByRole("dialog", { name: "時計とカレンダーの表示設定" });
+    expect(editor.getAttribute("style")).toContain("--accent: #e5b49a");
+    expect(editor.querySelector(".segmented-control button.is-active")?.getAttribute("class")).toContain("is-active");
   });
 
   it("shows the clock gesture hint briefly after tapping the clock", () => {
