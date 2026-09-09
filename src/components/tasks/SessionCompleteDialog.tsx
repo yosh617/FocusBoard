@@ -77,7 +77,7 @@ export function SessionCompleteDialog({
             <strong>{nextModeLabel}</strong>
           </div>
           <div>
-            <span>今日の未完了</span>
+            <span>今日＋期限切れの未完了</span>
             <strong>{remainingTodayCount}件</strong>
           </div>
         </div>

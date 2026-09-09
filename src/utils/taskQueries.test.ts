@@ -44,6 +44,15 @@ describe("task smart lists", () => {
     expect(getTasksForView(tasks, "upcoming", today).map((task) => task.id)).toEqual(["future"]);
     expect(getTasksForView(tasks, "someday", today).map((task) => task.id)).toEqual(["someday"]);
     expect(getTasksForView(tasks, "completed", today).map((task) => task.id)).toEqual(["done"]);
+    expect(getTasksForView([...tasks, createTask("archived", { status: "archived" })], "archived", today).map((task) => task.id)).toEqual(["archived"]);
+  });
+
+  it("uses manual order before due date when displaying a view", () => {
+    const ordered = [
+      createTask("later", { dueDate: "2026-07-25", order: 0 }),
+      createTask("earlier", { dueDate: "2026-07-19", order: 1 })
+    ];
+    expect(getTasksForView(ordered, "inbox", today).map((task) => task.id)).toEqual(["later", "earlier"]);
   });
 
   it("filters projects and hides archived projects", () => {

@@ -185,6 +185,15 @@ describe("useTasks", () => {
     expect(result.current.canUndo).toBe(false);
   });
 
+  it("normalizes a task added to an archived project into Inbox", async () => {
+    const archivedProject = { version: 1 as const, id: "project-1", name: "終了", color: "#3f6fab", order: 0, archivedAt: 2, createdAt: 1, updatedAt: 2 };
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [], projects: [archivedProject], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0 });
+    const { result } = renderHook(() => useTasks());
+    await waitFor(() => expect(result.current.projects).toHaveLength(1));
+    await act(async () => { await result.current.addTask({ title: "Inboxへ移す", projectId: archivedProject.id }); });
+    expect(result.current.tasks[0]).toMatchObject({ projectId: null, bucket: "inbox" });
+  });
+
   it("does not create another occurrence immediately when a repeating task is completed", async () => {
     const today = toLocalDateKey(new Date());
     vi.mocked(loadProductivityData).mockResolvedValue({
@@ -240,6 +249,18 @@ describe("useTasks", () => {
     await waitFor(() => expect(result.current.tasks).toHaveLength(2));
     await act(async () => { await result.current.toggleTask(savedTask.id); });
     expect(result.current.tasks.find((task) => task.id === child.id)?.status).toBe("open");
+  });
+
+  it("archives and restores descendants at any depth", async () => {
+    const child = { ...savedTask, id: "subtask-1", parentTaskId: savedTask.id, order: 1 };
+    const grandchild = { ...savedTask, id: "subtask-2", parentTaskId: child.id, order: 2 };
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask, child, grandchild], projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0 });
+    const { result } = renderHook(() => useTasks());
+    await waitFor(() => expect(result.current.tasks).toHaveLength(3));
+    await act(async () => { expect(await result.current.archiveTask(savedTask.id)).toBe(true); });
+    expect(result.current.tasks.every((task) => task.status === "archived")).toBe(true);
+    await act(async () => { expect(await result.current.restoreTask(savedTask.id)).toBe(true); });
+    expect(result.current.tasks.every((task) => task.status === "open")).toBe(true);
   });
 
   it("restores a validated backup and overwrites records with the same id", async () => {

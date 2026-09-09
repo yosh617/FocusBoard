@@ -36,4 +36,4 @@ export type TaskDraft = Pick<TaskRecord, "title"> & Partial<Pick<
   "bucket" | "projectId" | "parentTaskId" | "note" | "dueDate" | "reminderAt" | "repeatRule" | "estimatedPomodoros" | "priority" | "tags"
 >>;
 
-export type TaskView = "inbox" | "today" | "tomorrow" | "upcoming" | "someday" | "completed";
+export type TaskView = "inbox" | "today" | "tomorrow" | "upcoming" | "someday" | "completed" | "archived";

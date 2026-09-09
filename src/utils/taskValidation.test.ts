@@ -31,6 +31,10 @@ describe("task data validation", () => {
     expect(validateTaskRecord({ ...task, tags: ["試験", "数学"] })?.tags).toEqual(["試験", "数学"]);
   });
 
+  it("normalizes a someday task to have no due date", () => {
+    expect(validateTaskRecord({ ...task, bucket: "someday", dueDate: "2026-07-18" })?.dueDate).toBeNull();
+  });
+
   it("rejects malformed dates, bounds, and repeat rules", () => {
     expect(isLocalDate("2026-02-29")).toBe(false);
     expect(isLocalDate("2028-02-29")).toBe(true);

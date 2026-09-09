@@ -74,6 +74,7 @@ function renderDrawer(overrides: Partial<React.ComponentProps<typeof TaskDrawer>
     onUpdateSession: vi.fn().mockResolvedValue(true),
     onToggleTask: vi.fn().mockResolvedValue(true),
     onArchiveTask: vi.fn().mockResolvedValue(true),
+    onRestoreTask: vi.fn().mockResolvedValue(true),
     onDeleteTask: vi.fn().mockResolvedValue(true),
     onMoveTask: vi.fn().mockResolvedValue(true),
     onAddProject: vi.fn().mockResolvedValue(true),
@@ -101,7 +102,7 @@ function openAdvancedSettings(container: ReturnType<typeof within>) {
 describe("TaskDrawer", () => {
   it("keeps settings below an independently scrolling task list", () => {
     renderDrawer({ sessions: [session] });
-    expect(screen.getByRole("heading", { name: "今日" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "今日＋期限切れ" })).toBeTruthy();
     expect(screen.getByLabelText("新しいタスク")).toBeTruthy();
     const taskList = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
     const settingsHeading = screen.getByRole("heading", { name: "設定" });
@@ -120,7 +121,7 @@ describe("TaskDrawer", () => {
 
   it("shows estimated focus time instead of task counts in navigation", () => {
     renderDrawer();
-    expect(screen.getByRole("button", { name: "今日 0h 50m" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "今日＋期限切れ 0h 50m" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "勉強 0h 50m" })).toBeTruthy();
   });
 
@@ -433,6 +434,7 @@ describe("TaskDrawer", () => {
         onUpdateSession={vi.fn().mockResolvedValue(true)}
         onToggleTask={vi.fn().mockResolvedValue(true)}
         onArchiveTask={vi.fn().mockResolvedValue(true)}
+        onRestoreTask={vi.fn().mockResolvedValue(true)}
         onDeleteTask={vi.fn().mockResolvedValue(true)}
         onMoveTask={vi.fn().mockResolvedValue(true)}
         onAddProject={vi.fn().mockResolvedValue(true)}
@@ -468,6 +470,7 @@ describe("TaskDrawer", () => {
         onUpdateSession={vi.fn().mockResolvedValue(true)}
         onToggleTask={vi.fn().mockResolvedValue(true)}
         onArchiveTask={vi.fn().mockResolvedValue(true)}
+        onRestoreTask={vi.fn().mockResolvedValue(true)}
         onDeleteTask={vi.fn().mockResolvedValue(true)}
         onMoveTask={vi.fn().mockResolvedValue(true)}
         onAddProject={vi.fn().mockResolvedValue(true)}
@@ -585,6 +588,24 @@ describe("TaskDrawer", () => {
     await waitFor(() => expect(props.onDeleteTask).toHaveBeenCalledWith(task.id));
     expect(confirm).toHaveBeenCalledWith("数学の復習を完全に削除しますか？この操作は元に戻せません。");
     confirm.mockRestore();
+  });
+
+  it("uses tomorrow as the quick-add default in the tomorrow view", async () => {
+    const props = renderDrawer();
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(`^明日 `) }));
+    expect(screen.getByRole("button", { name: "期限を明日に設定" })).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "明日の復習" } });
+    fireEvent.click(screen.getByRole("button", { name: "タスクを追加" }));
+    await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "明日の復習", dueDate: addLocalDays(today, 1) })));
+  });
+
+  it("lists archived tasks and exposes a restore action", async () => {
+    const archivedTask = { ...task, id: "task-archived", title: "保管した数学", status: "archived" as const };
+    const props = renderDrawer({ tasks: [archivedTask] });
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(`^アーカイブ `) }));
+    expect(screen.getByText("保管した数学")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "保管した数学を復元" }));
+    await waitFor(() => expect(props.onRestoreTask).toHaveBeenCalledWith(archivedTask.id));
   });
 
   it("offers separate actions for deleting one repeating task or stopping its recurrence", () => {
@@ -881,6 +902,22 @@ describe("TaskDrawer", () => {
     chooseSelect(details, "繰り返し単位", "週ごと");
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
     await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({ repeatRule: expect.objectContaining({ type: "weekly", interval: 2 }) })));
+  });
+
+  it("preserves an existing canonical repeat rule until the user edits repetition", async () => {
+    const repeatingTask = {
+      ...task,
+      dueDate: "2026-01-31",
+      repeatRule: { type: "monthly", interval: 1, day: 31 } as const
+    };
+    const props = renderDrawer({ tasks: [repeatingTask] });
+    fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
+    const details = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
+    fireEvent.change(details.getByLabelText("タスク名"), { target: { value: "月末の復習" } });
+    fireEvent.click(details.getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(repeatingTask.id, expect.objectContaining({
+      repeatRule: { type: "monthly", interval: 1, day: 31 }
+    })));
   });
 
   it("lets the user edit the due date from task details", async () => {

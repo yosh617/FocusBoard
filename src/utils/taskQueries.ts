@@ -18,6 +18,7 @@ export function getTasksForView(tasks: TaskRecord[], view: TaskView, today = toL
   return tasks
     .filter((task) => task.parentTaskId === null)
     .filter((task) => {
+      if (view === "archived") return task.status === "archived";
       if (view === "completed") return task.status === "completed";
       if (task.status !== "open") return false;
       if (view === "today") return task.dueDate !== null && task.dueDate <= today;
@@ -27,8 +28,9 @@ export function getTasksForView(tasks: TaskRecord[], view: TaskView, today = toL
       return task.bucket === "inbox";
     })
     .sort((a, b) => {
-      if (a.dueDate !== b.dueDate) return (a.dueDate ?? "9999-12-31").localeCompare(b.dueDate ?? "9999-12-31");
-      return a.order - b.order || a.createdAt - b.createdAt;
+      return a.order - b.order
+        || (a.dueDate ?? "9999-12-31").localeCompare(b.dueDate ?? "9999-12-31")
+        || a.createdAt - b.createdAt;
     });
 }
 

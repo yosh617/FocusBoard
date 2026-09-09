@@ -82,6 +82,7 @@ export function validateTaskRecord(value: unknown): TaskRecord | null {
   const repeatSkipDates = value.repeatSkipDates === undefined ? undefined : value.repeatSkipDates;
   if (repeatSkipDates !== undefined && (!Array.isArray(repeatSkipDates) || repeatSkipDates.length > 3660 || repeatSkipDates.some((date) => !isLocalDate(date)))) return null;
   const normalizedRepeatSkipDates = repeatSkipDates === undefined ? undefined : [...new Set(repeatSkipDates as string[])].sort();
+  const normalizedDueDate = value.bucket === "someday" ? null : value.dueDate;
   const repeatRule = validateRepeatRule(value.repeatRule);
   if (repeatRule === undefined) return null;
   if (!isBoundedInteger(value.estimatedPomodoros, 0, 99)) return null;
@@ -102,7 +103,7 @@ export function validateTaskRecord(value: unknown): TaskRecord | null {
     projectId: value.projectId,
     parentTaskId: value.parentTaskId,
     note: value.note,
-    dueDate: value.dueDate,
+    dueDate: normalizedDueDate,
     reminderAt: value.reminderAt,
     repeatRule,
     repeatSeriesId: value.repeatSeriesId,

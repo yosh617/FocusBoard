@@ -29,6 +29,20 @@ import { toLocalDateKey } from "../utils/taskQueries";
 const createId = (prefix: string) =>
   globalThis.crypto?.randomUUID?.() ?? `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
+function getTaskTree(tasks: TaskRecord[], rootId: string) {
+  const taskIds = new Set([rootId]);
+  let foundNewChild = true;
+  while (foundNewChild) {
+    foundNewChild = false;
+    for (const task of tasks) {
+      if (taskIds.has(task.id) || task.parentTaskId === null || !taskIds.has(task.parentTaskId)) continue;
+      taskIds.add(task.id);
+      foundNewChild = true;
+    }
+  }
+  return tasks.filter((task) => taskIds.has(task.id));
+}
+
 export function useTasks() {
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [projects, setProjects] = useState<ProjectRecord[]>([]);
@@ -233,8 +247,8 @@ export function useTasks() {
   const archiveTask = useCallback(async (id: string) => {
     const previous = tasksRef.current.find((task) => task.id === id);
     if (!previous || !storageAvailable) return false;
-    const childTasks = tasksRef.current.filter((task) => task.parentTaskId === id && task.status !== "archived");
-    const previousRecords = [previous, ...childTasks];
+    const previousRecords = getTaskTree(tasksRef.current, id);
+    const childTasks = previousRecords.filter((task) => task.id !== id);
     const now = Date.now();
     const archivedRecords = previousRecords.map((task) => ({ ...task, status: "archived" as const, completedAt: null, updatedAt: now }));
     try {
@@ -255,18 +269,8 @@ export function useTasks() {
   }, [fail, setUndo, storageAvailable]);
 
   const deleteTask = useCallback(async (id: string) => {
-    const taskIds = new Set([id]);
-    let foundNewChild = true;
-    while (foundNewChild) {
-      foundNewChild = false;
-      for (const task of tasksRef.current) {
-        if (!taskIds.has(task.id) && task.parentTaskId !== null && taskIds.has(task.parentTaskId)) {
-          taskIds.add(task.id);
-          foundNewChild = true;
-        }
-      }
-    }
-    const previousRecords = tasksRef.current.filter((task) => taskIds.has(task.id));
+    const previousRecords = getTaskTree(tasksRef.current, id);
+    const taskIds = new Set(previousRecords.map((task) => task.id));
     if (previousRecords.length === 0 || !storageAvailable) return false;
     const deletedTask = previousRecords.find((task) => task.id === id) ?? previousRecords[0];
     const seriesId = getRepeatSeriesId(deletedTask);
@@ -306,6 +310,29 @@ export function useTasks() {
       setUndo(async () => {
         await saveProductivityRecords({ tasks: [...previousRecords, ...(previousSeriesRoot ? [previousSeriesRoot] : [])] });
         setTasks((current) => [...current.filter((task) => task.id !== updatedSeriesRoot?.id && !taskIds.has(task.id)), ...previousRecords, ...(previousSeriesRoot ? [previousSeriesRoot] : [])].sort((left, right) => left.order - right.order || left.createdAt - right.createdAt));
+      });
+      return true;
+    } catch {
+      fail();
+      return false;
+    }
+  }, [fail, setUndo, storageAvailable]);
+
+  const restoreTask = useCallback(async (id: string) => {
+    const previous = tasksRef.current.find((task) => task.id === id);
+    if (!previous || previous.status !== "archived" || !storageAvailable) return false;
+    const previousRecords = getTaskTree(tasksRef.current, id);
+    const now = Date.now();
+    const restoredRecords = previousRecords.map((task) => ({ ...task, status: "open" as const, completedAt: null, updatedAt: now }));
+    try {
+      await saveProductivityRecords({ tasks: restoredRecords });
+      const restoredById = new Map(restoredRecords.map((task) => [task.id, task]));
+      setTasks((current) => current.map((task) => restoredById.get(task.id) ?? task));
+      setMessage(restoredRecords.length > 1 ? "タスクとサブタスクを復元しました。" : "タスクを復元しました。");
+      setUndo(async () => {
+        await saveProductivityRecords({ tasks: previousRecords });
+        const previousById = new Map(previousRecords.map((task) => [task.id, task]));
+        setTasks((current) => current.map((task) => previousById.get(task.id) ?? task));
       });
       return true;
     } catch {
@@ -534,6 +561,7 @@ export function useTasks() {
     updateSession,
     toggleTask,
     archiveTask,
+    restoreTask,
     deleteTask,
     deleteRecurringSeries,
     moveTask,
