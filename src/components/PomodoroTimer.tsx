@@ -61,7 +61,6 @@ export function PomodoroTimer({
           <h2>{isActive ? "実行中タイマー" : "タイマー設定"}</h2>
         </div>
         <div className="timer-setup__tools" style={{ marginInlineStart: "auto" }}>
-          {timer.program === "pomodoro" && <p className="timer-setup__sessions" aria-label={`完了セッション ${timer.completedWorkSessions}`}><strong>{timer.completedWorkSessions}</strong></p>}
           {!isActive && <button className="timer-setup__collapse" type="button" aria-label="タイマー設定をしまう" title="タイマー設定をしまう" onClick={onCollapse}>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12" /></svg>
           </button>}

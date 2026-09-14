@@ -80,56 +80,6 @@ export function FloatingTimer({ timer, taskTitle, taskProgress, onStart, onPause
     return () => window.removeEventListener("resize", keepInsideViewport);
   }, [clampPosition, onPositionChange, orientation, timer.floatingPosition.x, timer.floatingPosition.y, timer.floatingPositions]);
 
-  useEffect(() => {
-    const avoidOverlappingHomeContent = () => {
-      if (orientation !== "portrait") return;
-      const dragElement = dragElementRef.current;
-      if (!dragElement) return;
-      const timerRect = dragElement.getBoundingClientRect();
-      if (!timerRect.width || !timerRect.height) return;
-
-      const avoidRects = Array.from(document.querySelectorAll<HTMLElement>(".clock-widget__display, .task-launcher"))
-        .map((element) => element.getBoundingClientRect())
-        .filter((rect) => rect.width > 0 && rect.height > 0);
-      const gap = 10;
-      const overlaps = (rect: DOMRect) => avoidRects.some((avoid) => (
-        rect.left < avoid.right + gap
-        && rect.right > avoid.left - gap
-        && rect.top < avoid.bottom + gap
-        && rect.bottom > avoid.top - gap
-      ));
-      if (!overlaps(timerRect)) return;
-
-      const xMargin = (timerRect.width / 2 + 8) / window.innerWidth;
-      const yMargin = (timerRect.height / 2 + 8) / window.innerHeight;
-      const candidates = [
-        { x: 1 - xMargin, y: yMargin },
-        { x: xMargin, y: yMargin },
-        { x: 1 - xMargin, y: 0.5 },
-        { x: xMargin, y: 0.5 },
-        { x: 1 - xMargin, y: 1 - yMargin },
-        { x: xMargin, y: 1 - yMargin }
-      ];
-      const next = candidates.map((candidate) => clampPosition(candidate.x, candidate.y)).find((candidate) => {
-        const candidateRect = {
-          left: candidate.x * window.innerWidth - timerRect.width / 2,
-          right: candidate.x * window.innerWidth + timerRect.width / 2,
-          top: candidate.y * window.innerHeight - timerRect.height / 2,
-          bottom: candidate.y * window.innerHeight + timerRect.height / 2
-        } as DOMRect;
-        return !overlaps(candidateRect);
-      });
-      if (!next || (Math.abs(next.x - positionRef.current.x) < 0.001 && Math.abs(next.y - positionRef.current.y) < 0.001)) return;
-      positionRef.current = next;
-      setPosition(next);
-      onPositionChange(next);
-    };
-
-    avoidOverlappingHomeContent();
-    window.addEventListener("resize", avoidOverlappingHomeContent);
-    return () => window.removeEventListener("resize", avoidOverlappingHomeContent);
-  }, [clampPosition, isCompact, onPositionChange, orientation, timer.floatingPosition.x, timer.floatingPosition.y]);
-
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if ((event.target as Element).closest("button")) return;
     event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -156,12 +106,7 @@ export function FloatingTimer({ timer, taskTitle, taskProgress, onStart, onPause
     dragRef.current = null;
     suppressClickRef.current = drag.moved || event.type === "pointercancel";
     if (event.type === "pointercancel") return;
-    if (drag.moved) {
-      const safePosition = findSafePosition(positionRef.current);
-      positionRef.current = safePosition;
-      setPosition(safePosition);
-      onPositionChange(safePosition);
-    }
+    if (drag.moved) onPositionChange(positionRef.current);
   };
 
   const handleClick = (event: ReactMouseEvent<HTMLDivElement>) => {
@@ -196,40 +141,6 @@ export function FloatingTimer({ timer, taskTitle, taskProgress, onStart, onPause
     compactPositionRef.current = null;
     setIsCompact(true);
   };
-
-  const findSafePosition = useCallback((candidate: FloatingPosition): FloatingPosition => {
-    const dragElement = dragElementRef.current;
-    if (!dragElement) return candidate;
-    const timerRect = dragElement.getBoundingClientRect();
-    const avoidRects = Array.from(document.querySelectorAll<HTMLElement>(".clock-widget__display, .task-launcher, .home-dock"))
-      .map((element) => element.getBoundingClientRect())
-      .filter((rect) => rect.width > 0 && rect.height > 0);
-    const gap = 10;
-    const overlaps = (rect: { left: number; right: number; top: number; bottom: number }) => avoidRects.some((avoid) => (
-      rect.left < avoid.right + gap
-      && rect.right > avoid.left - gap
-      && rect.top < avoid.bottom + gap
-      && rect.bottom > avoid.top - gap
-    ));
-    const rectFor = (position: FloatingPosition) => ({
-      left: position.x * window.innerWidth - timerRect.width / 2,
-      right: position.x * window.innerWidth + timerRect.width / 2,
-      top: position.y * window.innerHeight - timerRect.height / 2,
-      bottom: position.y * window.innerHeight + timerRect.height / 2
-    });
-    if (!overlaps(rectFor(candidate))) return candidate;
-    const xMargin = (timerRect.width / 2 + 8) / window.innerWidth;
-    const yMargin = (timerRect.height / 2 + 8) / window.innerHeight;
-    const candidates = [
-      { x: 1 - xMargin, y: yMargin },
-      { x: xMargin, y: yMargin },
-      { x: 1 - xMargin, y: .5 },
-      { x: xMargin, y: .5 },
-      { x: 1 - xMargin, y: 1 - yMargin },
-      { x: xMargin, y: 1 - yMargin }
-    ];
-    return candidates.map((item) => clampPosition(item.x, item.y)).find((item) => !overlaps(rectFor(item))) ?? candidate;
-  }, [clampPosition]);
 
   return (
     <section
