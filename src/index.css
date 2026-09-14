@@ -3351,6 +3351,122 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .dashboard--timer-setup .slot--center { top: 34%; }
 }
 
+/* Timer setup: make each decision explicit, then reserve the visual weight for time and start. */
+.timer-card.timer-setup {
+  width: min(100%, 640px);
+  padding: clamp(18px, 3vw, 26px);
+}
+
+.timer-setup__heading {
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.timer-setup__eyebrow {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--timer-accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .14em;
+}
+
+.timer-setup__heading h2 {
+  font-size: clamp(21px, 3vw, 25px);
+  line-height: 1.2;
+}
+
+.timer-setup__step + .timer-setup__step { margin-top: 18px; }
+
+.timer-setup__step-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  min-height: auto;
+  margin: 0 0 8px;
+  color: var(--color-mid-gray);
+  text-align: left;
+}
+
+.timer-setup__step-heading strong {
+  color: var(--color-ink);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: .01em;
+}
+
+.timer-setup__step-heading span {
+  color: var(--color-mid-gray);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.program-tabs { gap: 6px; }
+
+.program-tab {
+  min-height: 84px;
+  padding: 12px;
+  gap: 4px;
+}
+
+.program-tab > svg:first-child { width: 20px; height: 20px; }
+.program-tab strong { font-size: 13px; white-space: nowrap; }
+.program-tab > span { color: var(--color-mid-gray); font-size: 10px; font-weight: 600; line-height: 1.35; }
+.program-tab--active > span { color: color-mix(in srgb, var(--timer-accent) 72%, var(--color-ink)); }
+
+.mode-tabs, .category-tabs { padding: 3px; }
+.mode-tab, .category-tab { min-height: 44px; }
+.mode-tab--active, .category-tab--active { box-shadow: inset 0 0 0 1px var(--timer-accent); }
+
+.timer-setup__task-step { padding-inline: 0; }
+.timer-task-select { min-height: 58px; padding: 10px 12px; border-color: var(--color-hairline); background: var(--color-paper); }
+.timer-task-select:not(.has-task) { border-style: dashed; }
+.timer-task-select:hover, .timer-task-select.has-task { background: color-mix(in srgb, var(--timer-accent) 7%, var(--color-paper)); }
+.timer-task-select small { margin-bottom: 2px; color: var(--color-mid-gray); }
+
+.timer-setup__preview {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 94px;
+  padding: 16px 0 12px;
+}
+
+.timer-setup__preview > span {
+  padding-bottom: 7px;
+  color: var(--color-mid-gray);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.timer-setup__step:has(.duration-field) { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 12px; padding-block: 12px; }
+.timer-setup__step:has(.duration-field) .timer-setup__step-heading { display: grid; justify-content: start; gap: 2px; margin: 0; }
+.duration-field input { width: 96px; height: 48px; font-size: 20px; }
+
+.timer-setup__footer:not(.timer-setup__footer--active) { display: block; margin-top: 20px; }
+.timer-start-button { width: 100%; min-height: 52px; }
+
+@media (max-width: 520px) {
+  .timer-card.timer-setup { padding: 18px; }
+  .timer-setup__step + .timer-setup__step { margin-top: 16px; }
+  .program-tab { min-height: 52px; grid-template-columns: 22px minmax(0, 1fr); align-items: center; }
+  .program-tab > span { grid-column: 2; }
+  .timer-setup__preview { min-height: 82px; }
+}
+
+@media (max-height: 560px) and (min-width: 521px) {
+  .timer-card.timer-setup { padding: 12px 16px; }
+  .timer-setup__heading { margin-bottom: 8px; }
+  .timer-setup__step + .timer-setup__step { margin-top: 8px; }
+  .timer-setup__step-heading { margin-bottom: 4px; }
+  .program-tab { min-height: 52px; padding: 7px 9px; }
+  .program-tab > span { display: none; }
+  .mode-tab, .category-tab { min-height: 34px; }
+  .timer-setup__preview { min-height: 58px; padding-block: 8px; }
+  .timer-start-button { min-height: 42px; }
+}
+
 /* Settings actions use the shared UI accent; task-theme colors stay inside Tasks. */
 .settings-drawer .primary-button {
   color: var(--accent-contrast);

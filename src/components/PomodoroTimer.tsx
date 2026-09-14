@@ -58,6 +58,7 @@ export function PomodoroTimer({
     <section className={`timer-card timer-setup${isActive ? " timer-setup--active" : ""}`} aria-label={isActive ? "進行中タイマーの設定" : "タイマー設定"}>
       <div className="timer-setup__heading">
         <div>
+          <span className="timer-setup__eyebrow">FOCUS TIMER</span>
           <h2>{isActive ? "実行中タイマー" : "タイマー設定"}</h2>
         </div>
         <div className="timer-setup__tools" style={{ marginInlineStart: "auto" }}>
@@ -70,6 +71,10 @@ export function PomodoroTimer({
       {isActive ? <div className="timer-setup__live-note" role="status"><span className="timer-setup__status-dot" aria-hidden="true" /><strong>{statusLabel}</strong>{timer.program === "countup" && <span>{countupLap}周目</span>}{selectedTaskTitle && <span>タスク: {selectedTaskTitle}</span>}</div> : null}
 
       <div className="timer-setup__step">
+        <div className="timer-setup__step-heading">
+          <strong>タイマーの種類</strong>
+          <span>目的に合わせて選択</span>
+        </div>
         <div className="program-tabs" role="group" aria-label="タイマー方式">
           {programs.map((program) => (
             <button
@@ -82,6 +87,7 @@ export function PomodoroTimer({
             >
               <ProgramIcon program={program.value} />
               <strong>{program.label}</strong>
+              <span>{program.value === "pomodoro" ? "集中と休憩を切り替え" : program.value === "countdown" ? "時間を決めて集中" : "経過時間を記録"}</span>
               {timer.program === program.value && <svg className="timer-option__check" viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 12 3.5 3.5 7.5-7.5" /></svg>}
             </button>
           ))}
@@ -90,6 +96,10 @@ export function PomodoroTimer({
 
       {timer.program === "pomodoro" ? (
         <div className="timer-setup__step">
+          <div className="timer-setup__step-heading">
+            <strong>セッション</strong>
+            <span>{modeLabels[timer.mode]}</span>
+          </div>
           <div className="mode-tabs" role="group" aria-label="ポモドーロモード">
             {modes.map((mode) => (
               <button
@@ -108,6 +118,10 @@ export function PomodoroTimer({
         </div>
       ) : (
         <div className="timer-setup__step">
+          <div className="timer-setup__step-heading">
+            <strong>時間の種類</strong>
+            <span>{timer.category === "focus" ? "集中" : "休憩"}</span>
+          </div>
           <div className="category-tabs" role="group" aria-label="時間の種類">
             {(["focus", "break"] as SessionCategory[]).map((category) => (
               <button
@@ -127,17 +141,26 @@ export function PomodoroTimer({
 
       {!isActive && taskSelectionEnabled && (
         <div className="timer-setup__step timer-setup__task-step">
+          <div className="timer-setup__step-heading">
+            <strong>取り組むタスク</strong>
+            <span>任意</span>
+          </div>
           <button className={`timer-task-select${selectedTaskTitle ? " has-task" : ""}`} type="button" onClick={onOpenTaskPicker} aria-haspopup="dialog" aria-label={selectedTaskTitle ? `タスク「${selectedTaskTitle}」を変更` : "タスクを選ぶ・追加する"}>
             <span className="timer-task-select__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 6h11M8 12h11M8 18h7M4 6h.01M4 12h.01M4 18h.01" /></svg></span>
-            <span><strong>{selectedTaskTitle ?? "タスク"}</strong></span>
+            <span><small>{selectedTaskTitle ? "選択中のタスク" : "タスクを選択"}</small><strong>{selectedTaskTitle ?? "タスクを選ばずに開始"}</strong></span>
             <svg className="timer-task-select__arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
           </button>
         </div>
       )}
 
       <div className="timer-setup__step">
+        <div className="timer-setup__step-heading">
+          <strong>{timer.program === "countup" ? "区切り時間" : "設定時間"}</strong>
+          <span>{timer.program === "pomodoro" ? `${Math.round(timer.durationMs / 60_000)}分` : "1〜1,440分"}</span>
+        </div>
         {timer.program === "pomodoro" ? (
           <div className="timer-setup__preview" aria-label={`${isActive ? "残り時間" : "設定時間"} ${formatDuration(displayMs)}`}>
+            <span>{isActive ? "残り時間" : "開始時の時間"}</span>
             <div className="timer-card__time" style={{ fontSize: `${Math.min(fontSize, 68)}px` }}>{formatDuration(displayMs)}</div>
           </div>
         ) : (
