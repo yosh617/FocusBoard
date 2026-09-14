@@ -89,6 +89,54 @@ export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLa
     };
   }, [clampPosition, onPositionChange]);
 
+  useLayoutEffect(() => {
+    const avoidOverlappingHomeContent = () => {
+      if (document.querySelector(".drawer-backdrop, .session-complete-backdrop, .timer-overtime-backdrop")) return;
+      const launcher = launcherRef.current;
+      if (!launcher) return;
+      const launcherRect = launcher.getBoundingClientRect();
+      if (!launcherRect.width || !launcherRect.height) return;
+
+      const avoidRects = Array.from(document.querySelectorAll<HTMLElement>(".floating-timer, .clock-widget__display, .home-dock"))
+        .map((element) => element.getBoundingClientRect())
+        .filter((rect) => rect.width > 0 && rect.height > 0);
+      const gap = 12;
+      const overlaps = (rect: DOMRect | { left: number; right: number; top: number; bottom: number }) => avoidRects.some((avoid) => (
+        rect.left < avoid.right + gap
+        && rect.right > avoid.left - gap
+        && rect.top < avoid.bottom + gap
+        && rect.bottom > avoid.top - gap
+      ));
+      if (!overlaps(launcherRect)) return;
+
+      const xMargin = (launcherRect.width / 2 + gap) / window.innerWidth;
+      const yMargin = (launcherRect.height / 2 + gap) / window.innerHeight;
+      const candidates = [
+        { x: 1 - xMargin, y: yMargin },
+        { x: xMargin, y: yMargin },
+        { x: 1 - xMargin, y: .5 },
+        { x: xMargin, y: .5 },
+        { x: 1 - xMargin, y: 1 - yMargin },
+        { x: xMargin, y: 1 - yMargin }
+      ];
+      const next = candidates.map((candidate) => clampPosition(candidate.x, candidate.y)).find((candidate) => {
+        const candidateRect = {
+          left: candidate.x * window.innerWidth - launcherRect.width / 2,
+          right: candidate.x * window.innerWidth + launcherRect.width / 2,
+          top: candidate.y * window.innerHeight - launcherRect.height / 2,
+          bottom: candidate.y * window.innerHeight + launcherRect.height / 2
+        };
+        return !overlaps(candidateRect);
+      });
+      if (!next || (Math.abs(next.x - positionRef.current.x) < .001 && Math.abs(next.y - positionRef.current.y) < .001)) return;
+      onPositionChange(next);
+    };
+
+    avoidOverlappingHomeContent();
+    window.addEventListener("resize", avoidOverlappingHomeContent);
+    return () => window.removeEventListener("resize", avoidOverlappingHomeContent);
+  }, [clampPosition, onPositionChange, position.x, position.y]);
+
   useEffect(() => {
     const clearDimTimeout = () => {
       if (dimTimeoutRef.current !== null) {

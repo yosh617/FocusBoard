@@ -14,7 +14,8 @@ describe("SessionCompleteDialog", () => {
     expect(screen.getByLabelText("完了した集中の概要").textContent).toContain("短い休憩");
     expect(screen.getByLabelText("完了した集中の概要").textContent).toContain("2件");
     expect(screen.getByRole("button", { name: "長文読解を開始" }).textContent).toContain("長文読解");
-    fireEvent.click(screen.getByRole("button", { name: "休憩を開始" }));
+    expect(screen.getByRole("button", { name: "次の短い休憩を開始" }).textContent).toContain("次の短い休憩を開始");
+    fireEvent.click(screen.getByRole("button", { name: "次の短い休憩を開始" }));
     fireEvent.click(screen.getByRole("button", { name: "長文読解を開始" }));
     expect(onStartBreak).toHaveBeenCalledTimes(1);
     expect(onStartNextTask).toHaveBeenCalledTimes(1);

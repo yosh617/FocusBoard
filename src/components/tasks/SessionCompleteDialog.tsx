@@ -33,6 +33,7 @@ export function SessionCompleteDialog({
 }: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const primaryRef = useRef<HTMLButtonElement>(null);
+  const nextSessionActionLabel = `次の${nextModeLabel}を開始`;
   useEffect(() => {
     if (!open) return;
     const previous = document.activeElement as HTMLElement | null;
@@ -73,7 +74,7 @@ export function SessionCompleteDialog({
             <strong>{focusedDurationLabel ?? "00:00"}</strong>
           </div>
           <div>
-            <span>次のおすすめ</span>
+            <span>次のセッション</span>
             <strong>{nextModeLabel}</strong>
           </div>
           <div>
@@ -83,9 +84,9 @@ export function SessionCompleteDialog({
         </div>
         <section className="session-complete__plan" aria-label="次の操作">
           <div className="session-complete__plan-actions">
-            <button className="primary-button session-complete__choice" type="button" onClick={onStartBreak} ref={primaryRef} aria-label="休憩を開始">
-              <strong>休憩を開始</strong>
-              <span>{nextModeLabel}</span>
+            <button className="primary-button session-complete__choice" type="button" onClick={onStartBreak} ref={primaryRef} aria-label={nextSessionActionLabel}>
+              <strong>{nextSessionActionLabel}</strong>
+              <span>完了後にタイマーを開始</span>
             </button>
             {nextTaskTitle && (
               <button className="secondary-button session-complete__next-action" type="button" onClick={onStartNextTask} aria-label={`${nextTaskTitle}を開始`}>

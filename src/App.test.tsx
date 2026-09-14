@@ -455,7 +455,7 @@ describe("App", () => {
       expect(screen.getByRole("dialog", { name: "集中セッション完了" })).toBeTruthy();
       expect(mockTasksState.recordTimerSession).toHaveBeenCalledTimes(1);
 
-      fireEvent.click(screen.getByRole("button", { name: "休憩を開始" }));
+      fireEvent.click(screen.getByRole("button", { name: "次の短い休憩を開始" }));
       expect(screen.queryByRole("dialog", { name: "集中セッション完了" })).toBeNull();
       expect(screen.getByText("休憩中")).toBeTruthy();
     } finally {
@@ -489,7 +489,7 @@ describe("App", () => {
       prepareTaskFlow([focusTask, nextFocusTask]);
       await act(async () => { await vi.advanceTimersByTimeAsync(25 * 60_000 + 250); });
 
-      fireEvent.click(screen.getByRole("button", { name: "休憩を開始" }));
+      fireEvent.click(screen.getByRole("button", { name: "次の短い休憩を開始" }));
       const launcher = screen.getByRole("button", { name: "タスクを開く。短い休憩中。次のおすすめは英語の宿題。今日の未完了は2件" });
       expect(launcher.textContent).toContain("短い休憩");
       expect(launcher.textContent).toContain("次は 英語の宿題");
