@@ -147,18 +147,20 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
           ? (completedWorkSessions % 4 === 0 ? "longBreak" : "shortBreak")
           : "work";
         const nextDurationMs = getDurationMs(nextMode, settingsRef.current);
+        const startsFocus = nextMode === "work";
+        const nextSessionStartedAt = startsFocus ? now : null;
         return {
           ...current,
           mode: nextMode,
           category: nextMode === "work" ? "focus" : "break",
-          status: "paused",
+          status: startsFocus ? "running" : "paused",
           durationMs: nextDurationMs,
           remainingMs: nextDurationMs,
-          endAt: null,
+          endAt: startsFocus ? now + nextDurationMs : null,
           completedWorkSessions,
           activeTaskId: null,
-          activeSessionId: null,
-          sessionStartedAt: null,
+          activeSessionId: startsFocus ? createId() : null,
+          sessionStartedAt: nextSessionStartedAt,
           pauseIntervals: [],
           pauseStartedAt: null
         };
@@ -191,7 +193,7 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
       const endedAt = previous.endAt;
       const pomodoroCompleted = previous.program === "pomodoro"
         && timer.program === "pomodoro"
-        && timer.status === "paused"
+        && (timer.status === "paused" || timer.status === "running")
         && timer.mode !== previous.mode;
       const pomodoroOvertime = previous.program === "pomodoro"
         && timer.program === "pomodoro"

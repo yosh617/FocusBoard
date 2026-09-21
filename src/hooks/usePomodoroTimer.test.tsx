@@ -105,6 +105,23 @@ describe("usePomodoroTimer", () => {
     }));
   });
 
+  it("starts the next focus session automatically after a break finishes", async () => {
+    const onSessionEnd = vi.fn();
+    const { result } = renderHook(() => usePomodoroTimer({ ...defaultSettings, soundEnabled: false }, onSessionEnd));
+
+    act(() => {
+      result.current.selectMode("shortBreak");
+      result.current.start();
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(5 * 60_000 + 250); });
+
+    expect(result.current.timer.mode).toBe("work");
+    expect(result.current.timer.category).toBe("focus");
+    expect(result.current.timer.status).toBe("running");
+    expect(result.current.timer.endAt).toBe(Date.now() + 25 * 60_000);
+    expect(onSessionEnd).toHaveBeenCalledWith(expect.objectContaining({ mode: "shortBreak", result: "completed" }));
+  });
+
   it("keeps a pomodoro in overtime until the user ends it when configured", async () => {
     const onSessionEnd = vi.fn();
     const { result } = renderHook(() => usePomodoroTimer({ ...defaultSettings, workMinutes: 1, soundEnabled: false, pomodoroEndBehavior: "overtime" }, onSessionEnd));
