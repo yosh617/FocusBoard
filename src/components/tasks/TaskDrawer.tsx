@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent, type TouchEvent as ReactTouchEvent } from "react";
 import type { ProjectRecord } from "../../types/project";
 import type { FocusSessionRecord } from "../../types/focusSession";
 import type { RepeatRule, TaskDraft, TaskPriority, TaskRecord, TaskView } from "../../types/task";
@@ -633,6 +633,8 @@ export function TaskDrawer({
   const [newProjectColor, setNewProjectColor] = useState<string>(projectColorOptions[0].value);
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [projectToArchive, setProjectToArchive] = useState<ProjectRecord | null>(null);
+  const [swipeDeleteTask, setSwipeDeleteTask] = useState<TaskRecord | null>(null);
+  const [swipeOffset, setSwipeOffset] = useState<{ id: string; offset: number } | null>(null);
   const [showResumeBanner, setShowResumeBanner] = useState(false);
   const [showTodayCompleted, setShowTodayCompleted] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -643,6 +645,8 @@ export function TaskDrawer({
   const taskRowRefs = useRef(new Map<string, HTMLDivElement>());
   const taskContentButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const pendingTaskFocusIdRef = useRef<string | null>(null);
+  const swipeGestureRef = useRef<{ id: string; startX: number; startY: number; horizontal: boolean } | null>(null);
+  const swipeMovedTaskIdRef = useRef<string | null>(null);
   const appliedResumeTaskIdRef = useRef<string | null>(null);
   const selectedTaskScrollModeRef = useRef<"nearest" | "start">("nearest");
   const now = new Date();
@@ -944,6 +948,70 @@ export function TaskDrawer({
     dueLabel(selectedTaskNextCandidate, today) || null,
     selectedTaskNextCandidate.estimatedPomodoros > 0 ? `目安 ${selectedTaskNextCandidate.estimatedPomodoros}セット` : null
   ].filter((item): item is string => item !== null).join(" ・ ") : "";
+  const swipeDeleteIsRecurring = swipeDeleteTask !== null && Boolean(swipeDeleteTask.repeatRule || swipeDeleteTask.repeatSeriesId !== null);
+
+  const beginTaskSwipe = (taskId: string, startX: number, startY: number) => {
+    swipeGestureRef.current = { id: taskId, startX, startY, horizontal: false };
+  };
+  const moveTaskSwipe = (taskId: string, clientX: number, clientY: number, preventDefault: () => void) => {
+    const gesture = swipeGestureRef.current;
+    if (!gesture || gesture.id !== taskId) return;
+    const deltaX = clientX - gesture.startX;
+    const deltaY = clientY - gesture.startY;
+    if (!gesture.horizontal && Math.abs(deltaX) < 8) {
+      if (Math.abs(deltaY) > 10) swipeGestureRef.current = null;
+      return;
+    }
+    if (!gesture.horizontal && Math.abs(deltaY) > Math.abs(deltaX)) {
+      swipeGestureRef.current = null;
+      return;
+    }
+    gesture.horizontal = true;
+    preventDefault();
+    setSwipeOffset({ id: taskId, offset: Math.max(-96, Math.min(0, deltaX)) });
+  };
+  const endTaskSwipe = (clientX: number, task: TaskRecord) => {
+    const gesture = swipeGestureRef.current;
+    swipeGestureRef.current = null;
+    if (!gesture || gesture.id !== task.id || !gesture.horizontal) {
+      setSwipeOffset(null);
+      return;
+    }
+    const deltaX = clientX - gesture.startX;
+    setSwipeOffset(null);
+    if (deltaX <= -56) {
+      swipeMovedTaskIdRef.current = task.id;
+      setSwipeDeleteTask(task);
+    }
+  };
+  const handleTaskPointerDown = (event: ReactPointerEvent<HTMLElement>, taskId: string) => {
+    if (event.pointerType === "touch" || (event.pointerType === "mouse" && event.button !== 0)) return;
+    beginTaskSwipe(taskId, event.clientX, event.clientY);
+  };
+  const handleTaskPointerMove = (event: ReactPointerEvent<HTMLElement>, taskId: string) => {
+    if (event.pointerType === "touch") return;
+    moveTaskSwipe(taskId, event.clientX, event.clientY, () => event.preventDefault());
+  };
+  const handleTaskPointerEnd = (event: ReactPointerEvent<HTMLElement>, task: TaskRecord) => {
+    if (event.pointerType === "touch") return;
+    endTaskSwipe(event.clientX, task);
+  };
+  const handleTaskTouchStart = (event: ReactTouchEvent<HTMLElement>, taskId: string) => {
+    const touch = event.touches[0];
+    if (touch) beginTaskSwipe(taskId, touch.clientX, touch.clientY);
+  };
+  const handleTaskTouchMove = (event: ReactTouchEvent<HTMLElement>, taskId: string) => {
+    const touch = event.touches[0];
+    if (touch) moveTaskSwipe(taskId, touch.clientX, touch.clientY, () => event.preventDefault());
+  };
+  const handleTaskTouchEnd = (event: ReactTouchEvent<HTMLElement>, task: TaskRecord) => {
+    const touch = event.changedTouches[0];
+    if (touch) endTaskSwipe(touch.clientX, task);
+  };
+  const cancelTaskSwipe = () => {
+    swipeGestureRef.current = null;
+    setSwipeOffset(null);
+  };
   useEffect(() => {
     if (!resumeContext?.taskId) {
       appliedResumeTaskIdRef.current = null;
@@ -981,11 +1049,28 @@ export function TaskDrawer({
     const isResumeTarget = showResumeBanner && resumeContext?.taskId === task.id;
     const isActiveFocusTarget = activeTaskId === task.id && timerStatus !== "idle";
     return (
-      <div className={`task-list__item${isResumeTarget || isActiveFocusTarget ? " task-list__item--attention" : ""}`} key={task.id} ref={(node) => {
+      <div className={`task-list__item${isResumeTarget || isActiveFocusTarget ? " task-list__item--attention" : ""}${swipeOffset?.id === task.id ? " task-list__item--swiping" : ""}`} key={task.id} ref={(node) => {
         if (node) taskRowRefs.current.set(task.id, node);
         else taskRowRefs.current.delete(task.id);
       }}>
-        <article className={`task-row${task.status === "completed" ? " task-row--completed" : ""}${selectedTaskId === task.id ? " is-selected" : ""}`}>
+        <article
+          className={`task-row${task.status === "completed" ? " task-row--completed" : ""}${selectedTaskId === task.id ? " is-selected" : ""}`}
+          style={{ transform: swipeOffset?.id === task.id ? `translateX(${swipeOffset.offset}px)` : undefined }}
+          onPointerDown={(event) => handleTaskPointerDown(event, task.id)}
+          onPointerMove={(event) => handleTaskPointerMove(event, task.id)}
+          onPointerUp={(event) => handleTaskPointerEnd(event, task)}
+          onPointerCancel={cancelTaskSwipe}
+          onTouchStart={(event) => handleTaskTouchStart(event, task.id)}
+          onTouchMove={(event) => handleTaskTouchMove(event, task.id)}
+          onTouchEnd={(event) => handleTaskTouchEnd(event, task)}
+          onTouchCancel={cancelTaskSwipe}
+          onClickCapture={(event) => {
+            if (swipeMovedTaskIdRef.current !== task.id) return;
+            event.preventDefault();
+            event.stopPropagation();
+            swipeMovedTaskIdRef.current = null;
+          }}
+        >
           <button className="task-row__check" type="button" aria-label={isArchived ? `${task.title}を復元` : task.status === "completed" ? `${task.title}を未完了に戻す` : `${task.title}を完了`} aria-pressed={task.status === "completed"} onClick={() => void (isArchived ? onRestoreTask(task.id) : onToggleTask(task.id))}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 12 4 4 8-9" /></svg></button>
           <button
             className="task-row__content"
@@ -1234,6 +1319,20 @@ export function TaskDrawer({
           const project = projectToArchive;
           setProjectToArchive(null);
           if (project) void handleArchiveProject(project.id);
+        }}
+      />
+      <ConfirmDialog
+        open={swipeDeleteTask !== null}
+        title={swipeDeleteIsRecurring ? "この発生分だけを削除しますか？" : "タスクを完全に削除しますか？"}
+        description={swipeDeleteIsRecurring
+          ? `${swipeDeleteTask.title}のこの発生分だけを削除します。繰り返し設定と他の発生分は残ります。`
+          : `${swipeDeleteTask?.title ?? "このタスク"}を完全に削除します。この操作は元に戻せません。`}
+        confirmLabel={swipeDeleteIsRecurring ? "このタスクだけを削除" : "削除する"}
+        onCancel={() => setSwipeDeleteTask(null)}
+        onConfirm={() => {
+          const task = swipeDeleteTask;
+          setSwipeDeleteTask(null);
+          if (task) void onDeleteTask(task.id);
         }}
       />
     </div>

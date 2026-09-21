@@ -589,6 +589,18 @@ describe("TaskDrawer", () => {
     await waitFor(() => expect(props.onDeleteTask).toHaveBeenCalledWith(task.id));
   });
 
+  it("opens a one-occurrence delete confirmation when a repeating task is swiped left", async () => {
+    const props = renderDrawer({ tasks: [{ ...task, repeatRule: null, repeatSeriesId: "series-1" }] });
+    const row = screen.getByRole("article");
+    fireEvent.touchStart(row, { touches: [{ clientX: 220, clientY: 20 }] });
+    fireEvent.touchMove(row, { touches: [{ clientX: 140, clientY: 22 }] });
+    fireEvent.touchEnd(row, { changedTouches: [{ clientX: 140, clientY: 22 }] });
+
+    expect(screen.getByRole("dialog", { name: "この発生分だけを削除しますか？" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "このタスクだけを削除" }));
+    await waitFor(() => expect(props.onDeleteTask).toHaveBeenCalledWith(task.id));
+  });
+
   it("uses tomorrow as the quick-add default in the tomorrow view", async () => {
     const props = renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: new RegExp(`^明日 `) }));
