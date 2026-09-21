@@ -287,6 +287,7 @@ describe("App", () => {
     render(<App />);
     openSettings();
     fireEvent.click(screen.getByRole("tab", { name: "表示" }));
+    fireEvent.click(screen.getByText("テーマの色"));
     const accentPicker = screen.getByRole("region", { name: "アプリのテーマ" });
     fireEvent.click(within(accentPicker).getByRole("button", { name: /推奨テーマ ピーチ/ }));
 
@@ -978,6 +979,7 @@ describe("App", () => {
     render(<App />);
     openSettings();
     fireEvent.click(screen.getByRole("tab", { name: "表示" }));
+    fireEvent.click(screen.getByText("テーマの色"));
     fireEvent.click(within(screen.getByRole("region", { name: "アプリのテーマ" })).getByRole("button", { name: /推奨テーマ ピーチ/ }));
     fireEvent.click(screen.getByRole("button", { name: "設定を閉じる" }));
 
