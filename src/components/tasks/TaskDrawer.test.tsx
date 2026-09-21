@@ -576,7 +576,6 @@ describe("TaskDrawer", () => {
   });
 
   it("keeps archive compact and offers permanent deletion in task details", async () => {
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     const props = renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
     const details = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
@@ -585,9 +584,9 @@ describe("TaskDrawer", () => {
     const archiveButton = details.getByRole("button", { name: "アーカイブ" });
     expect(archiveButton.className).toContain("task-editor__archive-button");
     fireEvent.click(details.getByRole("button", { name: "削除" }));
+    expect(screen.getByRole("dialog", { name: "タスクを完全に削除しますか？" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "削除する" }));
     await waitFor(() => expect(props.onDeleteTask).toHaveBeenCalledWith(task.id));
-    expect(confirm).toHaveBeenCalledWith("数学の復習を完全に削除しますか？この操作は元に戻せません。");
-    confirm.mockRestore();
   });
 
   it("uses tomorrow as the quick-add default in the tomorrow view", async () => {
@@ -609,7 +608,6 @@ describe("TaskDrawer", () => {
   });
 
   it("offers separate actions for deleting one repeating task or stopping its recurrence", () => {
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     const onDeleteRecurring = vi.fn().mockResolvedValue(true);
     renderDrawer({
       tasks: [{ ...task, repeatRule: { type: "daily", interval: 1 } }],
@@ -620,9 +618,9 @@ describe("TaskDrawer", () => {
     openAdvancedSettings(details);
     expect(details.getByRole("button", { name: "このタスクを削除" })).toBeTruthy();
     fireEvent.click(details.getByRole("button", { name: "繰り返しを削除" }));
+    expect(screen.getByRole("dialog", { name: "繰り返しを削除しますか？" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "削除する" }));
     expect(onDeleteRecurring).toHaveBeenCalledWith(task.id);
-    expect(confirm).toHaveBeenCalledWith("この繰り返しを削除しますか？既存のタスクは残し、今後の自動作成だけを停止します。");
-    confirm.mockRestore();
   });
 
   it("saves edited task settings before starting the timer", async () => {

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { clearAppIndexedDb, clearAppLocalData } from "../utils/storage";
 import { clearPwaCachesAndWorkers } from "../utils/pwaCleanup";
+import { ConfirmDialog } from "./ui/ConfirmDialog";
 
 type Props = {
   onResetSettings: () => void;
@@ -11,9 +12,9 @@ type Props = {
 export function ResetPanel({ onResetSettings, onClearTimer, onMessage }: Props) {
   const [showDeleteGuide, setShowDeleteGuide] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"everything" | "pwa" | null>(null);
 
   const clearEverything = async () => {
-    if (!window.confirm("設定、タイマー、背景画像、タスク、プロジェクト、集中履歴をすべて削除します。この操作は元に戻せません。続けますか？")) return;
     setBusy(true);
     clearAppLocalData();
     await clearAppIndexedDb().catch(() => undefined);
@@ -21,7 +22,6 @@ export function ResetPanel({ onResetSettings, onClearTimer, onMessage }: Props) 
   };
 
   const clearPwa = async () => {
-    if (!window.confirm("オフラインキャッシュと、このアプリのService Workerを削除しますか？")) return;
     setBusy(true);
     try {
       const result = await clearPwaCachesAndWorkers();
@@ -42,8 +42,8 @@ export function ResetPanel({ onResetSettings, onClearTimer, onMessage }: Props) 
       <div className="reset-actions">
         <button type="button" className="secondary-button" onClick={onResetSettings}>設定を初期化</button>
         <button type="button" className="secondary-button" onClick={onClearTimer}>タイマー状態を削除</button>
-        <button type="button" className="danger-button" onClick={clearEverything} disabled={busy}>すべてのローカルデータを削除</button>
-        <button type="button" className="danger-button" onClick={clearPwa} disabled={busy}>キャッシュとService Workerを削除</button>
+        <button type="button" className="danger-button" onClick={() => setPendingAction("everything")} disabled={busy}>すべてのローカルデータを削除</button>
+        <button type="button" className="danger-button" onClick={() => setPendingAction("pwa")} disabled={busy}>キャッシュとService Workerを削除</button>
         <button type="button" className="secondary-button" onClick={() => setShowDeleteGuide((shown) => !shown)} aria-expanded={showDeleteGuide}>
           PWA削除方法を表示
         </button>
@@ -59,6 +59,21 @@ export function ResetPanel({ onResetSettings, onClearTimer, onMessage }: Props) 
           <p>アプリ内の「すべてのローカルデータを削除」では、設定、タイマー、背景画像、タスク、プロジェクト、集中履歴を削除できます。</p>
         </div>
       )}
+      <ConfirmDialog
+        open={pendingAction !== null}
+        title={pendingAction === "everything" ? "ローカルデータをすべて削除しますか？" : "キャッシュとService Workerを削除しますか？"}
+        description={pendingAction === "everything"
+          ? "設定、タイマー、背景画像、タスク、プロジェクト、集中履歴を削除します。この操作は元に戻せません。"
+          : "オフラインキャッシュと、このアプリのService Workerを削除します。アプリの再読み込みが必要です。"}
+        confirmLabel="削除する"
+        onCancel={() => setPendingAction(null)}
+        onConfirm={() => {
+          const action = pendingAction;
+          setPendingAction(null);
+          if (action === "everything") void clearEverything();
+          if (action === "pwa") void clearPwa();
+        }}
+      />
     </section>
   );
 }

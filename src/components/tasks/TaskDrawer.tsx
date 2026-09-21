@@ -15,6 +15,7 @@ import { AppDateField } from "../ui/AppDateField";
 import { AppDateTimeField } from "../ui/AppDateTimeField";
 import { AppSelect } from "../ui/AppSelect";
 import { ColorPickerDisclosure } from "../ui/ColorPicker";
+import { ConfirmDialog } from "../ui/ConfirmDialog";
 
 type Props = {
   open: boolean;
@@ -326,6 +327,7 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
   const [noteExpanded, setNoteExpanded] = useState(task.note.trim().length > 0);
   const [subtasksExpanded, setSubtasksExpanded] = useState(subtasks.length > 0);
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"archive" | "delete" | "delete-recurring" | null>(null);
   const isActiveTask = activeTaskId === task.id && timerStatus !== "idle";
   const canStartTask = isActiveTask || (timerStatus === "idle" && task.status === "open");
   const canCompleteAndStartNext = task.status === "open" && timerStatus === "idle" && nextTask !== null && onCompleteAndStartNextTask !== undefined;
@@ -377,6 +379,13 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
     });
     setSaving(false);
     return saved;
+  };
+  const confirmDestructiveAction = async () => {
+    const action = pendingAction;
+    setPendingAction(null);
+    if (action === "archive") await onArchive();
+    if (action === "delete") await onDelete();
+    if (action === "delete-recurring") await onDeleteRecurring(task.id);
   };
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -541,9 +550,9 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
           </section>
           <div className="task-editor__actions">
             <div className="task-editor__destructive-actions">
-              <button className="danger-button task-editor__archive-button" type="button" onClick={() => { if (window.confirm(`${task.title}をアーカイブしますか？`)) void onArchive(); }}>アーカイブ</button>
-              <button className="danger-button task-editor__delete-button" type="button" onClick={() => { if (window.confirm(`${task.title}を完全に削除しますか？この操作は元に戻せません。`)) void onDelete(); }}>{task.repeatRule ? "このタスクを削除" : "削除"}</button>
-              {task.repeatRule && <button className="danger-button task-editor__delete-recurring-button" type="button" onClick={() => { if (window.confirm("この繰り返しを削除しますか？既存のタスクは残し、今後の自動作成だけを停止します。")) void onDeleteRecurring(task.id); }}>繰り返しを削除</button>}
+              <button className="danger-button task-editor__archive-button" type="button" onClick={() => setPendingAction("archive")}>アーカイブ</button>
+              <button className="danger-button task-editor__delete-button" type="button" onClick={() => setPendingAction("delete")}>{task.repeatRule ? "このタスクを削除" : "削除"}</button>
+              {task.repeatRule && <button className="danger-button task-editor__delete-recurring-button" type="button" onClick={() => setPendingAction("delete-recurring")}>繰り返しを削除</button>}
             </div>
             <div className="task-editor__move"><button className="secondary-button" type="button" disabled={!canMoveUp} onClick={() => void onMove(-1)}>前へ</button><button className="secondary-button" type="button" disabled={!canMoveDown} onClick={() => void onMove(1)}>後へ</button></div>
           </div>
@@ -552,6 +561,18 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
       </details>
       </form>
       <UnsavedChangesDialog open={discardDialogOpen} onCancel={() => setDiscardDialogOpen(false)} onDiscard={discardChanges} />
+      <ConfirmDialog
+        open={pendingAction !== null}
+        title={pendingAction === "archive" ? "タスクをアーカイブしますか？" : pendingAction === "delete-recurring" ? "繰り返しを削除しますか？" : "タスクを完全に削除しますか？"}
+        description={pendingAction === "archive"
+          ? `${task.title}をアーカイブします。`
+          : pendingAction === "delete-recurring"
+            ? "既存のタスクは残し、今後の自動作成だけを停止します。"
+            : `${task.title}を完全に削除します。この操作は元に戻せません。`}
+        confirmLabel={pendingAction === "archive" ? "アーカイブする" : "削除する"}
+        onCancel={() => setPendingAction(null)}
+        onConfirm={() => void confirmDestructiveAction()}
+      />
     </>
   );
 }
@@ -611,6 +632,7 @@ export function TaskDrawer({
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectColor, setNewProjectColor] = useState<string>(projectColorOptions[0].value);
   const [showProjectForm, setShowProjectForm] = useState(false);
+  const [projectToArchive, setProjectToArchive] = useState<ProjectRecord | null>(null);
   const [showResumeBanner, setShowResumeBanner] = useState(false);
   const [showTodayCompleted, setShowTodayCompleted] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -796,6 +818,14 @@ export function TaskDrawer({
     if (!open || workspaceMode !== "tasks") return;
     setNavigationCollapsed(false);
   }, [open, workspaceMode]);
+
+  useEffect(() => {
+    if (!open) return;
+    setProjectId(null);
+    setView("today");
+    setSelectedTaskId(null);
+    setWorkspaceMode("tasks");
+  }, [open]);
 
   useEffect(() => {
     if (!returnFocusToQuickAdd) return;
@@ -1051,7 +1081,7 @@ export function TaskDrawer({
                 {activeProjects.map((project) => (
                   <div className={projectId === project.id ? "project-link is-active" : "project-link"} key={project.id}>
                     <button className="project-link__select" type="button" onClick={() => { setProjectId(project.id); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); }}><i style={{ background: project.color }} /><span>{project.name}</span><strong>{estimatedFocusTimeLabel(getTasksForProject(tasks, project.id), workMinutes)}</strong></button>
-                    <button className="project-link__archive" type="button" aria-label={`${project.name}をアーカイブ`} onClick={() => { if (window.confirm(`${project.name}をアーカイブし、タスクをInboxへ移しますか？`)) void handleArchiveProject(project.id); }}>×</button>
+                    <button className="project-link__archive" type="button" aria-label={`${project.name}をアーカイブ`} onClick={() => setProjectToArchive(project)}>×</button>
                   </div>
                 ))}
                 {showProjectForm && <form className="project-add" onSubmit={addProject}>
@@ -1194,6 +1224,18 @@ export function TaskDrawer({
           </section>
         </div>
       </aside>
+      <ConfirmDialog
+        open={projectToArchive !== null}
+        title="プロジェクトをアーカイブしますか？"
+        description={`${projectToArchive?.name ?? "このプロジェクト"}をアーカイブし、所属するタスクをInboxへ移します。`}
+        confirmLabel="アーカイブする"
+        onCancel={() => setProjectToArchive(null)}
+        onConfirm={() => {
+          const project = projectToArchive;
+          setProjectToArchive(null);
+          if (project) void handleArchiveProject(project.id);
+        }}
+      />
     </div>
   );
 }

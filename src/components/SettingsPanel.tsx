@@ -6,6 +6,7 @@ import { ResetPanel } from "./ResetPanel";
 import { downloadSettingsExport } from "../utils/settingsExport";
 import { appVersion } from "../utils/appVersion";
 import type { AdaptivePalette } from "../utils/adaptiveColor";
+import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { AppSelect } from "./ui/AppSelect";
 import { ColorPicker, type ColorPickerSavedColor } from "./ui/ColorPicker";
 
@@ -111,6 +112,7 @@ type BackgroundSettingsProps = {
 };
 
 function BackgroundSettings({ settings, frame, customBackgrounds, frameOptions, frameTarget, onFrameTargetChange, onStartBackgroundEditing, onChange, uploads, move, onRemoveBackground }: BackgroundSettingsProps) {
+  const [pendingRemoval, setPendingRemoval] = useState<{ id: string; label: string } | null>(null);
   const hiddenBackgroundIds = new Set(settings.hiddenBackgroundIds);
   const builtInOptions = defaultBackgrounds.map((path, index) => ({ value: `bg${index + 1}` as BackgroundChoice, label: builtInBackgroundLabels[index], imageUrl: `${import.meta.env.BASE_URL}${path}` }));
   const sourceOptions: { value: BackgroundChoice; label: string; imageUrl?: string }[] = [
@@ -141,7 +143,7 @@ function BackgroundSettings({ settings, frame, customBackgrounds, frameOptions, 
     onChange(patch);
   };
   const removeBackground = (id: string, label: string) => {
-    if (window.confirm(`${label}を削除しますか？\nこの操作は元に戻せません。`)) void onRemoveBackground(id);
+    setPendingRemoval({ id, label });
   };
 
   return <>
@@ -167,6 +169,18 @@ function BackgroundSettings({ settings, frame, customBackgrounds, frameOptions, 
         <details className="background-advanced"><summary>位置と拡大</summary><div className="background-advanced__content"><Range id="background-scale" label="背景の拡大" value={frame.scale} {...settingRanges.backgroundScale} initial={defaultSettings.backgroundScale} onChange={(backgroundScale) => onChange({ backgroundScale })} /><Range id="background-position-x" label="背景の左右位置" value={Math.round(frame.position.x * 100)} min={0} max={100} step={1} unit="%" initial={defaultSettings.backgroundPosition.x * 100} onChange={(value) => onChange({ backgroundPosition: { ...frame.position, x: value / 100 } })} /><Range id="background-position-y" label="背景の上下位置" value={Math.round(frame.position.y * 100)} min={0} max={100} step={1} unit="%" initial={defaultSettings.backgroundPosition.y * 100} onChange={(value) => onChange({ backgroundPosition: { ...frame.position, y: value / 100 } })} /></div></details>
       </section>}
     </section>
+    <ConfirmDialog
+      open={pendingRemoval !== null}
+      title="背景画像を削除しますか？"
+      description={`${pendingRemoval?.label ?? "この画像"}を削除します。この操作は元に戻せません。`}
+      confirmLabel="削除する"
+      onCancel={() => setPendingRemoval(null)}
+      onConfirm={() => {
+        const removal = pendingRemoval;
+        setPendingRemoval(null);
+        if (removal) void onRemoveBackground(removal.id);
+      }}
+    />
     <section className="background-global-settings" aria-labelledby="background-global-heading"><div className="background-settings-heading"><div><h4 id="background-global-heading">画面全体</h4></div></div><Range id="overlay" label="背景を暗くする" value={Math.round(settings.overlayOpacity * 100)} {...settingRanges.overlayOpacity} initial={Math.round(defaultSettings.overlayOpacity * 100)} onChange={(value) => onChange({ overlayOpacity: value / 100 })} />{settings.backgroundChoice === "slideshow" && <Range id="slideshow" label="背景切り替え時間" value={settings.slideshowIntervalSec} {...settingRanges.slideshowIntervalSec} initial={defaultSettings.slideshowIntervalSec} onChange={(slideshowIntervalSec) => onChange({ slideshowIntervalSec })} />}</section>
   </>;
 }
