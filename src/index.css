@@ -3697,6 +3697,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 .project-add__palette .color-picker__saved-colors > * { justify-self: center; }
 
+.task-launcher,
+.task-launcher:hover,
+.task-launcher:focus-visible,
+.task-launcher:active { border-color: #c7ccd3; }
+
 @media (max-width: 600px) {
   .range-control__inputs {
     grid-template-columns: minmax(0, 1fr) auto;
