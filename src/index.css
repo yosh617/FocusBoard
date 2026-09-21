@@ -3011,6 +3011,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .timer-setup__heading { min-height: 28px; margin-bottom: 12px; }
 .timer-setup__heading h2, .timer-setup__heading span, .timer-setup__live-note strong, .timer-setup__live-note span, .timer-card__status { color: var(--color-ink); }
 .timer-setup__heading span, .timer-setup__step-heading strong { color: var(--color-mid-gray); letter-spacing: .08em; }
+.timer-card, .timer-setup, .timer-setup--active { box-shadow: none; }
 .timer-setup__collapse, .timer-setup__live-note, .timer-setup__step, .program-tab, .mode-tabs, .category-tabs, .duration-field input, .timer-task-select { border-color: var(--color-hairline); border-radius: var(--radius-m); background: var(--color-surface-alt); box-shadow: none; }
 .timer-setup__collapse { width: 36px; height: 36px; color: var(--color-mid-gray); }
 .timer-setup__collapse:hover, .timer-task-select:hover { color: var(--color-ink); border-color: var(--timer-accent); background: color-mix(in srgb, var(--timer-accent) 8%, #fff); }
