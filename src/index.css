@@ -3754,3 +3754,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   }
   .app-shell--task-launcher-visible .clock-widget { top: 48% !important; }
 }
+
+.task-row { border-radius: 0; }
+.task-row.is-selected { border-radius: 10px; }
