@@ -662,14 +662,15 @@ export function TaskDrawer({
     ? activeProjects.find((project) => project.id === projectId) ?? null
     : null;
   const completedPomodorosByTask = useMemo(() => {
-    const counts = new Map<string, number>();
+    const focusedDurationByTask = new Map<string, number>();
     for (const session of sessions) {
-      if (session.taskId && session.mode === "work" && session.result === "completed") {
-        counts.set(session.taskId, (counts.get(session.taskId) ?? 0) + 1);
+      if (session.taskId && session.mode === "work") {
+        focusedDurationByTask.set(session.taskId, (focusedDurationByTask.get(session.taskId) ?? 0) + session.focusedDurationMs);
       }
     }
-    return counts;
-  }, [sessions]);
+    const workDurationMs = Math.max(1, workMinutes * 60_000);
+    return new Map([...focusedDurationByTask.entries()].map(([taskId, focusedDurationMs]) => [taskId, Math.floor(focusedDurationMs / workDurationMs)]));
+  }, [sessions, workMinutes]);
   const scopedTasks = useMemo(
     () => projectId ? getTasksForProject(tasks, projectId) : getTasksForView(tasks, view, today),
     [projectId, tasks, today, view]
@@ -1109,7 +1110,6 @@ export function TaskDrawer({
                 {activeProjects.map((project) => (
                   <div className={projectId === project.id ? "project-link is-active" : "project-link"} key={project.id}>
                     <button className="project-link__select" type="button" onClick={() => { setProjectId(project.id); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); }}><i style={{ background: project.color }} /><span>{project.name}</span><strong>{estimatedFocusTimeLabel(getTasksForProject(tasks, project.id), workMinutes)}</strong></button>
-                    <button className="project-link__archive" type="button" aria-label={`${project.name}をアーカイブ`} onClick={() => setProjectToArchive(project)}>×</button>
                   </div>
                 ))}
                 {showProjectForm && <form className="project-add" onSubmit={addProject}>
@@ -1145,6 +1145,7 @@ export function TaskDrawer({
                   onChange={(color) => void onUpdateProjectColor(currentProject.id, projectColorOptions.find((option) => option.value.toLowerCase() === color.toLowerCase())?.value ?? color)}
                   disabled={!storageAvailable}
                 />}
+                {currentProject && <button className="task-workspace__project-archive danger-button" type="button" onClick={() => setProjectToArchive(currentProject)}>プロジェクトをアーカイブ</button>}
               </div>
               {view !== "completed" && view !== "archived" && <form className="task-quick-add task-capture" id="task-quick-add-form" onSubmit={addTask}>
                 <div className="task-capture__title">

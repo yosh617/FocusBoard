@@ -321,6 +321,9 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /タスクを選ぶ・追加する/ }));
     expect(screen.getByRole("dialog", { name: "取り組むタスクを選ぶ" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "数学の復習を選択" }));
+    fireEvent.click(screen.getByRole("button", { name: "タイマー設定をしまう" }));
+    expect(document.querySelector(".floating-timer__task")?.textContent).toBe("数学の復習");
+    fireEvent.click(screen.getByRole("button", { name: "タイマーセット" }));
     fireEvent.click(screen.getByRole("button", { name: "数学の復習を開始" }));
 
     expect(screen.queryByRole("dialog", { name: "取り組むタスクを選ぶ" })).toBeNull();

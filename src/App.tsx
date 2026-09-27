@@ -593,7 +593,7 @@ export default function App() {
       {settings.showTimer && (timer.status !== "idle" || settings.timerSetupCollapsed) && !timerSetupVisible && (
         <FloatingTimer
           timer={timer}
-          taskTitle={activeTask?.title ?? null}
+          taskTitle={activeTask?.title ?? (timer.status === "idle" && timerAcceptsTask ? selectedTimerTask?.title ?? null : null)}
           taskProgress={activeTaskProgress}
           onStart={startTimer}
           onPause={pause}

@@ -132,6 +132,12 @@ describe("TaskDrawer", () => {
     expect(screen.getByRole("button", { name: "数学の復習のタイマーを開始" }).querySelector(".task-row__play-icon")).toBeTruthy();
   });
 
+  it("judges task focus progress by focused time", () => {
+    renderDrawer({ sessions: [{ ...session, result: "cancelled", focusedDurationMs: 50 * 60_000 }] });
+    expect(screen.getByRole("button", { name: /数学の復習/, expanded: false }).textContent).toBe("数学の復習2/2");
+    expect(screen.getByLabelText("集中回数 2/2")).toBeTruthy();
+  });
+
   it("shows calculated focus records in task details", () => {
     renderDrawer({ sessions: [{ ...session, startedAt: session.endedAt - 25 * 60_000 }] });
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
@@ -205,6 +211,13 @@ describe("TaskDrawer", () => {
     fireEvent.click(red);
 
     await waitFor(() => expect(props.onUpdateProjectColor).toHaveBeenCalledWith("project-1", "#FF453A"));
+  });
+
+  it("keeps project archiving inside the selected project settings", () => {
+    renderDrawer();
+    expect(screen.queryByRole("button", { name: "プロジェクトをアーカイブ" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "勉強 0h 50m" }));
+    expect(screen.getByRole("button", { name: "プロジェクトをアーカイブ" })).toBeTruthy();
   });
 
   it("opens the suggested task in the dedicated editor and returns to the list", async () => {

@@ -715,8 +715,6 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .project-link > button:last-child { flex: none; border-left: 0; opacity: .45; }
 .project-link > button:last-child:hover { background: #fff0f3; opacity: 1; }
 .project-link__select { min-width: 0; flex: 1; }
-.project-link__archive { flex: none; border-left: 0; opacity: .45; }
-.project-link__archive:hover { background: #fff0f3; opacity: 1; }
 .project-add { display: grid; grid-template-columns: minmax(0,1fr) 44px; min-height: auto; border-color: #bdcee1; background: #fff; }
 .project-add > input { width: 100%; min-width: 0; }
 .project-add .project-add__color { grid-column: 1; width: 100%; height: 34px; padding: 5px 8px; border-top: 1px solid var(--line); border-left: 0; }
