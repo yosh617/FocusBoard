@@ -199,6 +199,8 @@ describe("TaskDrawer", () => {
     fireEvent.click(screen.getByRole("button", { name: "勉強 0h 50m" }));
 
     const picker = screen.getByRole("region", { name: "勉強の色" });
+    const summary = picker.closest("details")?.querySelector("summary");
+    expect(summary?.querySelector("output")).toBeNull();
     const red = within(picker).getByRole("button", { name: "推奨テーマ レッド #FF453A" });
     fireEvent.click(red);
 
@@ -232,8 +234,7 @@ describe("TaskDrawer", () => {
 
   it("surfaces the active focus context at the top of the drawer", async () => {
     renderDrawer({ timerStatus: "running", activeTaskId: task.id });
-    expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("いまの集中");
-    expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("数学の復習に取り組んでいます");
+    expect(screen.queryByRole("region", { name: "一覧へ戻ったあとの案内" })).toBeNull();
     expect(screen.getByRole("button", { name: "タイマーへ戻る" }).querySelector(".task-row__timer-icon")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
     await waitFor(() => expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy());
@@ -332,7 +333,7 @@ describe("TaskDrawer", () => {
     expect(within(list).queryByText("理科の暗記")).toBeNull();
   });
 
-  it("groups today tasks by project and exposes focus meters for each section", () => {
+  it("keeps today tasks in one list regardless of project", () => {
     const workProject: ProjectRecord = {
       ...project,
       id: "project-2",
@@ -350,12 +351,12 @@ describe("TaskDrawer", () => {
         { ...task, id: "task-3", title: "資料整理", projectId: workProject.id, estimatedPomodoros: 3, order: 2, updatedAt: 3 }
       ]
     });
-    expect(screen.getByRole("heading", { name: "勉強" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "仕事" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "プロジェクトなし" })).toBeTruthy();
-    expect(screen.getByLabelText("勉強の集中目安 0 / 2")).toBeTruthy();
-    expect(screen.getByLabelText("仕事の集中目安 0 / 3")).toBeTruthy();
-    expect(screen.getByLabelText("プロジェクトなしの集中目安 0 / 1")).toBeTruthy();
+    const list = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
+    expect(within(list).getAllByRole("article")).toHaveLength(3);
+    expect(screen.queryByRole("heading", { name: "勉強" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "仕事" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "プロジェクトなし" })).toBeNull();
+    expect(screen.queryByLabelText(/集中目安/)).toBeNull();
   });
 
   it("keeps overdue task cards compact while retaining their details", () => {
@@ -548,8 +549,8 @@ describe("TaskDrawer", () => {
     renderDrawer({ tasks: [overdueTask, task] });
 
     expect(screen.queryByRole("group", { name: "表示するタスクを絞り込む" })).toBeNull();
-    const sectionHeadings = [...document.querySelectorAll(".task-list__section-header h4")].map((heading) => heading.textContent);
-    expect(sectionHeadings.at(-1)).toBe("期限切れ");
+    const todayList = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
+    expect(within(todayList).getAllByRole("article").at(-1)?.textContent).toContain("期限切れタスク");
 
     fireEvent.click(screen.getByRole("button", { name: /^Inbox / }));
     expect(screen.getByRole("group", { name: "表示するタスクを絞り込む" })).toBeTruthy();
@@ -596,8 +597,8 @@ describe("TaskDrawer", () => {
     fireEvent.touchMove(row, { touches: [{ clientX: 140, clientY: 22 }] });
     fireEvent.touchEnd(row, { changedTouches: [{ clientX: 140, clientY: 22 }] });
 
-    expect(screen.getByRole("dialog", { name: "この発生分だけを削除しますか？" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "このタスクだけを削除" }));
+    expect(screen.getByRole("dialog", { name: "このタスクだけを削除しますか？" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "削除する" }));
     await waitFor(() => expect(props.onDeleteTask).toHaveBeenCalledWith(task.id));
   });
 
@@ -610,10 +611,15 @@ describe("TaskDrawer", () => {
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "明日の復習", dueDate: addLocalDays(today, 1) })));
   });
 
-  it("lists archived tasks and exposes a restore action", async () => {
+  it("hides an empty archive view", () => {
+    renderDrawer();
+    expect(screen.queryByRole("button", { name: /^保管済み/ })).toBeNull();
+  });
+
+  it("keeps archived tasks restorable from the secondary view", async () => {
     const archivedTask = { ...task, id: "task-archived", title: "保管した数学", status: "archived" as const };
     const props = renderDrawer({ tasks: [archivedTask] });
-    fireEvent.click(screen.getByRole("button", { name: new RegExp(`^アーカイブ `) }));
+    fireEvent.click(screen.getByRole("button", { name: /^保管済み/ }));
     expect(screen.getByText("保管した数学")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "保管した数学を復元" }));
     await waitFor(() => expect(props.onRestoreTask).toHaveBeenCalledWith(archivedTask.id));

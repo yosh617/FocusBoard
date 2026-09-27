@@ -89,6 +89,7 @@ export default function App() {
     selectProgram,
     selectCategory,
     setCustomDurationMinutes,
+    setActiveTaskId,
     setFloatingPosition,
     clearTimer
   } = usePomodoroTimer(settings, orientation, handleSessionEnd);
@@ -105,6 +106,7 @@ export default function App() {
     detail: string;
     taskId: string | null;
     actionLabel?: string;
+    showBanner?: boolean;
   } | null>(null);
   const [breakResumeTaskId, setBreakResumeTaskId] = useState<string | null>(null);
   const [timerSetupVisible, setTimerSetupVisible] = useState(false);
@@ -117,6 +119,7 @@ export default function App() {
   const [adaptivePalette, setAdaptivePalette] = useState<AdaptivePalette>(() => getAdaptivePalette(fallbackBackgroundRgb, settings.overlayOpacity));
   const taskDetailCardTimeoutRef = useRef<number | null>(null);
   const taskDetailCardFadeTimeoutRef = useRef<number | null>(null);
+  const previousTimerModeRef = useRef(timer.mode);
   const taskLauncherRef = useRef<HTMLButtonElement>(null);
   const homeTasksRef = useRef<HTMLButtonElement>(null);
   const overlayReturnTargetRef = useRef<HTMLElement | null>(null);
@@ -194,6 +197,17 @@ export default function App() {
     if (timer.status === "idle" || timer.mode === "work" || !breakResumeTaskId) return null;
     return tasks.find((task) => task.id === breakResumeTaskId && task.status === "open") ?? null;
   }, [breakResumeTaskId, tasks, timer.mode, timer.status]);
+  useEffect(() => {
+    const enteredWork = previousTimerModeRef.current !== "work"
+      && timer.program === "pomodoro"
+      && timer.mode === "work"
+      && timer.status === "running";
+    previousTimerModeRef.current = timer.mode;
+    if (!enteredWork || !breakResumeTaskId) return;
+    const resumeTask = tasks.find((task) => task.id === breakResumeTaskId && task.status === "open");
+    setActiveTaskId(resumeTask?.id ?? null);
+    setBreakResumeTaskId(null);
+  }, [breakResumeTaskId, setActiveTaskId, tasks, timer.mode, timer.program, timer.status]);
   const launcherSuggestedTask = useMemo(() => {
     const task = breakResumeTask;
     if (!task) return null;
@@ -411,9 +425,10 @@ export default function App() {
   const continueOvertime = useCallback(() => setOvertimePromptOpen(false), []);
   const startBreakFromOvertime = useCallback(() => {
     setOvertimePromptOpen(false);
+    setBreakResumeTaskId(timer.activeTaskId);
     suppressCompletedSessionDialogRef.current = true;
     startBreak();
-  }, [startBreak]);
+  }, [startBreak, timer.activeTaskId]);
 
   const slotContent = useMemo(() => {
     const slots = Object.fromEntries(positionPresets.map((position) => [position, [] as ReactNode[]])) as Record<PositionPreset, ReactNode[]>;
@@ -649,7 +664,8 @@ export default function App() {
               title: `${activeTask.title}へ戻れます`,
               detail: `${activeTaskDetailParts.join(" ・ ")} 集中を止めずに、詳細と一覧を見直せます。`,
               taskId: activeTask.id,
-              actionLabel: "進行中を開く"
+              actionLabel: "進行中を開く",
+              showBanner: false
             });
           } else {
             setTaskDrawerResumeContext(null);
@@ -735,7 +751,7 @@ export default function App() {
         nextTaskTitle={suggestedNextTask?.title ?? null}
         nextTaskDetail={suggestedNextTaskDetail}
         onStartBreak={() => {
-          setBreakResumeTaskId(suggestedNextTask?.id ?? null);
+          setBreakResumeTaskId(completedSession?.taskId ?? null);
           setCompletedSession(null);
           startTimer();
         }}

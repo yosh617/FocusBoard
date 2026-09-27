@@ -26,6 +26,8 @@ export type ColorPickerProps = {
   opacity?: number;
   onOpacityChange?: (opacity: number) => void;
   label?: string;
+  /** Hide the compact color value shown by ColorPickerDisclosure. */
+  showValue?: boolean;
   id?: string;
   disabled?: boolean;
   className?: string;
@@ -290,7 +292,7 @@ export function ColorPickerDisclosure(props: ColorPickerProps) {
   return <details className="color-picker-field">
     <summary>
       <span className="color-picker-field__swatch" style={{ "--color-picker-current": currentHex } as CSSProperties} aria-hidden="true" />
-      <span className="color-picker-field__value"><strong>{label}</strong><output>{colorName(currentHex)}</output></span>
+      <span className="color-picker-field__value"><strong>{label}</strong>{props.showValue !== false && <output>{colorName(currentHex)}</output>}</span>
       <span className="color-picker-field__action">変更</span>
     </summary>
     <div className="color-picker-field__body"><ColorPicker {...props} label={label} /></div>

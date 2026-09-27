@@ -180,6 +180,7 @@ export function FloatingTimer({ timer, taskTitle, taskProgress, onStart, onPause
         ) : (
             <div className="floating-timer__content">
               {programText && <span className="floating-timer__program">{programText}</span>}
+              {taskTitle && <span className="floating-timer__task" title={taskTitle}>{taskTitle}</span>}
               <strong aria-label={`${statusLabel} ${formatDuration(displayMs)}`}>{formatDuration(displayMs)}</strong>
               <div className="floating-timer__controls" role="group" aria-label="タイマー操作" onPointerDown={(event) => event.stopPropagation()}>
                 {timer.status === "overtime" ? (

@@ -415,6 +415,12 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
     });
   }, []);
 
+  const setActiveTaskId = useCallback((taskId: string | null) => {
+    setTimer((current) => current.program === "pomodoro" && current.mode === "work" && current.status === "running"
+      ? { ...current, activeTaskId: taskId }
+      : current);
+  }, []);
+
   const setFloatingPosition = useCallback((floatingPosition: FloatingPosition) => {
     setTimer((current) => ({ ...current, floatingPosition, floatingPositions: { ...current.floatingPositions, [orientation]: floatingPosition } }));
   }, [orientation]);
@@ -441,6 +447,7 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
     selectProgram,
     selectCategory,
     setCustomDurationMinutes,
+    setActiveTaskId,
     setFloatingPosition,
     clearTimer
   });
@@ -459,6 +466,7 @@ function createTimerApi(api: {
   selectProgram: (program: TimerProgram) => void;
   selectCategory: (category: SessionCategory) => void;
   setCustomDurationMinutes: (minutes: number) => void;
+  setActiveTaskId: (taskId: string | null) => void;
   setFloatingPosition: (position: FloatingPosition) => void;
   clearTimer: () => void;
 }) {

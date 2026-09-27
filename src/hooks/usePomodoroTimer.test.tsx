@@ -122,6 +122,20 @@ describe("usePomodoroTimer", () => {
     expect(onSessionEnd).toHaveBeenCalledWith(expect.objectContaining({ mode: "shortBreak", result: "completed" }));
   });
 
+  it("can attach the previous task to the automatically started focus session", async () => {
+    const { result } = renderHook(() => usePomodoroTimer({ ...defaultSettings, soundEnabled: false }));
+
+    act(() => {
+      result.current.selectMode("shortBreak");
+      result.current.start();
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(5 * 60_000 + 250); });
+
+    expect(result.current.timer.activeTaskId).toBeNull();
+    act(() => result.current.setActiveTaskId("task-1"));
+    expect(result.current.timer.activeTaskId).toBe("task-1");
+  });
+
   it("keeps a pomodoro in overtime until the user ends it when configured", async () => {
     const onSessionEnd = vi.fn();
     const { result } = renderHook(() => usePomodoroTimer({ ...defaultSettings, workMinutes: 1, soundEnabled: false, pomodoroEndBehavior: "overtime" }, onSessionEnd));

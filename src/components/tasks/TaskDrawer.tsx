@@ -53,6 +53,7 @@ type Props = {
     detail: string;
     taskId: string | null;
     actionLabel?: string;
+    showBanner?: boolean;
   } | null;
 };
 
@@ -74,8 +75,7 @@ const views: { value: TaskView; label: string }[] = [
   { value: "tomorrow", label: "明日" },
   { value: "upcoming", label: "今後" },
   { value: "someday", label: "いつか" },
-  { value: "completed", label: "完了済み" },
-  { value: "archived", label: "アーカイブ" }
+  { value: "completed", label: "完了済み" }
 ];
 
 const projectColorOptions = [
@@ -654,9 +654,10 @@ export function TaskDrawer({
   const tomorrow = addLocalDays(today, 1);
   const activeProjects = useMemo(() => getActiveProjects(projects), [projects]);
   const availableTags = useMemo(() => [...new Set(tasks.flatMap((task) => task.tags ?? []))].sort((left, right) => left.localeCompare(right, "ja")), [tasks]);
+  const archivedTasks = useMemo(() => getTasksForView(tasks, "archived", today), [tasks, today]);
   const currentListLabel = projectId
     ? activeProjects.find((project) => project.id === projectId)?.name ?? "プロジェクト"
-    : views.find((item) => item.value === view)?.label ?? "タスク";
+    : view === "archived" ? "保管済み" : views.find((item) => item.value === view)?.label ?? "タスク";
   const currentProject = projectId
     ? activeProjects.find((project) => project.id === projectId) ?? null
     : null;
@@ -702,88 +703,29 @@ export function TaskDrawer({
       }];
     }
 
-    const overdueTodayTasks = view === "today"
-      ? filteredTasks.filter((task) => task.dueDate !== null && task.dueDate < today)
-      : [];
-    const groupedTasks = view === "today"
-      ? filteredTasks.filter((task) => task.dueDate === null || task.dueDate >= today)
+    const orderedTasks = view === "today"
+      ? [
+          ...filteredTasks.filter((task) => task.dueDate === null || task.dueDate >= today),
+          ...filteredTasks.filter((task) => task.dueDate !== null && task.dueDate < today)
+        ]
       : filteredTasks;
-    const sections = new Map<string, TaskListSection>();
-    for (const task of groupedTasks) {
-      const taskProject = task.projectId
-        ? activeProjects.find((project) => project.id === task.projectId) ?? null
-        : null;
-      const key = taskProject?.id ?? `ungrouped-${view}`;
-      const label = taskProject?.name
-        ?? (view === "inbox"
-          ? "Inbox"
-          : view === "someday"
-            ? "いつか"
-            : "プロジェクトなし");
-      const currentSection = sections.get(key) ?? {
-        key,
-        label,
-        color: taskProject?.color ?? null,
-        tasks: [],
-        openCount: 0,
-        completedPomodoros: 0,
-        estimatedPomodoros: 0
-      };
-      currentSection.tasks.push(task);
-      if (task.status === "open") currentSection.openCount += 1;
-      currentSection.completedPomodoros += completedPomodorosByTask.get(task.id) ?? 0;
-      currentSection.estimatedPomodoros += task.estimatedPomodoros;
-      sections.set(key, currentSection);
-    }
-
-    const sortedSections = [...sections.values()].sort((left, right) => {
-      if (left.color && right.color) {
-        const leftProject = activeProjects.find((project) => project.id === left.key);
-        const rightProject = activeProjects.find((project) => project.id === right.key);
-        if (leftProject && rightProject) return leftProject.order - rightProject.order || leftProject.createdAt - rightProject.createdAt;
-      }
-      if (left.color) return -1;
-      if (right.color) return 1;
-      return left.label.localeCompare(right.label, "ja");
-    });
-    if (overdueTodayTasks.length > 0) sortedSections.push({
-      key: "today-overdue",
-      label: "期限切れ",
-      color: "#FF453A",
-      tasks: overdueTodayTasks,
-      openCount: overdueTodayTasks.length,
-      completedPomodoros: overdueTodayTasks.reduce((sum, task) => sum + (completedPomodorosByTask.get(task.id) ?? 0), 0),
-      estimatedPomodoros: overdueTodayTasks.reduce((sum, task) => sum + task.estimatedPomodoros, 0)
-    });
-    return sortedSections;
-  }, [activeProjects, completedPomodorosByTask, currentListLabel, currentProject, filteredTasks, projectId, today, view]);
+    return [{
+      key: `ungrouped-${view}`,
+      label: currentListLabel,
+      color: null,
+      tasks: orderedTasks,
+      openCount: orderedTasks.filter((task) => task.status === "open").length,
+      completedPomodoros: orderedTasks.reduce((sum, task) => sum + (completedPomodorosByTask.get(task.id) ?? 0), 0),
+      estimatedPomodoros: orderedTasks.reduce((sum, task) => sum + task.estimatedPomodoros, 0)
+    }];
+  }, [completedPomodorosByTask, currentListLabel, currentProject, filteredTasks, projectId, today, view]);
   const filterCounts = useMemo(() => ({
     all: scopedTasks.length,
     overdue: scopedTasks.filter((task) => task.dueDate !== null && task.dueDate < today).length,
     reminders: scopedTasks.filter((task) => task.reminderAt !== null).length,
     focus: scopedTasks.filter((task) => activeTaskId === task.id || task.estimatedPomodoros > 0 || (completedPomodorosByTask.get(task.id) ?? 0) > 0).length
   }), [activeTaskId, completedPomodorosByTask, scopedTasks, today]);
-  const activeFocusTask = activeTaskId && timerStatus !== "idle"
-    ? tasks.find((task) => task.id === activeTaskId && task.status !== "archived") ?? null
-    : null;
-  const activeFocusProject = activeFocusTask?.projectId
-    ? activeProjects.find((project) => project.id === activeFocusTask.projectId) ?? null
-    : null;
-  const activeFocusBanner = useMemo(() => {
-    if (!activeFocusTask) return null;
-    const detailParts: string[] = [];
-    if (activeFocusProject) detailParts.push(activeFocusProject.name);
-    const activeDueLabel = dueLabel(activeFocusTask, today);
-    if (activeDueLabel) detailParts.push(activeDueLabel);
-    return {
-      label: "いまの集中",
-      title: `${activeFocusTask.title}に取り組んでいます`,
-      detail: `${detailParts.join(" ・ ")}${detailParts.length > 0 ? " ・ " : ""}集中を止めずに、詳細や一覧を見直せます。`,
-      taskId: activeFocusTask.id,
-      actionLabel: "進行中を開く"
-    };
-  }, [activeFocusProject, activeFocusTask, today]);
-  const toolbarContext = resumeContext ?? activeFocusBanner;
+  const toolbarContext = resumeContext?.showBanner === false ? null : resumeContext;
   useEffect(() => {
     if (!open) return;
     const previous = document.activeElement as HTMLElement | null;
@@ -1160,6 +1102,7 @@ export function TaskDrawer({
                   const estimatedTime = estimatedFocusTimeLabel(getTasksForView(tasks, item.value, today), workMinutes);
                   return <button ref={index === 0 ? navigationHeadingRef : undefined} type="button" className={!projectId && view === item.value ? "is-active" : ""} aria-current={!projectId && view === item.value ? "page" : undefined} onClick={() => { setProjectId(null); setView(item.value); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); }} key={item.value}><span>{item.label}</span><strong>{estimatedTime}</strong></button>;
                 })}
+                {archivedTasks.length > 0 && <button type="button" className={!projectId && view === "archived" ? "is-active" : ""} aria-current={!projectId && view === "archived" ? "page" : undefined} onClick={() => { setProjectId(null); setView("archived"); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); }}><span>保管済み</span><strong>{estimatedFocusTimeLabel(archivedTasks, workMinutes)}</strong></button>}
               </div>
               <div className="task-navigation__projects">
                 <div className="task-navigation__projects-heading"><h3>プロジェクト</h3><button type="button" aria-expanded={showProjectForm} onClick={() => setShowProjectForm((current) => !current)}>{showProjectForm ? "閉じる" : "新規"}</button></div>
@@ -1196,6 +1139,7 @@ export function TaskDrawer({
                 {currentProject && <ColorPickerDisclosure
                   value={currentProject.color}
                   label={`${currentProject.name}の色`}
+                  showValue={false}
                   modes={["grid", "spectrum", "sliders"]}
                   themeColors={projectColorOptions.map(({ name, value }) => ({ label: name, color: value }))}
                   onChange={(color) => void onUpdateProjectColor(currentProject.id, projectColorOptions.find((option) => option.value.toLowerCase() === color.toLowerCase())?.value ?? color)}
@@ -1297,7 +1241,7 @@ export function TaskDrawer({
                   <button className={dueDate ? "is-active" : ""} type="button" aria-label={dueDate ? `期限 ${dueDate}。もう一度押して変更` : `期限を${view === "tomorrow" ? "明日" : "今日"}に設定`} aria-expanded={quickPanel === "date"} onClick={() => { if (!dueDate) { setDueDate(view === "tomorrow" ? tomorrow : today); setQuickPanel(null); } else setQuickPanel((current) => current === "date" ? null : "date"); }}><QuickAddIcon type="date" /><span className="task-capture__toolbar-copy"><strong>期限</strong><small>{dueDate === today || (!dueDate && view === "today") ? "今日" : dueDate === tomorrow || (!dueDate && view === "tomorrow") ? "明日" : dueDate ? dueDate.slice(5).replace("-", "/") : "なし"}</small></span></button>
                   <button className={quickPriority !== "none" ? "is-active" : ""} type="button" aria-label={`優先度 ${priorityOptions.find((option) => option.value === quickPriority)?.label}`} aria-expanded={quickPanel === "priority"} onClick={() => setQuickPanel((current) => current === "priority" ? null : "priority")} style={{ color: priorityOptions.find((option) => option.value === quickPriority)?.color }}><QuickAddIcon type="priority" /><span className="task-capture__toolbar-copy"><strong>優先度</strong><small>{priorityOptions.find((option) => option.value === quickPriority)?.label}</small></span></button>
                   <button className={quickTags.length > 0 ? "is-active" : ""} type="button" aria-label={quickTags.length > 0 ? `タグ ${quickTags.join("、")}` : "タグを設定"} aria-expanded={quickPanel === "tag"} onClick={() => setQuickPanel((current) => current === "tag" ? null : "tag")}><QuickAddIcon type="tag" /><span className="task-capture__toolbar-copy"><strong>タグ</strong><small>{quickTags.length > 0 ? quickTags.join("、") : "なし"}</small></span></button>
-                  <button className={quickAddProjectId ? "is-active" : ""} type="button" aria-label="プロジェクトを設定" aria-expanded={quickPanel === "project"} onClick={() => setQuickPanel((current) => current === "project" ? null : "project")}><QuickAddIcon type="project" /><span className="task-capture__toolbar-copy"><strong>リスト</strong><small>{activeProjects.find((item) => item.id === quickAddProjectId)?.name ?? "Inbox"}</small></span></button>
+                  <button className={quickAddProjectId ? "is-active" : ""} type="button" aria-label="プロジェクトを設定" aria-expanded={quickPanel === "project"} onClick={() => setQuickPanel((current) => current === "project" ? null : "project")}><QuickAddIcon type="project" /><span className="task-capture__toolbar-copy"><strong>プロジェクト</strong><small>{activeProjects.find((item) => item.id === quickAddProjectId)?.name ?? "Inbox"}</small></span></button>
                 </div>
                 {quickPanel === "date" && <AppCalendar title="期限を設定" value={dueDate} today={today} onSelect={(value) => { setDueDate(value); setQuickPanel(null); }} onClose={() => setQuickPanel(null)} />}
                 {quickPanel === "priority" && <section className="quick-add-popover quick-add-priority" role="dialog" aria-label="優先度を設定"><div className="quick-add-popover__header"><strong>優先度</strong><button type="button" aria-label="優先度設定を閉じる" onClick={() => setQuickPanel(null)}>×</button></div><div>{priorityOptions.map((option) => <button className={quickPriority === option.value ? "is-selected" : ""} type="button" aria-pressed={quickPriority === option.value} onClick={() => { setQuickPriority(option.value); setQuickPanel(null); }} key={option.value}><span style={{ color: option.color }}><QuickAddIcon type="priority" /></span><strong>{option.label}</strong></button>)}</div></section>}
@@ -1323,11 +1267,11 @@ export function TaskDrawer({
       />
       <ConfirmDialog
         open={swipeDeleteTask !== null}
-        title={swipeDeleteIsRecurring ? "この発生分だけを削除しますか？" : "タスクを完全に削除しますか？"}
+        title={swipeDeleteIsRecurring ? "このタスクだけを削除しますか？" : "タスクを完全に削除しますか？"}
         description={swipeDeleteIsRecurring
-          ? `${swipeDeleteTask.title}のこの発生分だけを削除します。繰り返し設定と他の発生分は残ります。`
+          ? `${swipeDeleteTask.title}だけを削除します。繰り返し設定と他のタスクは残ります。`
           : `${swipeDeleteTask?.title ?? "このタスク"}を完全に削除します。この操作は元に戻せません。`}
-        confirmLabel={swipeDeleteIsRecurring ? "このタスクだけを削除" : "削除する"}
+        confirmLabel="削除する"
         onCancel={() => setSwipeDeleteTask(null)}
         onConfirm={() => {
           const task = swipeDeleteTask;

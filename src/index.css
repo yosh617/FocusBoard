@@ -232,6 +232,7 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .floating-timer--completed .progress-ring__value { stroke: var(--timer-accent, #22b7ff); }
 .floating-timer__content { position: absolute; inset: 25px 26px 22px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #f6f9fc; text-align: center; }
 .floating-timer__program { color: #b8c8d8; font-size: 9px; font-weight: 800; letter-spacing: .12em; }
+.floating-timer__task { max-width: 78%; margin: 4px 0 1px; overflow: hidden; color: #d5e2ee; font-size: 11px; font-weight: 700; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
 .floating-timer__content strong { margin: 5px 0 7px; font-size: 38px; font-weight: 430; line-height: 1; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
 .floating-timer__controls { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; }
 .floating-timer__controls button { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; color: #e8f2fb; border: 1px solid rgba(255,255,255,.24); border-radius: 50%; background: rgba(255,255,255,.08); transition: color .2s, background-color .2s, border-color .2s; }
@@ -3116,7 +3117,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .floating-timer__grip i { background: var(--color-mid-gray); }
 .progress-ring__track { stroke: var(--color-hairline); }
 .progress-ring__value, .floating-timer--completed .progress-ring__value { stroke: var(--timer-accent); filter: none; }
-.floating-timer__program, .floating-timer__done { color: var(--color-mid-gray); }
+.floating-timer__program, .floating-timer__task, .floating-timer__done { color: var(--color-mid-gray); }
 .floating-timer__content strong { color: var(--color-ink); }
 .floating-timer__controls button, .floating-timer__controls .floating-timer__primary { color: var(--color-ink); border-color: var(--color-hairline); background: var(--color-canvas); }
 .floating-timer__controls button:hover { color: var(--color-ink); border-color: var(--timer-accent); background: color-mix(in srgb, var(--timer-accent) 9%, #fff); }
