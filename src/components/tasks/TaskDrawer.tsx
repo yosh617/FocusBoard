@@ -1153,6 +1153,7 @@ export function TaskDrawer({
                 <ColorPickerDisclosure
                   value={currentProject.color}
                   label={`${currentProject.name}の色`}
+                  showValue={false}
                   modes={["grid", "spectrum", "sliders"]}
                   themeColors={projectColorOptions.map(({ name, value }) => ({ label: name, color: value }))}
                   onChange={(color) => void onUpdateProjectColor(currentProject.id, projectColorOptions.find((option) => option.value.toLowerCase() === color.toLowerCase())?.value ?? color)}
