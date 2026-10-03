@@ -456,6 +456,30 @@ export function useTasks() {
     }
   }, [clearUndo, fail, storageAvailable]);
 
+  const deleteProject = useCallback(async (id: string) => {
+    const project = projectsRef.current.find((item) => item.id === id);
+    if (!project || !storageAvailable) return false;
+    const affectedTasks = tasksRef.current
+      .filter((task) => task.projectId === id)
+      .map((task) => ({
+        ...task,
+        projectId: null,
+        ...(task.status === "archived" ? {} : { bucket: "inbox" as const }),
+        updatedAt: Date.now()
+      }));
+    try {
+      await deleteProductivityRecords({ projectIds: [id], tasks: affectedTasks });
+      setProjects((current) => current.filter((item) => item.id !== id));
+      setTasks((current) => current.map((task) => affectedTasks.find((item) => item.id === task.id) ?? task));
+      setMessage("プロジェクトを削除し、未完了のタスクをInboxへ移しました。");
+      clearUndo();
+      return true;
+    } catch {
+      fail();
+      return false;
+    }
+  }, [clearUndo, fail, storageAvailable]);
+
   const undo = useCallback(async () => {
     const action = undoRef.current;
     if (!action) return false;
@@ -568,6 +592,7 @@ export function useTasks() {
     addProject,
     updateProjectColor,
     archiveProject,
+    deleteProject,
     undo,
     recordTimerSession,
     importProductivityBackup

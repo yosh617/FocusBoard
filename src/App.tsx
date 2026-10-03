@@ -63,6 +63,7 @@ export default function App() {
     addProject,
     updateProjectColor,
     archiveProject,
+    deleteProject,
     undo: undoTask,
     recordTimerSession,
     importProductivityBackup
@@ -297,14 +298,6 @@ export default function App() {
     window.setTimeout(() => overlayReturnTargetRef.current?.focus(), 0);
   }, []);
   const closeCompletedSession = useCallback(() => setCompletedSession(null), []);
-  const startTask = useCallback((taskId: string) => {
-    setTaskMessage("");
-    setTaskDrawerResumeContext(null);
-    setBreakResumeTaskId(null);
-    setSelectedTimerTaskId(taskId);
-    start(taskId);
-    setTasksOpen(false);
-  }, [setTaskMessage, start]);
   const hideTaskDetailCard = useCallback(() => {
     if (taskDetailCardTimeoutRef.current !== null) window.clearTimeout(taskDetailCardTimeoutRef.current);
     if (taskDetailCardFadeTimeoutRef.current !== null) window.clearTimeout(taskDetailCardFadeTimeoutRef.current);
@@ -389,6 +382,23 @@ export default function App() {
     updateSettings({ timerSetupCollapsed: true });
     start(taskId);
   }, [start, updateSettings]);
+  const beginFocusTimer = useCallback((taskId?: string | null) => {
+    const isFocus = timer.program === "pomodoro" ? timer.mode === "work" : timer.category === "focus";
+    if (!isFocus && (timer.status === "running" || timer.status === "overtime")) end();
+    if (!isFocus) {
+      if (timer.program === "pomodoro") selectMode("work");
+      else selectCategory("focus");
+    }
+    beginTimer(taskId);
+  }, [beginTimer, end, selectCategory, selectMode, timer.category, timer.mode, timer.program, timer.status]);
+  const startTask = useCallback((taskId: string) => {
+    setTaskMessage("");
+    setTaskDrawerResumeContext(null);
+    setBreakResumeTaskId(null);
+    setSelectedTimerTaskId(taskId);
+    beginFocusTimer(taskId);
+    setTasksOpen(false);
+  }, [beginFocusTimer, setTaskMessage]);
   const startTimer = useCallback(() => {
     if (timer.status !== "idle") {
       beginTimer();
@@ -617,7 +627,7 @@ export default function App() {
           setSelectedTimerTaskId(taskId);
           setTimerTaskPickerIntent(null);
         }}
-        onStart={(taskId) => beginTimer(taskId)}
+        onStart={(taskId) => beginFocusTimer(taskId)}
         onClose={() => setTimerTaskPickerIntent(null)}
       />
       {(taskDetailCardVisible || settingsOpen || tasksOpen) && <nav className={`home-dock home-dock--transient${taskDetailCardFading && !settingsOpen && !tasksOpen ? " home-dock--fading" : ""}`} aria-label="ホーム操作">
@@ -725,6 +735,7 @@ export default function App() {
         onAddProject={addProject}
         onUpdateProjectColor={updateProjectColor}
         onArchiveProject={archiveProject}
+        onDeleteProject={deleteProject}
         onUndo={undoTask}
         timerStatus={timer.status}
         activeTaskId={timer.activeTaskId}

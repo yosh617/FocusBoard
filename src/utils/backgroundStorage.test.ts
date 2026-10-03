@@ -14,8 +14,8 @@ describe("custom background validation", () => {
     expect(() => validateBackgroundFiles([oversized], 0)).toThrow("10MB以下");
   });
 
-  it("limits the saved gallery to eight images", () => {
+  it("limits the saved gallery to twenty images", () => {
     const image = new File(["image"], "extra.png", { type: "image/png" });
-    expect(() => validateBackgroundFiles([image], MAX_CUSTOM_BACKGROUNDS)).toThrow("最大8枚");
+    expect(() => validateBackgroundFiles([image], MAX_CUSTOM_BACKGROUNDS)).toThrow("最大20枚");
   });
 });

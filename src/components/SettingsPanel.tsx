@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { colorPresets, dateFormatPresets, defaultSettings, describeFontSize, fontOptions, orientations, settingRanges, taskThemePresets, uiAccentPresets, type AppSettings, type BackgroundChoice, type BackgroundFrame, type FontOption, type Orientation, type PositionPreset, type TaskThemePreset } from "../types/settings";
-import type { CustomBackground } from "../utils/backgroundStorage";
+import { MAX_CUSTOM_BACKGROUNDS, type CustomBackground } from "../utils/backgroundStorage";
 import { defaultBackgrounds } from "./BackgroundSlideshow";
 import { ResetPanel } from "./ResetPanel";
 import { downloadSettingsExport } from "../utils/settingsExport";
@@ -148,7 +148,7 @@ function BackgroundSettings({ settings, frame, customBackgrounds, frameOptions, 
 
   return <>
     <section className="background-source-settings" aria-labelledby="background-source-heading">
-      <div className="background-settings-heading"><div><h4 id="background-source-heading">背景を選ぶ・追加する</h4></div>{customBackgrounds.length > 0 && <span className="background-settings-count">{customBackgrounds.length}枚追加</span>}</div>
+      <div className="background-settings-heading"><div><h4 id="background-source-heading">背景を選ぶ・追加する</h4></div><span className="background-settings-count">追加画像 {customBackgrounds.length} / {MAX_CUSTOM_BACKGROUNDS}枚</span></div>
       <div className="background-picker" role="radiogroup" aria-label="背景を選択">
         {sourceOptions.map((option) => <div className="background-option-wrap" key={option.value}>
           <button type="button" role="radio" aria-checked={settings.backgroundChoice === option.value} aria-expanded={option.value !== "slideshow" && settings.backgroundChoice === option.value ? frameSettingsOpen : undefined} aria-controls={option.value !== "slideshow" ? "background-frame-settings" : undefined} title={option.value === "slideshow" ? "背景を自動切替にする" : `${option.label}の設定を開く`} className={`background-option${settings.backgroundChoice === option.value ? " background-option--active" : ""}`} onClick={() => selectBackground(option)}>

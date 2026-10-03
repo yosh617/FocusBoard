@@ -1,6 +1,6 @@
 export const BACKGROUND_DB_NAME = "focusboard-backgrounds";
 const STORE_NAME = "backgrounds";
-export const MAX_CUSTOM_BACKGROUNDS = 8;
+export const MAX_CUSTOM_BACKGROUNDS = 20;
 export const MAX_BACKGROUND_FILE_SIZE = 10 * 1024 * 1024;
 
 export type StoredBackground = {

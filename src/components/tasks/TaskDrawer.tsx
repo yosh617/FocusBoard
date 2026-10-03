@@ -43,6 +43,7 @@ type Props = {
   onAddProject: (name: string, color?: string) => Promise<boolean>;
   onUpdateProjectColor?: (id: string, color: string) => Promise<boolean>;
   onArchiveProject: (id: string) => Promise<boolean>;
+  onDeleteProject: (id: string) => Promise<boolean>;
   onUndo: () => Promise<boolean>;
   onStartTask: (id: string) => void;
   onRequestNotification: () => Promise<boolean>;
@@ -609,6 +610,7 @@ export function TaskDrawer({
   onAddProject,
   onUpdateProjectColor = async () => false,
   onArchiveProject,
+  onDeleteProject,
   onUndo,
   onStartTask,
   onRequestNotification,
@@ -628,11 +630,13 @@ export function TaskDrawer({
   const [returnFocusToQuickAdd, setReturnFocusToQuickAdd] = useState(false);
   const [listFilter, setListFilter] = useState<TaskListFilter>("all");
   const [workspaceMode, setWorkspaceMode] = useState<"tasks" | "report" | "backup">("tasks");
+  const [projectSettingsOpen, setProjectSettingsOpen] = useState(false);
   const [navigationCollapsed, setNavigationCollapsed] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectColor, setNewProjectColor] = useState<string>(projectColorOptions[0].value);
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [projectToArchive, setProjectToArchive] = useState<ProjectRecord | null>(null);
+  const [projectToDelete, setProjectToDelete] = useState<ProjectRecord | null>(null);
   const [swipeDeleteTask, setSwipeDeleteTask] = useState<TaskRecord | null>(null);
   const [swipeOffset, setSwipeOffset] = useState<{ id: string; offset: number } | null>(null);
   const [showResumeBanner, setShowResumeBanner] = useState(false);
@@ -837,6 +841,14 @@ export function TaskDrawer({
   const handleArchiveProject = async (id: string) => {
     if (!await onArchiveProject(id)) return;
     if (projectId === id) setProjectId(null);
+    setProjectSettingsOpen(false);
+    if (quickProjectId === id) setQuickProjectId("");
+  };
+
+  const handleDeleteProject = async (id: string) => {
+    if (!await onDeleteProject(id)) return;
+    if (projectId === id) setProjectId(null);
+    setProjectSettingsOpen(false);
     if (quickProjectId === id) setQuickProjectId("");
   };
 
@@ -1101,15 +1113,15 @@ export function TaskDrawer({
               <div className="task-navigation__views">
                 {views.map((item, index) => {
                   const estimatedTime = estimatedFocusTimeLabel(getTasksForView(tasks, item.value, today), workMinutes);
-                  return <button ref={index === 0 ? navigationHeadingRef : undefined} type="button" className={!projectId && view === item.value ? "is-active" : ""} aria-current={!projectId && view === item.value ? "page" : undefined} onClick={() => { setProjectId(null); setView(item.value); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); }} key={item.value}><span>{item.label}</span><strong>{estimatedTime}</strong></button>;
+                  return <button ref={index === 0 ? navigationHeadingRef : undefined} type="button" className={!projectId && view === item.value ? "is-active" : ""} aria-current={!projectId && view === item.value ? "page" : undefined} onClick={() => { setProjectSettingsOpen(false); setProjectId(null); setView(item.value); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); }} key={item.value}><span>{item.label}</span><strong>{estimatedTime}</strong></button>;
                 })}
-                {archivedTasks.length > 0 && <button type="button" className={!projectId && view === "archived" ? "is-active" : ""} aria-current={!projectId && view === "archived" ? "page" : undefined} onClick={() => { setProjectId(null); setView("archived"); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); }}><span>保管済み</span><strong>{estimatedFocusTimeLabel(archivedTasks, workMinutes)}</strong></button>}
+                {archivedTasks.length > 0 && <button type="button" className={!projectId && view === "archived" ? "is-active" : ""} aria-current={!projectId && view === "archived" ? "page" : undefined} onClick={() => { setProjectSettingsOpen(false); setProjectId(null); setView("archived"); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); }}><span>保管済み</span><strong>{estimatedFocusTimeLabel(archivedTasks, workMinutes)}</strong></button>}
               </div>
               <div className="task-navigation__projects">
                 <div className="task-navigation__projects-heading"><h3>プロジェクト</h3><button type="button" aria-expanded={showProjectForm} onClick={() => setShowProjectForm((current) => !current)}>{showProjectForm ? "閉じる" : "新規"}</button></div>
                 {activeProjects.map((project) => (
                   <div className={projectId === project.id ? "project-link is-active" : "project-link"} key={project.id}>
-                    <button className="project-link__select" type="button" onClick={() => { setProjectId(project.id); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); }}><i style={{ background: project.color }} /><span>{project.name}</span><strong>{estimatedFocusTimeLabel(getTasksForProject(tasks, project.id), workMinutes)}</strong></button>
+                    <button className="project-link__select" type="button" onClick={() => { setProjectSettingsOpen(false); setProjectId(project.id); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); }}><i style={{ background: project.color }} /><span>{project.name}</span><strong>{estimatedFocusTimeLabel(getTasksForProject(tasks, project.id), workMinutes)}</strong></button>
                   </div>
                 ))}
                 {showProjectForm && <form className="project-add" onSubmit={addProject}>
@@ -1131,21 +1143,36 @@ export function TaskDrawer({
           </nav>}
 
           <section ref={workspaceRef} className={`task-workspace${workspaceMode !== "tasks" ? " task-workspace--standalone" : ""}${workspaceMode === "tasks" && (!selectedTask || selectedTask.status === "archived") ? " task-workspace--list" : ""}`} id="task-workspace-main" tabIndex={-1} aria-label={workspaceMode === "report" ? "集中レポート" : workspaceMode === "backup" ? "バックアップと復元" : currentListLabel}>
-            {workspaceMode === "report" ? <ProductivityReport tasks={tasks} sessions={sessions} workMinutes={workMinutes} onUpdateSession={onUpdateSession} /> : workspaceMode === "backup" ? <ProductivityBackupPanel tasks={tasks} projects={projects} sessions={sessions} storageAvailable={storageAvailable} onImport={onImportBackup} /> : selectedTask && selectedTask.status !== "archived" ? <div className="task-editor-screen"><TaskEditor key={`${selectedTask.id}-${selectedTask.updatedAt}`} task={selectedTask} projects={activeProjects} availableTags={availableTags} subtasks={tasks.filter((item) => item.parentTaskId === selectedTask.id && item.status !== "archived").sort((a, b) => a.order - b.order)} sessions={sessions} timerStatus={timerStatus} activeTaskId={activeTaskId} nextTask={selectedTaskNextCandidate} nextTaskDetail={selectedTaskNextCandidateDetail} onStartTask={onStartTask} onOpenNextTask={selectedTaskNextCandidate ? () => openTaskDetails(selectedTaskNextCandidate, { revealInList: true }) : undefined} onReturnToTimer={() => { setSelectedTaskId(null); onClose(); }} onSave={(patch) => onUpdateTask(selectedTask.id, patch)} onArchive={async () => { const archived = await onArchiveTask(selectedTask.id); if (archived) setSelectedTaskId(null); return archived; }} onDelete={async () => { const deleted = await onDeleteTask(selectedTask.id); if (deleted) setSelectedTaskId(null); return deleted; }} onDeleteRecurring={async (taskId) => onDeleteRecurring?.(taskId) ?? false} onToggleStatus={async () => { const toggled = await onToggleTask(selectedTask.id); if (toggled) closeTaskDetails(selectedTask.id); return toggled; }} onCompleteAndStartNextTask={selectedTaskNextCandidate ? async () => { const toggled = await onToggleTask(selectedTask.id); if (!toggled) return false; onStartTask(selectedTaskNextCandidate.id); return true; } : undefined} onAddSubtask={async (subtaskTitle) => (await onAddTask({ title: subtaskTitle, parentTaskId: selectedTask.id, projectId: selectedTask.projectId, bucket: selectedTask.bucket })) !== null} onToggleSubtask={onToggleTask} canMoveUp={selectedTaskVisibleIndex > 0} canMoveDown={selectedTaskVisibleIndex >= 0 && selectedTaskVisibleIndex < selectedTaskVisibleIds.length - 1} onMove={(direction) => onMoveTask(selectedTask.id, selectedTaskVisibleIds, direction)} onClose={() => closeTaskDetails(selectedTask.id)} /></div> : <>
-            <div className="task-workspace__scroll">
-            <div className="task-workspace__toolbar">
-              <div className="task-workspace__heading">
-                <div className="task-workspace__heading-main"><button className="task-workspace__destination-button" type="button" aria-label="一覧を開く" onClick={openTaskNavigation}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5-7 7 7 7" /></svg></button>{currentProject && <i className="task-workspace__project-color" style={{ background: currentProject.color }} aria-hidden="true" />}<h3>{currentListLabel}</h3><span>{filteredTasks.length + (!projectId && view === "today" ? todayCompletedTasks.length : 0)}件のタスク</span></div>
-                {currentProject && <ColorPickerDisclosure
+            {workspaceMode === "report" ? <ProductivityReport tasks={tasks} sessions={sessions} workMinutes={workMinutes} onUpdateSession={onUpdateSession} /> : workspaceMode === "backup" ? <ProductivityBackupPanel tasks={tasks} projects={projects} sessions={sessions} storageAvailable={storageAvailable} onImport={onImportBackup} /> : projectSettingsOpen && currentProject ? <section className="project-settings-screen" aria-label={`${currentProject.name}のプロジェクト設定`}>
+              <header className="project-settings-screen__header">
+                <button className="secondary-button" type="button" onClick={() => setProjectSettingsOpen(false)}>プロジェクトに戻る</button>
+                <div><h3>{currentProject.name}の設定</h3><p>色やプロジェクトの状態を管理します。</p></div>
+              </header>
+              <section className="project-settings-screen__section" aria-labelledby="project-color-heading">
+                <h4 id="project-color-heading">プロジェクトの色</h4>
+                <ColorPickerDisclosure
                   value={currentProject.color}
                   label={`${currentProject.name}の色`}
-                  showValue={false}
                   modes={["grid", "spectrum", "sliders"]}
                   themeColors={projectColorOptions.map(({ name, value }) => ({ label: name, color: value }))}
                   onChange={(color) => void onUpdateProjectColor(currentProject.id, projectColorOptions.find((option) => option.value.toLowerCase() === color.toLowerCase())?.value ?? color)}
                   disabled={!storageAvailable}
-                />}
-                {currentProject && <button className="task-workspace__project-archive danger-button" type="button" onClick={() => setProjectToArchive(currentProject)}>プロジェクトをアーカイブ</button>}
+                />
+              </section>
+              <section className="project-settings-screen__section project-settings-screen__section--danger" aria-labelledby="project-actions-heading">
+                <h4 id="project-actions-heading">プロジェクトの操作</h4>
+                <p>アーカイブまたは削除をすると、未完了のタスクをInboxへ移します。削除してもタスクの記録は残ります。</p>
+                <div className="project-settings-screen__actions">
+                  <button className="secondary-button" type="button" onClick={() => setProjectToArchive(currentProject)}>プロジェクトをアーカイブ</button>
+                  <button className="danger-button" type="button" onClick={() => setProjectToDelete(currentProject)}>プロジェクトを削除</button>
+                </div>
+              </section>
+            </section> : selectedTask && selectedTask.status !== "archived" ? <div className="task-editor-screen"><TaskEditor key={`${selectedTask.id}-${selectedTask.updatedAt}`} task={selectedTask} projects={activeProjects} availableTags={availableTags} subtasks={tasks.filter((item) => item.parentTaskId === selectedTask.id && item.status !== "archived").sort((a, b) => a.order - b.order)} sessions={sessions} timerStatus={timerStatus} activeTaskId={activeTaskId} nextTask={selectedTaskNextCandidate} nextTaskDetail={selectedTaskNextCandidateDetail} onStartTask={onStartTask} onOpenNextTask={selectedTaskNextCandidate ? () => openTaskDetails(selectedTaskNextCandidate, { revealInList: true }) : undefined} onReturnToTimer={() => { setSelectedTaskId(null); onClose(); }} onSave={(patch) => onUpdateTask(selectedTask.id, patch)} onArchive={async () => { const archived = await onArchiveTask(selectedTask.id); if (archived) setSelectedTaskId(null); return archived; }} onDelete={async () => { const deleted = await onDeleteTask(selectedTask.id); if (deleted) setSelectedTaskId(null); return deleted; }} onDeleteRecurring={async (taskId) => onDeleteRecurring?.(taskId) ?? false} onToggleStatus={async () => { const toggled = await onToggleTask(selectedTask.id); if (toggled) closeTaskDetails(selectedTask.id); return toggled; }} onCompleteAndStartNextTask={selectedTaskNextCandidate ? async () => { const toggled = await onToggleTask(selectedTask.id); if (!toggled) return false; onStartTask(selectedTaskNextCandidate.id); return true; } : undefined} onAddSubtask={async (subtaskTitle) => (await onAddTask({ title: subtaskTitle, parentTaskId: selectedTask.id, projectId: selectedTask.projectId, bucket: selectedTask.bucket })) !== null} onToggleSubtask={onToggleTask} canMoveUp={selectedTaskVisibleIndex > 0} canMoveDown={selectedTaskVisibleIndex >= 0 && selectedTaskVisibleIndex < selectedTaskVisibleIds.length - 1} onMove={(direction) => onMoveTask(selectedTask.id, selectedTaskVisibleIds, direction)} onClose={() => closeTaskDetails(selectedTask.id)} /></div> : <>
+            <div className="task-workspace__scroll">
+            <div className="task-workspace__toolbar">
+              <div className="task-workspace__heading">
+                <div className="task-workspace__heading-main"><button className="task-workspace__destination-button" type="button" aria-label="一覧を開く" onClick={openTaskNavigation}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5-7 7 7 7" /></svg></button>{currentProject && <i className="task-workspace__project-color" style={{ background: currentProject.color }} aria-hidden="true" />}<h3>{currentListLabel}</h3><span>{filteredTasks.length + (!projectId && view === "today" ? todayCompletedTasks.length : 0)}件のタスク</span></div>
+                {currentProject && <button className="secondary-button task-workspace__project-settings-button" type="button" onClick={() => setProjectSettingsOpen(true)}>プロジェクト設定</button>}
               </div>
               {view !== "completed" && view !== "archived" && <form className="task-quick-add task-capture" id="task-quick-add-form" onSubmit={addTask}>
                 <div className="task-capture__title">
@@ -1264,6 +1291,18 @@ export function TaskDrawer({
           const project = projectToArchive;
           setProjectToArchive(null);
           if (project) void handleArchiveProject(project.id);
+        }}
+      />
+      <ConfirmDialog
+        open={projectToDelete !== null}
+        title="プロジェクトを削除しますか？"
+        description={`${projectToDelete?.name ?? "このプロジェクト"}を削除します。未完了のタスクは削除せず、Inboxへ移します。この操作は元に戻せません。`}
+        confirmLabel="プロジェクトを削除"
+        onCancel={() => setProjectToDelete(null)}
+        onConfirm={() => {
+          const project = projectToDelete;
+          setProjectToDelete(null);
+          if (project) void handleDeleteProject(project.id);
         }}
       />
       <ConfirmDialog

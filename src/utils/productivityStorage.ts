@@ -184,14 +184,24 @@ export async function saveProductivityRecords(records: { tasks?: TaskRecord[]; p
   }
 }
 
-export async function deleteProductivityRecords(records: { taskIds?: string[] }) {
+export async function deleteProductivityRecords(records: { taskIds?: string[]; projectIds?: string[]; tasks?: TaskRecord[] }) {
   const taskIds = records.taskIds ?? [];
-  if (taskIds.length === 0) return;
+  const projectIds = records.projectIds ?? [];
+  const tasks = records.tasks ?? [];
+  if (taskIds.length === 0 && projectIds.length === 0 && tasks.length === 0) return;
+  const storeNames = new Set<string>();
+  if (taskIds.length > 0 || tasks.length > 0) storeNames.add(TASK_STORE);
+  if (projectIds.length > 0) storeNames.add(PROJECT_STORE);
   const database = await openDatabase();
   try {
-    const transaction = database.transaction(TASK_STORE, "readwrite");
+    const transaction = database.transaction([...storeNames], "readwrite");
     const done = transactionDone(transaction);
-    const requests = taskIds.map((id) => requestResult(transaction.objectStore(TASK_STORE).delete(id)));
+    const requests: Promise<unknown>[] = [];
+    const taskStore = storeNames.has(TASK_STORE) ? transaction.objectStore(TASK_STORE) : null;
+    const projectStore = storeNames.has(PROJECT_STORE) ? transaction.objectStore(PROJECT_STORE) : null;
+    for (const task of tasks) requests.push(requestResult(taskStore!.put(task)));
+    for (const id of taskIds) requests.push(requestResult(taskStore!.delete(id)));
+    for (const id of projectIds) requests.push(requestResult(projectStore!.delete(id)));
     await finishTransaction(done, Promise.all(requests));
   } finally {
     database.close();

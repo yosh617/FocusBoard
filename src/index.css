@@ -3696,6 +3696,54 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 .project-add__palette .color-picker__saved-colors > * { justify-self: center; }
 
+/* Keep project navigation readable and consistently stacked at every viewport size. */
+.task-navigation__projects {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  overflow: visible;
+}
+.task-navigation__projects-heading { grid-column: 1; }
+.project-link { width: 100%; min-width: 0; }
+.project-link__select {
+  display: grid !important;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  gap: 9px !important;
+  color: #202124 !important;
+}
+.project-link__select > span { color: #202124; font-size: 13px; font-weight: 650; }
+.project-link__select > strong { color: #5f6368 !important; font-size: 11px; }
+.project-add {
+  grid-column: 1;
+  width: 100%;
+  max-width: none;
+  grid-template-columns: minmax(0, 1fr) 44px;
+}
+.project-add > button { grid-column: 2; grid-row: 1; height: 44px; border-left: 0; }
+.project-add__palette { grid-column: 1 / -1; }
+.task-workspace__project-settings-button { min-height: 42px; padding-inline: 12px; color: #202124; }
+.project-settings-screen { display: grid; flex: 1; align-content: start; gap: 16px; width: min(760px, 100%); min-height: 0; margin-inline: auto; overflow-y: auto; overscroll-behavior: contain; }
+.project-settings-screen__header { display: grid; justify-items: start; gap: 14px; padding-bottom: 16px; border-bottom: 1px solid #e6e6e2; }
+.project-settings-screen__header > div h3 { margin: 0; color: #202124; font-size: 22px; }
+.project-settings-screen__header > div p { margin: 6px 0 0; color: #5f6368; font-size: 13px; line-height: 1.6; }
+.project-settings-screen__section { display: grid; gap: 10px; padding: 16px; border: 1px solid #e1e3e6; border-radius: 12px; background: #fff; }
+.project-settings-screen__section h4 { margin: 0; color: #202124; font-size: 15px; }
+.project-settings-screen__section > p { margin: 0; color: #5f6368; font-size: 13px; line-height: 1.6; }
+.project-settings-screen__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.project-settings-screen__actions > button { min-height: 44px; }
+
+@media (max-width: 820px) {
+  .task-navigation__projects { display: grid; grid-template-columns: minmax(0, 1fr); gap: 5px; padding-top: 8px; overflow: visible; }
+  .task-navigation__projects-heading { min-width: 0; }
+  .project-link { flex: initial; }
+  .project-link > button:first-child { min-width: 0; }
+  .project-add { flex: initial; min-width: 0; }
+  .project-settings-screen__actions { display: grid; grid-template-columns: 1fr; }
+}
+
 .task-launcher,
 .task-launcher:hover,
 .task-launcher:focus-visible,

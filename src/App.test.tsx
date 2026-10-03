@@ -24,7 +24,9 @@ const mockTasksState = vi.hoisted(() => ({
   deleteTask: vi.fn(),
   moveTask: vi.fn(),
   addProject: vi.fn(),
+  updateProjectColor: vi.fn(),
   archiveProject: vi.fn(),
+  deleteProject: vi.fn(),
   undo: vi.fn(),
   recordTimerSession: vi.fn(),
   importProductivityBackup: vi.fn()
@@ -61,7 +63,9 @@ describe("App", () => {
     mockTasksState.deleteTask.mockReset().mockResolvedValue(true);
     mockTasksState.moveTask.mockReset().mockResolvedValue(true);
     mockTasksState.addProject.mockReset().mockResolvedValue(true);
+    mockTasksState.updateProjectColor.mockReset().mockResolvedValue(true);
     mockTasksState.archiveProject.mockReset().mockResolvedValue(true);
+    mockTasksState.deleteProject.mockReset().mockResolvedValue(true);
     mockTasksState.undo.mockReset().mockResolvedValue(true);
     mockTasksState.recordTimerSession.mockReset();
     mockTasksState.importProductivityBackup.mockReset().mockResolvedValue(true);
