@@ -593,7 +593,7 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 @media (max-width: 600px) {
   .dashboard { padding: 18px; }
   .clock { font-size: 21vw !important; }
-  .date { font-size: 5vw !important; }
+  .date:not(.date--calendar) { font-size: 5vw !important; }
   .timer-card__time { font-size: 14vw !important; }
   .timer-card { padding: 18px 15px 20px; border-radius: 26px; }
   .timer-setup__heading { gap: 8px; margin-bottom: 16px; }
@@ -3163,12 +3163,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .dashboard--timer-setup ~ .task-launcher .task-launcher__side { flex: none; }
 }
 
-/* The calendar is a deliberate alternative to the compact text date. */
-.date--calendar { align-items: flex-start; gap: 3px; letter-spacing: 0; text-align: left; }
-.date--calendar .date__month { font-size: 1em; font-weight: 560; letter-spacing: .02em; line-height: 1.2; }
-.date--calendar .date__day { display: block; margin: 6px 0 1px; font-weight: 500; line-height: .78; letter-spacing: -.08em; font-variant-numeric: lining-nums; }
-.date--calendar .date__weekday { font-size: .95em; font-weight: 560; letter-spacing: .04em; line-height: 1.2; }
-
 /* Keep the timer setup as one surface with only the controls carrying shape. */
 .timer-card, .timer-setup { width: min(100%, 720px); }
 .timer-setup__step { padding: 0; border: 0; border-radius: 0; background: transparent; }
@@ -3326,11 +3320,42 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .dashboard--timer-setup ~ .task-launcher .task-launcher__count { min-width: 24px; height: 24px; padding-inline: 5px; font-size: 11px; }
 }
 
-/* The calendar is a deliberate alternative to the compact text date. */
-.date--calendar { align-items: flex-start; gap: 3px; letter-spacing: 0; text-align: left; }
-.date--calendar .date__month { font-size: 1em; font-weight: 560; letter-spacing: .02em; line-height: 1.2; }
-.date--calendar .date__day { display: block; margin: 6px 0 1px; font-weight: 500; line-height: .78; letter-spacing: -.08em; font-variant-numeric: lining-nums; }
-.date--calendar .date__weekday { font-size: .95em; font-weight: 560; letter-spacing: .04em; line-height: 1.2; }
+/* Calendar mode uses a compact date tile that scales with the date size setting. */
+.date--calendar {
+  display: grid;
+  grid-template-rows: auto auto auto;
+  justify-items: center;
+  width: max-content;
+  min-width: 3.5em;
+  overflow: hidden;
+  color: inherit;
+  text-align: center;
+  letter-spacing: 0;
+  line-height: 1;
+  text-shadow: none;
+  border: 1px solid color-mix(in srgb, currentColor 32%, transparent);
+  border-radius: .42em;
+  background: rgba(255, 255, 255, .16);
+  box-shadow: 0 .12em .45em rgba(0, 0, 0, .08), inset 0 1px rgba(255, 255, 255, .2);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.date--calendar .date__month {
+  width: 100%;
+  padding: .34em .3em .3em;
+  color: inherit;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  font-size: .42em;
+  font-weight: 700;
+  letter-spacing: .015em;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.date--calendar .date__day { display: block; margin: .08em 0 .02em; font-size: 2.05em; font-weight: 750; line-height: 1; letter-spacing: -.055em; font-variant-numeric: lining-nums tabular-nums; }
+.date--calendar .date__weekday { padding: 0 .3em .32em; font-size: .43em; font-weight: 650; letter-spacing: .02em; line-height: 1.15; }
+.clock-widget__display--calendar { display: grid; grid-template-columns: max-content max-content; align-items: center; gap: clamp(10px, 1.5vw, 20px); }
+.clock-widget__display--calendar .date--calendar { grid-column: 1; grid-row: 1; }
+.clock-widget__display--calendar .clock { grid-column: 2; grid-row: 1; }
 
 /* Keep the timer setup as one surface with only the controls carrying shape. */
 .timer-card, .timer-setup { width: min(100%, 720px); }
@@ -3800,6 +3825,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     overflow: hidden;
   }
   .app-shell--task-launcher-visible .clock-widget { top: 48% !important; }
+  .app-shell--task-launcher-visible .clock-widget--calendar { top: 12% !important; }
 }
 
 .task-row { border-radius: 0; }

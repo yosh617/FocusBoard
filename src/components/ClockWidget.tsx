@@ -196,12 +196,12 @@ export function ClockWidget({ now, settings, textColor, onChange, onMessage, ori
 
   return (
     <div
-      className={`clock-widget clock-widget--${settings.clockDateAlignment}${open ? " clock-widget--editing" : ""}${hintVisible ? " clock-widget--hint-visible" : ""}`}
+      className={`clock-widget clock-widget--${settings.clockDateAlignment}${settings.showDate && settings.dateDisplayStyle === "calendar" ? " clock-widget--calendar" : ""}${open ? " clock-widget--editing" : ""}${hintVisible ? " clock-widget--hint-visible" : ""}`}
       style={{ left: `${position.x * 100}%`, top: `${position.y * 100}%` }}
       ref={widgetRef}
     >
       <button
-        className="clock-widget__display"
+        className={`clock-widget__display${settings.showDate && settings.showClock && settings.dateDisplayStyle === "calendar" ? " clock-widget__display--calendar" : ""}`}
         type="button"
         style={{ color: textColor }}
         aria-label="時計とカレンダーの表示設定を開く"
