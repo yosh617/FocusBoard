@@ -3549,7 +3549,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .task-drawer .task-list-filters button:hover,
 .task-drawer .task-editor__details summary:hover,
 .task-drawer .task-editor__next-card-action:hover {
-  color: var(--accent-contrast);
+  color: var(--accent);
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 9%, #fff);
 }
@@ -3600,10 +3600,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 .task-drawer .task-row__check:not([aria-pressed="true"]) svg { border-color: var(--accent); }
 .task-drawer .task-row__start {
-  color: var(--accent-contrast);
+  color: var(--color-mid-gray);
   border-left-color: color-mix(in srgb, var(--accent) 18%, var(--color-hairline));
   background: color-mix(in srgb, var(--accent) 7%, #fff);
 }
+.task-drawer .task-row__start:disabled { background: #f7f9fc; }
 .task-drawer .task-row__start:hover:not(:disabled),
 .task-drawer .task-row__start.is-active {
   color: var(--accent-contrast);
@@ -3828,5 +3829,4 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .app-shell--task-launcher-visible .clock-widget--calendar { top: 12% !important; }
 }
 
-.task-row { border-radius: 0; }
-.task-row.is-selected { border-radius: 10px; }
+.task-row, .task-row:hover, .task-row.is-selected { border-radius: 10px; }
