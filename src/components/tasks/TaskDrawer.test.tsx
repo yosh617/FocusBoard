@@ -575,6 +575,45 @@ describe("TaskDrawer", () => {
     expect(screen.getByRole("group", { name: "表示するタスクを絞り込む" })).toBeTruthy();
   });
 
+  it("does not carry hidden Inbox filters into Today or mix them with completed tasks", () => {
+    const unfilteredTodayTask: TaskRecord = {
+      ...task,
+      id: "task-today-unfiltered",
+      title: "予定のない今日タスク",
+      bucket: "inbox",
+      estimatedPomodoros: 0,
+      order: 1,
+      updatedAt: 2
+    };
+    const completedTodayTask: TaskRecord = {
+      ...task,
+      id: "task-today-completed",
+      title: "今日完了したタスク",
+      status: "completed",
+      bucket: "inbox",
+      estimatedPomodoros: 0,
+      completedAt: new Date(`${today}T12:00:00`).getTime(),
+      order: 2,
+      updatedAt: 3
+    };
+    renderDrawer({ tasks: [task, unfilteredTodayTask, completedTodayTask] });
+
+    fireEvent.click(screen.getByRole("button", { name: /^Inbox / }));
+    fireEvent.click(screen.getByRole("button", { name: "集中目安 1" }));
+    const inboxList = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
+    expect(within(inboxList).getByText("数学の復習")).toBeTruthy();
+    expect(within(inboxList).queryByText("予定のない今日タスク")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /^今日 / }));
+    expect(screen.queryByRole("group", { name: "表示するタスクを絞り込む" })).toBeNull();
+    const todayList = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
+    expect(within(todayList).getByText("数学の復習")).toBeTruthy();
+    expect(within(todayList).getByText("予定のない今日タスク")).toBeTruthy();
+
+    fireEvent.click(within(todayList).getByRole("button", { name: "今日の完了済みタスク 1件" }));
+    expect(within(todayList).getByText("今日完了したタスク")).toBeTruthy();
+  });
+
   it("opens task details from the task list", () => {
     renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));

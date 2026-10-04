@@ -688,12 +688,13 @@ export function TaskDrawer({
     ))
     .sort((left, right) => (right.completedAt ?? 0) - (left.completedAt ?? 0)), [tasks, today]);
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null;
+  const activeListFilter = !projectId && view === "inbox" ? listFilter : "all";
   const filteredTasks = useMemo(() => {
-    if (listFilter === "all") return scopedTasks;
-    if (listFilter === "overdue") return scopedTasks.filter((task) => task.dueDate !== null && task.dueDate < today);
-    if (listFilter === "reminders") return scopedTasks.filter((task) => task.reminderAt !== null);
+    if (activeListFilter === "all") return scopedTasks;
+    if (activeListFilter === "overdue") return scopedTasks.filter((task) => task.dueDate !== null && task.dueDate < today);
+    if (activeListFilter === "reminders") return scopedTasks.filter((task) => task.reminderAt !== null);
     return scopedTasks.filter((task) => activeTaskId === task.id || task.estimatedPomodoros > 0 || (completedPomodorosByTask.get(task.id) ?? 0) > 0);
-  }, [activeTaskId, completedPomodorosByTask, listFilter, scopedTasks, today]);
+  }, [activeListFilter, activeTaskId, completedPomodorosByTask, scopedTasks, today]);
   const taskSections = useMemo<TaskListSection[]>(() => {
     if (filteredTasks.length === 0) return [];
     if (projectId) {
@@ -1215,7 +1216,7 @@ export function TaskDrawer({
               {!storageAvailable && <div className="task-callout" role="status"><strong>タスク保存を利用できません</strong><span>時計とタイマーはそのまま使えます。ブラウザのサイトデータ設定を確認してください。</span></div>}
             </div>
 
-            {loading ? <p className="task-empty">読み込み中...</p> : filteredTasks.length === 0 && (!(!projectId && view === "today") || todayCompletedTasks.length === 0) ? <div className="task-empty"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14v14H5zM8 3.5h8M8 10h8M8 14h5" /></svg><strong>{listFilter === "all" ? "タスクはありません" : "該当するタスクはありません"}</strong></div> : (
+            {loading ? <p className="task-empty">読み込み中...</p> : filteredTasks.length === 0 && (!(!projectId && view === "today") || todayCompletedTasks.length === 0) ? <div className="task-empty"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14v14H5zM8 3.5h8M8 10h8M8 14h5" /></svg><strong>{activeListFilter === "all" ? "タスクはありません" : "該当するタスクはありません"}</strong></div> : (
               <div className="task-list" aria-label="タスク一覧">
                 {taskSections.map((section) => (
                   <section className="task-list__section" aria-labelledby={`task-section-${section.key}`} key={section.key}>

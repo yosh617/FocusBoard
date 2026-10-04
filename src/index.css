@@ -318,7 +318,7 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .project-link > button:first-child { display: flex; align-items: center; min-height: 44px; gap: 7px; padding: 0 8px 0 10px; color: var(--ink); border: 0; background: transparent; font-size: 12px; font-weight: 750; }
 .project-link > button:first-child i { width: 10px; height: 10px; border-radius: 50%; }
 .project-link > button:first-child strong { color: var(--ink-muted); font-size: 10px; }
-.project-link > button:last-child { width: 44px; min-height: 44px; padding: 0; color: #913b4e; border: 0; border-left: 1px solid var(--line); background: transparent; }
+.project-link > button + button { width: 44px; min-height: 44px; padding: 0; color: #913b4e; border: 0; border-left: 1px solid var(--line); background: transparent; }
 .project-add { display: flex; flex: none; align-items: center; min-height: 44px; overflow: hidden; border: 1px dashed rgba(64,103,153,.28); border-radius: 12px; background: rgba(255,255,255,.5); }
 .project-add > input { width: 126px; height: 44px; padding: 0 9px; color: var(--ink); border: 0; background: transparent; font-size: 12px; }
 .project-add .project-add__color { width: 48px; min-width: 48px; height: 44px; padding: 6px; border: 0; border-left: 1px solid var(--line); background: var(--blue-soft); }
@@ -712,8 +712,8 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .project-link > button:first-child { min-width: 0; flex: 1; padding-left: 12px; }
 .project-link > button:first-child span { min-width: 0; flex: 1; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
 .project-link > button:first-child strong { display: grid; place-items: center; min-width: 22px; height: 22px; border-radius: 999px; background: #e5edf7; }
-.project-link > button:last-child { flex: none; border-left: 0; opacity: .45; }
-.project-link > button:last-child:hover { background: #fff0f3; opacity: 1; }
+.project-link > button + button { flex: none; border-left: 0; opacity: .45; }
+.project-link > button + button:hover { background: #fff0f3; opacity: 1; }
 .project-link__select { min-width: 0; flex: 1; }
 .project-add { display: grid; grid-template-columns: minmax(0,1fr) 44px; min-height: auto; border-color: #bdcee1; background: #fff; }
 .project-add > input { width: 100%; min-width: 0; }
