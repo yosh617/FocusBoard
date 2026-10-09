@@ -101,6 +101,30 @@ function openAdvancedSettings(container: ReturnType<typeof within>) {
 }
 
 describe("TaskDrawer", () => {
+  it("shows today's totals, task-empty guidance, and an empty record state", () => {
+    renderDrawer({ tasks: [], sessions: [] });
+    const overview = within(screen.getByRole("region", { name: "今日の進捗" }));
+    expect(overview.getByText("見積もり時間")).toBeTruthy();
+    expect(overview.getByText("未完了タスク")).toBeTruthy();
+    expect(overview.getAllByText("00:00")).toHaveLength(2);
+    expect(overview.getAllByText("0")).toHaveLength(2);
+    expect(screen.getByText("タスクなし")).toBeTruthy();
+    expect(screen.getByText("上の入力欄から今日のタスクを追加できます。")).toBeTruthy();
+    expect(screen.getByText("記録なし")).toBeTruthy();
+    expect(screen.getByLabelText("新しいタスク")).toBeTruthy();
+  });
+
+  it("calculates today's estimate, focus time, and completed task count", () => {
+    const completedTask: TaskRecord = { ...task, id: "task-completed", title: "今日の完了", status: "completed", completedAt: Date.now() };
+    const todaySession: FocusSessionRecord = { ...session, startedAt: Date.now() - 25 * 60_000, endedAt: Date.now() };
+    renderDrawer({ tasks: [task, completedTask], sessions: [todaySession] });
+    const overview = within(screen.getByRole("region", { name: "今日の進捗" }));
+    expect(overview.getByText("00:50")).toBeTruthy();
+    expect(overview.getByText("00:25")).toBeTruthy();
+    expect(overview.getByText("完了タスク").nextElementSibling?.textContent).toBe("1");
+    expect(screen.getByRole("region", { name: "今日の記録" }).textContent).toContain("数学の復習");
+  });
+
   it("keeps settings below an independently scrolling task list", () => {
     renderDrawer({ sessions: [session] });
     expect(screen.getByRole("heading", { name: "今日" })).toBeTruthy();
