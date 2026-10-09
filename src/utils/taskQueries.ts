@@ -21,11 +21,11 @@ export function getTasksForView(tasks: TaskRecord[], view: TaskView, today = toL
       if (view === "archived") return task.status === "archived";
       if (view === "completed") return task.status === "completed";
       if (task.status !== "open") return false;
-      if (view === "today") return task.dueDate !== null && task.dueDate <= today;
+      if (view === "today") return (task.dueDate !== null && task.dueDate <= today) || (task.dueDate === null && task.bucket === "inbox");
       if (view === "tomorrow") return task.dueDate === tomorrow;
       if (view === "upcoming") return task.dueDate !== null && task.dueDate > tomorrow;
       if (view === "someday") return task.bucket === "someday" && task.dueDate === null;
-      return task.bucket === "inbox";
+      return false;
     })
     .sort((a, b) => {
       return a.order - b.order

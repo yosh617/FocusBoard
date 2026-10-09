@@ -71,7 +71,6 @@ type TaskListSection = {
 };
 
 const views: { value: TaskView; label: string }[] = [
-  { value: "inbox", label: "Inbox" },
   { value: "today", label: "今日" },
   { value: "tomorrow", label: "明日" },
   { value: "upcoming", label: "今後" },
@@ -186,7 +185,7 @@ function getViewForTask(task: TaskRecord, today: string, tomorrow: string): Task
   if (task.dueDate === tomorrow) return "tomorrow";
   if (task.dueDate && task.dueDate > tomorrow) return "upcoming";
   if (task.bucket === "someday") return "someday";
-  return "inbox";
+  return "today";
 }
 
 function estimatedFocusTimeLabel(tasks: TaskRecord[], workMinutes: number) {
@@ -424,7 +423,7 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
           <h3>タスク詳細</h3>
         </div>
         <div className="task-editor__heading-actions">
-          <button className="task-editor__save secondary-button" type="submit" disabled={saving || !isDirty || !title.trim()} aria-label="保存">{saving ? "保存中" : "保存"}</button>
+          <button className="task-editor__save primary-button" type="submit" disabled={saving || !isDirty || !title.trim()} aria-label="変更を保存">{saving ? "保存中" : "保存"}</button>
           {task.status === "open" && (
             <button
               className="primary-button"
@@ -485,7 +484,7 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
               id={`task-${task.id}-bucket`}
               label="分類"
               value={bucket}
-              options={[{ value: "inbox", label: "Inbox" }, { value: "someday", label: "いつか" }]}
+              options={[{ value: "inbox", label: "通常" }, { value: "someday", label: "いつか" }]}
               onChange={(value) => setBucket(value as TaskRecord["bucket"])}
             />
           </div>
@@ -562,7 +561,6 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
             </div>
             <div className="task-editor__move"><button className="secondary-button" type="button" disabled={!canMoveUp} onClick={() => void onMove(-1)}>前へ</button><button className="secondary-button" type="button" disabled={!canMoveDown} onClick={() => void onMove(1)}>後へ</button></div>
           </div>
-          <button className="task-editor__bottom-save primary-button" type="submit" disabled={saving || !isDirty || !title.trim()}>{saving ? "保存中" : "変更を保存"}</button>
         </div>
       </details>
       </form>
@@ -694,14 +692,14 @@ export function TaskDrawer({
     ))
     .sort((left, right) => (right.completedAt ?? 0) - (left.completedAt ?? 0)), [tasks, today]);
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null;
-  const activeListFilter = !projectId && view === "inbox" ? listFilter : "all";
+  const activeListFilter = !projectId && view === "today" ? listFilter : "all";
   const filteredTasks = useMemo(() => {
     if (activeListFilter === "all") return scopedTasks;
     if (activeListFilter === "overdue") return scopedTasks.filter((task) => task.dueDate !== null && task.dueDate < today);
     if (activeListFilter === "reminders") return scopedTasks.filter((task) => task.reminderAt !== null);
     return scopedTasks.filter((task) => activeTaskId === task.id || task.estimatedPomodoros > 0 || (completedPomodorosByTask.get(task.id) ?? 0) > 0);
   }, [activeListFilter, activeTaskId, completedPomodorosByTask, scopedTasks, today]);
-  const todayOpenTasks = view === "today" && !projectId ? filteredTasks.filter((task) => task.status === "open") : [];
+  const todayOpenTasks = view === "today" && !projectId ? scopedTasks.filter((task) => task.status === "open" && task.dueDate !== null) : [];
   const todayEstimatedMinutes = todayOpenTasks.reduce((total, task) => total + task.estimatedPomodoros * workMinutes, 0);
   const todayFocusedMinutes = sessions
     .filter((session) => session.mode === "work" && toLocalDateKey(new Date(session.endedAt)) === today)
@@ -723,12 +721,31 @@ export function TaskDrawer({
       }];
     }
 
-    const orderedTasks = view === "today"
-      ? [
-          ...filteredTasks.filter((task) => task.dueDate === null || task.dueDate >= today),
-          ...filteredTasks.filter((task) => task.dueDate !== null && task.dueDate < today)
-        ]
-      : filteredTasks;
+    if (view === "today") {
+      const datedTasks = [
+        ...filteredTasks.filter((task) => task.dueDate !== null && task.dueDate >= today),
+        ...filteredTasks.filter((task) => task.dueDate !== null && task.dueDate < today)
+      ];
+      const undatedTasks = filteredTasks.filter((task) => task.dueDate === null);
+      const makeSection = (key: string, label: string, sectionTasks: TaskRecord[]): TaskListSection => ({
+        key,
+        label,
+        color: null,
+        tasks: sectionTasks,
+        openCount: sectionTasks.filter((task) => task.status === "open").length,
+        completedPomodoros: sectionTasks.reduce((sum, task) => sum + (completedPomodorosByTask.get(task.id) ?? 0), 0),
+        estimatedPomodoros: sectionTasks.reduce((sum, task) => sum + task.estimatedPomodoros, 0)
+      });
+      const sections: TaskListSection[] = [];
+      if (datedTasks.length > 0) {
+        const hasOverdue = datedTasks.some((task) => task.dueDate !== null && task.dueDate < today);
+        const hasToday = datedTasks.some((task) => task.dueDate === today);
+        sections.push(makeSection("today-dated", hasToday && hasOverdue ? "今日・期限切れ" : hasOverdue ? "期限切れ" : "今日", datedTasks));
+      }
+      if (undatedTasks.length > 0) sections.push(makeSection("today-undated", "日付なし", undatedTasks));
+      return sections;
+    }
+    const orderedTasks = filteredTasks;
     return [{
       key: `ungrouped-${view}`,
       label: currentListLabel,
@@ -1107,7 +1124,7 @@ export function TaskDrawer({
             <button
               className={`task-header-action${workspaceMode === "backup" ? " is-active" : ""}`}
               type="button"
-              aria-pressed={workspaceMode === "backup"}
+              aria-current={workspaceMode === "backup" ? "page" : undefined}
               onClick={() => setWorkspaceMode((current) => current === "backup" ? "tasks" : "backup")}
             >
               <WorkspaceIcon type="backup" />
@@ -1137,7 +1154,7 @@ export function TaskDrawer({
                 <div className="task-navigation__projects-heading"><h3>プロジェクト</h3><button type="button" aria-expanded={showProjectForm} onClick={() => setShowProjectForm((current) => !current)}>{showProjectForm ? "閉じる" : "新規"}</button></div>
                 {activeProjects.map((project) => (
                   <div className={projectId === project.id ? "project-link is-active" : "project-link"} key={project.id}>
-                    <button className="project-link__select" type="button" onClick={() => { setProjectSettingsOpen(false); setProjectId(project.id); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); }}><i style={{ background: project.color }} /><span>{project.name}</span><strong>{estimatedFocusTimeLabel(getTasksForProject(tasks, project.id), workMinutes)}</strong></button>
+                    <button className="project-link__select" type="button" aria-current={projectId === project.id ? "page" : undefined} onClick={() => { setProjectSettingsOpen(false); setProjectId(project.id); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); }}><i style={{ background: project.color }} /><span>{project.name}</span><strong>{estimatedFocusTimeLabel(getTasksForProject(tasks, project.id), workMinutes)}</strong></button>
                   </div>
                 ))}
                 {showProjectForm && <form className="project-add" onSubmit={addProject}>
@@ -1178,7 +1195,7 @@ export function TaskDrawer({
               </section>
               <section className="project-settings-screen__section project-settings-screen__section--danger" aria-labelledby="project-actions-heading">
                 <h4 id="project-actions-heading">プロジェクトの操作</h4>
-                <p>アーカイブまたは削除をすると、未完了のタスクをInboxへ移します。削除してもタスクの記録は残ります。</p>
+                <p>アーカイブまたは削除をすると、未完了のタスクを今日の一覧へ戻します。削除してもタスクの記録は残ります。</p>
                 <div className="project-settings-screen__actions">
                   <button className="secondary-button" type="button" onClick={() => setProjectToArchive(currentProject)}>プロジェクトをアーカイブ</button>
                   <button className="danger-button" type="button" onClick={() => setProjectToDelete(currentProject)}>プロジェクトを削除</button>
@@ -1238,7 +1255,7 @@ export function TaskDrawer({
                   </div>
                 </section>
               )}
-              {!projectId && view === "inbox" && <div className="task-list-filters" role="group" aria-label="表示するタスクを絞り込む">
+              {!projectId && view === "today" && <div className="task-list-filters" role="group" aria-label="表示するタスクを絞り込む">
                 <button className={listFilter === "all" ? "is-active" : ""} type="button" aria-pressed={listFilter === "all"} onClick={() => setListFilter("all")}><span>すべて</span><strong>{filterCounts.all}</strong></button>
                 <button className={listFilter === "overdue" ? "is-active" : ""} type="button" aria-pressed={listFilter === "overdue"} onClick={() => setListFilter("overdue")}><span>期限切れ</span><strong>{filterCounts.overdue}</strong></button>
                 <button className={listFilter === "reminders" ? "is-active" : ""} type="button" aria-pressed={listFilter === "reminders"} onClick={() => setListFilter("reminders")}><span>通知</span><strong>{filterCounts.reminders}</strong></button>
@@ -1247,16 +1264,16 @@ export function TaskDrawer({
               {!storageAvailable && <div className="task-callout" role="status"><strong>タスク保存を利用できません</strong><span>時計とタイマーはそのまま使えます。ブラウザのサイトデータ設定を確認してください。</span></div>}
             </div>
 
-            {loading ? <p className="task-empty">読み込み中...</p> : filteredTasks.length === 0 && (projectId || view !== "today")
+            {loading ? <p className="task-empty">読み込み中...</p> : filteredTasks.length === 0 && (projectId || view !== "today" || activeListFilter !== "all")
               ? <div className="task-empty"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14v14H5zM8 3.5h8M8 10h8M8 14h5" /></svg><strong>{activeListFilter === "all" ? "タスクはありません" : "該当するタスクはありません"}</strong></div>
               : <div className={`task-list${view === "today" && !projectId ? " task-list--today" : ""}`} aria-label="タスク一覧">
                 {view === "today" && !projectId && filteredTasks.length === 0 && <div className="task-empty task-empty--today">
                   <div className="task-empty__art" aria-hidden="true"><svg viewBox="0 0 180 160"><circle className="task-empty__halo" cx="90" cy="80" r="64" /><circle className="task-empty__dot" cx="33" cy="25" r="5" /><circle className="task-empty__dot" cx="148" cy="38" r="6" /><circle className="task-empty__dot" cx="155" cy="20" r="3" /><rect className="task-empty__paper" x="49" y="35" width="82" height="91" rx="10" /><rect className="task-empty__input" x="62" y="50" width="56" height="14" rx="4" /><path className="task-empty__line" d="M64 77h52M64 88h34M64 103h51M64 114h35" /></svg></div>
-                  <strong>タスクなし</strong><span>上の入力欄から今日のタスクを追加できます。</span>
+                  <strong>タスクなし</strong><span>上の入力欄から追加できます。期限なしのタスクも、この一覧に表示されます。</span>
                 </div>}
                 {taskSections.map((section) => (
                   <section className="task-list__section" aria-labelledby={`task-section-${section.key}`} key={section.key}>
-                    {(taskSections.length > 1 || section.key === "today-overdue") && (
+                    {(taskSections.length > 1 || section.key.startsWith("today-")) && (
                       <div className="task-list__section-header">
                         <div className="task-list__section-copy">
                           <h4 id={`task-section-${section.key}`}>{section.label}</h4>
@@ -1311,12 +1328,12 @@ export function TaskDrawer({
                   <button className={dueDate ? "is-active" : ""} type="button" aria-label={dueDate ? `期限 ${dueDate}。もう一度押して変更` : `期限を${view === "tomorrow" ? "明日" : "今日"}に設定`} aria-expanded={quickPanel === "date"} onClick={() => { if (!dueDate) { setDueDate(view === "tomorrow" ? tomorrow : today); setQuickPanel(null); } else setQuickPanel((current) => current === "date" ? null : "date"); }}><QuickAddIcon type="date" /><span className="task-capture__toolbar-copy"><strong>期限</strong><small>{dueDate === today || (!dueDate && view === "today") ? "今日" : dueDate === tomorrow || (!dueDate && view === "tomorrow") ? "明日" : dueDate ? dueDate.slice(5).replace("-", "/") : "なし"}</small></span></button>
                   <button className={quickPriority !== "none" ? "is-active" : ""} type="button" aria-label={`優先度 ${priorityOptions.find((option) => option.value === quickPriority)?.label}`} aria-expanded={quickPanel === "priority"} onClick={() => setQuickPanel((current) => current === "priority" ? null : "priority")} style={{ color: priorityOptions.find((option) => option.value === quickPriority)?.color }}><QuickAddIcon type="priority" /><span className="task-capture__toolbar-copy"><strong>優先度</strong><small>{priorityOptions.find((option) => option.value === quickPriority)?.label}</small></span></button>
                   <button className={quickTags.length > 0 ? "is-active" : ""} type="button" aria-label={quickTags.length > 0 ? `タグ ${quickTags.join("、")}` : "タグを設定"} aria-expanded={quickPanel === "tag"} onClick={() => setQuickPanel((current) => current === "tag" ? null : "tag")}><QuickAddIcon type="tag" /><span className="task-capture__toolbar-copy"><strong>タグ</strong><small>{quickTags.length > 0 ? quickTags.join("、") : "なし"}</small></span></button>
-                  <button className={quickAddProjectId ? "is-active" : ""} type="button" aria-label="プロジェクトを設定" aria-expanded={quickPanel === "project"} onClick={() => setQuickPanel((current) => current === "project" ? null : "project")}><QuickAddIcon type="project" /><span className="task-capture__toolbar-copy"><strong>プロジェクト</strong><small>{activeProjects.find((item) => item.id === quickAddProjectId)?.name ?? "Inbox"}</small></span></button>
+                  <button className={quickAddProjectId ? "is-active" : ""} type="button" aria-label="プロジェクトを設定" aria-expanded={quickPanel === "project"} onClick={() => setQuickPanel((current) => current === "project" ? null : "project")}><QuickAddIcon type="project" /><span className="task-capture__toolbar-copy"><strong>プロジェクト</strong><small>{activeProjects.find((item) => item.id === quickAddProjectId)?.name ?? "プロジェクトなし"}</small></span></button>
                 </div>
                 {quickPanel === "date" && <AppCalendar title="期限を設定" value={dueDate} today={today} onSelect={(value) => { setDueDate(value); setQuickPanel(null); }} onClose={() => setQuickPanel(null)} />}
                 {quickPanel === "priority" && <section className="quick-add-popover quick-add-priority" role="dialog" aria-label="優先度を設定"><div className="quick-add-popover__header"><strong>優先度</strong><button type="button" aria-label="優先度設定を閉じる" onClick={() => setQuickPanel(null)}>×</button></div><div>{priorityOptions.map((option) => <button className={quickPriority === option.value ? "is-selected" : ""} type="button" aria-pressed={quickPriority === option.value} onClick={() => { setQuickPriority(option.value); setQuickPanel(null); }} key={option.value}><span style={{ color: option.color }}><QuickAddIcon type="priority" /></span><strong>{option.label}</strong></button>)}</div></section>}
                 {quickPanel === "tag" && <section className="quick-add-popover quick-add-tags" role="dialog" aria-label="タグを設定"><div className="quick-add-popover__header"><strong>タグ</strong><button type="button" aria-label="タグ設定を閉じる" onClick={() => setQuickPanel(null)}>×</button></div><TagPicker selected={quickTags} suggestions={availableTags} onChange={setQuickTags} /></section>}
-                {quickPanel === "project" && <section className="quick-add-popover quick-add-project" role="dialog" aria-label="プロジェクトを設定"><div className="quick-add-popover__header"><strong>プロジェクト</strong><button type="button" aria-label="プロジェクト設定を閉じる" onClick={() => setQuickPanel(null)}>×</button></div><div><button className={!quickAddProjectId ? "is-selected" : ""} type="button" onClick={() => { setQuickProjectId(""); setQuickPanel(null); }}><i /><span>Inbox</span></button>{activeProjects.map((item) => <button className={quickAddProjectId === item.id ? "is-selected" : ""} type="button" onClick={() => { setQuickProjectId(item.id); setQuickPanel(null); }} key={item.id}><i style={{ background: item.color }} /><span>{item.name}</span></button>)}</div></section>}
+                {quickPanel === "project" && <section className="quick-add-popover quick-add-project" role="dialog" aria-label="プロジェクトを設定"><div className="quick-add-popover__header"><strong>プロジェクト</strong><button type="button" aria-label="プロジェクト設定を閉じる" onClick={() => setQuickPanel(null)}>×</button></div><div role="group" aria-label="タスクのプロジェクト"><button className={!quickAddProjectId ? "is-selected" : ""} type="button" aria-pressed={!quickAddProjectId} onClick={() => { setQuickProjectId(""); setQuickPanel(null); }}><i /><span>プロジェクトなし</span></button>{activeProjects.map((item) => <button className={quickAddProjectId === item.id ? "is-selected" : ""} type="button" aria-pressed={quickAddProjectId === item.id} onClick={() => { setQuickProjectId(item.id); setQuickPanel(null); }} key={item.id}><i style={{ background: item.color }} /><span>{item.name}</span></button>)}</div></section>}
               </section>
             )}
             </>}
@@ -1326,7 +1343,7 @@ export function TaskDrawer({
       <ConfirmDialog
         open={projectToArchive !== null}
         title="プロジェクトをアーカイブしますか？"
-        description={`${projectToArchive?.name ?? "このプロジェクト"}をアーカイブし、所属するタスクをInboxへ移します。`}
+        description={`${projectToArchive?.name ?? "このプロジェクト"}をアーカイブし、所属するタスクを今日の一覧へ戻します。`}
         confirmLabel="アーカイブする"
         onCancel={() => setProjectToArchive(null)}
         onConfirm={() => {
@@ -1338,7 +1355,7 @@ export function TaskDrawer({
       <ConfirmDialog
         open={projectToDelete !== null}
         title="プロジェクトを削除しますか？"
-        description={`${projectToDelete?.name ?? "このプロジェクト"}を削除します。未完了のタスクは削除せず、Inboxへ移します。この操作は元に戻せません。`}
+        description={`${projectToDelete?.name ?? "このプロジェクト"}を削除します。未完了のタスクは削除せず、今日の一覧へ戻します。この操作は元に戻せません。`}
         confirmLabel="プロジェクトを削除"
         onCancel={() => setProjectToDelete(null)}
         onConfirm={() => {

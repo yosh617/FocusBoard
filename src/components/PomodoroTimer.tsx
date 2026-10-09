@@ -58,7 +58,7 @@ export function PomodoroTimer({
     <section className={`timer-card timer-setup${isActive ? " timer-setup--active" : ""}`} aria-label={isActive ? "進行中タイマーの設定" : "タイマー設定"}>
       <div className="timer-setup__heading">
         <div>
-          <span className="timer-setup__eyebrow">FOCUS TIMER</span>
+          <span className="timer-setup__eyebrow">集中タイマー</span>
           <h2>{isActive ? "実行中タイマー" : "タイマー設定"}</h2>
         </div>
         <div className="timer-setup__tools" style={{ marginInlineStart: "auto" }}>

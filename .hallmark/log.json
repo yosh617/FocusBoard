@@ -1,0 +1,10 @@
+[
+  {
+    "date": "2026-10-09",
+    "scope": "app",
+    "macrostructure": "Workbench",
+    "theme": "FocusBoard neutral workbench with user-selected blue accent",
+    "enrichment": "none",
+    "brief": "Review and repair all FocusBoard screens while preserving its local-first timer and task workflows."
+  }
+]

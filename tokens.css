@@ -1,0 +1,28 @@
+/* Hallmark · genre: modern-minimal · macrostructure: Workbench · design-system: design.md · designed-as-app */
+/* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V4 */
+:root {
+  --color-paper: oklch(100% 0 0);
+  --color-paper-2: oklch(98.5% 0 0);
+  --color-ink: oklch(14% 0 0);
+  --color-ink-2: oklch(48.8% 0 0);
+  --color-rule: oklch(91.4% 0 0);
+  --color-accent: var(--accent, #315f98);
+  --color-focus: var(--accent, #315f98);
+  --font-display: var(--font-geist, "Geist", sans-serif);
+  --font-body: var(--font-geist, "Geist", sans-serif);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --radius-control: 8px;
+  --radius-card: 12px;
+  --radius-panel: 16px;
+  --radius-pill: 999px;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-short: 180ms;
+}

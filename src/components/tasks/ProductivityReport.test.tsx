@@ -34,11 +34,11 @@ describe("ProductivityReport", () => {
   it("shows period-aware heatmap totals and expandable report sections", () => {
     render(<ProductivityReport tasks={[completedTask]} sessions={[todaySession, previousDaySession]} workMinutes={25} now={now} onUpdateSession={vi.fn().mockResolvedValue(true)} />);
     expect(screen.getAllByText("50分").length).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { name: "勉強時間" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "直近1年の集中時間" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "実施時間帯" })).toBeTruthy();
-    const activity = screen.getByRole("heading", { name: "勉強時間" }).closest("section") as HTMLElement;
+    const activity = screen.getByRole("heading", { name: "直近1年の集中時間" }).closest("section") as HTMLElement;
     expect(activity.textContent).toContain("50分");
-    expect(screen.getByLabelText("直近1年の勉強時間ヒートマップ").querySelectorAll("[role=\"img\"]")).toHaveLength(371);
+    expect(screen.getByLabelText("直近1年の集中時間ヒートマップ").querySelectorAll("[role=\"img\"]")).toHaveLength(371);
     expect(document.querySelector(".report-activity__weekdays")?.closest(".report-activity__scroll")).toBeNull();
     expect(screen.getByRole("img", { name: /2026年7月18日 25分/ })).toBeTruthy();
     expect(screen.getAllByText("集中時間").length).toBeGreaterThan(0);
@@ -62,7 +62,7 @@ describe("ProductivityReport", () => {
     expect(screen.getAllByText(/完了/).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "日" }));
     expect(screen.getByRole("button", { name: "日" }).getAttribute("aria-pressed")).toBe("true");
-    expect(activity.textContent).toContain("25分");
+    expect(screen.getByLabelText(/のサマリー/).textContent).toContain("25分");
     expect(screen.queryByText("直近1年の集中記録・右端が今日")).toBeNull();
   }, 15_000);
 
@@ -70,7 +70,8 @@ describe("ProductivityReport", () => {
     render(<ProductivityReport tasks={[]} sessions={[]} workMinutes={25} now={now} onUpdateSession={vi.fn().mockResolvedValue(true)} />);
     expect(screen.getByText("今日のタスク")).toBeTruthy();
     expect(screen.getByText("—")).toBeTruthy();
-    expect(screen.getByText("この期間の集中記録はまだありません。")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "この期間の集中記録はありません" })).toBeTruthy();
+    expect(screen.getByLabelText("直近1年の集中時間ヒートマップ")).toBeTruthy();
   });
 
   it("keeps zero-minute interrupted sessions available for editing", () => {

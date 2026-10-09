@@ -188,8 +188,6 @@ export default function App() {
       else labels.push(suggestedNextTask.dueDate.replace(/-/g, "/"));
     } else if (suggestedNextTask.bucket === "someday") {
       labels.push("いつか");
-    } else {
-      labels.push("Inbox");
     }
     if (suggestedNextTask.estimatedPomodoros > 0) labels.push(`目安 ${suggestedNextTask.estimatedPomodoros}セット`);
     return labels.join(" ・ ");
@@ -221,8 +219,6 @@ export default function App() {
       else detailParts.push(task.dueDate.replace(/-/g, "/"));
     } else if (task.bucket === "someday") {
       detailParts.push("いつか");
-    } else {
-      detailParts.push("Inbox");
     }
     detailParts.push(todayOpenTaskCount === 0 ? "次の追加を決める" : `未完了 ${todayOpenTaskCount}件`);
     return {
@@ -235,7 +231,7 @@ export default function App() {
     if (timer.status === "idle") return null;
     const isBreakFlow = timer.mode !== "work";
     const statusText = timer.status === "running"
-      ? timer.mode === "work" ? "FOCUS" : "休憩中"
+      ? timer.mode === "work" ? "集中" : "休憩中"
       : timer.status === "paused"
         ? "一時停止中"
         : "延長中";
@@ -499,6 +495,19 @@ export default function App() {
     "--task-primary-shadow": taskTheme.shadow
   } as CSSProperties;
   const taskLauncherVisible = (settings.taskLauncherVisibility === "always" && !(settings.dateDisplayStyle === "calendar" && timer.status === "idle" && !settings.timerSetupCollapsed)) || taskDetailCardVisible;
+  const timerSetupLayoutActive = settings.showTimer && (timer.status === "idle" ? !settings.timerSetupCollapsed : timerSetupVisible);
+  const clockDatePosition = activeClockSetting.positions[orientation];
+  const floatingTimerVisible = settings.showTimer && (timer.status !== "idle" || settings.timerSetupCollapsed) && !timerSetupVisible;
+  const launcherClockCollision = taskLauncherVisible
+    && !timerSetupLayoutActive
+    && settings.dateDisplayStyle !== "calendar"
+    && Math.abs(clockDatePosition.x - settings.taskLauncherPosition.x) < 0.28
+    && Math.abs(clockDatePosition.y - settings.taskLauncherPosition.y) < 0.3;
+  const launcherTimerCollision = taskLauncherVisible
+    && floatingTimerVisible
+    && Math.abs(timer.floatingPosition.x - settings.taskLauncherPosition.x) < 0.24
+    && Math.abs(timer.floatingPosition.y - settings.taskLauncherPosition.y) < 0.28;
+  const launcherTimerCollisionPlacement = timer.floatingPosition.y >= 0.64 ? "top" : "bottom";
 
   useEffect(() => {
     if (!liveMessage) return;
@@ -559,7 +568,7 @@ export default function App() {
 
   return (
     <main
-      className={`app-shell${backgroundEditing ? " app-shell--background-editing" : ""}${taskLauncherVisible ? " app-shell--task-launcher-visible" : ""}`}
+      className={`app-shell${backgroundEditing ? " app-shell--background-editing" : ""}${taskLauncherVisible ? " app-shell--task-launcher-visible" : ""}${launcherClockCollision ? " app-shell--launcher-clock-collision" : ""}${launcherTimerCollision ? ` app-shell--launcher-timer-collision app-shell--launcher-timer-collision-${launcherTimerCollisionPlacement}` : ""}`}
       style={appStyle}
       onPointerUp={revealTaskDetailCardOnBackgroundTap}
     >

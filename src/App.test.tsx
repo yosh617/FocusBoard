@@ -283,7 +283,7 @@ describe("App", () => {
     expect(violet.getAttribute("aria-checked")).toBe("true");
     expect(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}").taskTheme).toBe("violet");
     expect(document.querySelector<HTMLElement>(".app-shell")?.style.getPropertyValue("--task-primary")).toBe("#c9b8f4");
-    fireEvent.click(screen.getByRole("button", { name: "初期値に戻す" }));
+    fireEvent.click(screen.getByRole("button", { name: "表示を初期値に戻す" }));
     expect(document.querySelector<HTMLElement>(".app-shell")?.style.getPropertyValue("--task-primary")).toBe("#f4a6a8");
   });
 
@@ -301,7 +301,7 @@ describe("App", () => {
     expect(saved.timerColor).toBe(defaultSettings.timerColor);
     expect(screen.getByRole("region", { name: "アプリのテーマ" })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "初期値に戻す" }));
+    fireEvent.click(screen.getByRole("button", { name: "表示を初期値に戻す" }));
     expect(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}").uiAccentColor).toBe(defaultSettings.uiAccentColor);
   });
 
@@ -539,7 +539,7 @@ describe("App", () => {
       fireEvent.click(screen.getByRole("button", { name: "同じタスクを続ける" }));
       expect(screen.queryByRole("dialog", { name: "集中セッション完了" })).toBeNull();
       expect(screen.getByRole("button", { name: "タスクを開く。取り組んでいるタスクは数学の復習。今日の未完了は1件" })).toBeTruthy();
-      expect(screen.getByText("FOCUS")).toBeTruthy();
+      expect(document.querySelector(".task-launcher__status")?.textContent).toBe("集中");
     } finally {
       vi.useRealTimers();
     }
@@ -603,7 +603,7 @@ describe("App", () => {
       fireEvent.click(screen.getByRole("button", { name: "タスク一覧へ戻る" }));
       expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("英語の宿題を次の候補として開いています");
       expect(screen.getByLabelText("新しいタスク")).toBeTruthy();
-      expect(screen.queryByText("FOCUS")).toBeNull();
+      expect(document.querySelector(".task-launcher__status")?.textContent).toBe("一時停止中");
     } finally {
       vi.useRealTimers();
     }

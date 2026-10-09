@@ -74,7 +74,7 @@ export function SessionCompleteDialog({
             <strong>{focusedDurationLabel ?? "00:00"}</strong>
           </div>
           <div>
-            <span>次のセッション</span>
+            <span>次に開始するセッション</span>
             <strong>{nextModeLabel}</strong>
           </div>
           <div>
@@ -86,7 +86,7 @@ export function SessionCompleteDialog({
           <div className="session-complete__plan-actions">
             <button className="primary-button session-complete__choice" type="button" onClick={onStartBreak} ref={primaryRef} aria-label={nextSessionActionLabel}>
               <strong>{nextSessionActionLabel}</strong>
-              <span>完了後にタイマーを開始</span>
+              <span>選ぶとタイマーが始まります</span>
             </button>
             {nextTaskTitle && (
               <button className="secondary-button session-complete__next-action" type="button" onClick={onStartNextTask} aria-label={`${nextTaskTitle}を開始`}>

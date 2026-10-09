@@ -447,7 +447,7 @@ export function useTasks() {
       await saveProductivityRecords({ tasks: affectedTasks, projects: [archived] });
       setProjects((current) => current.map((item) => item.id === id ? archived : item));
       setTasks((current) => current.map((task) => affectedTasks.find((item) => item.id === task.id) ?? task));
-      setMessage("プロジェクトをアーカイブし、タスクをInboxへ移しました。");
+      setMessage("プロジェクトをアーカイブし、タスクを今日の一覧へ戻しました。");
       clearUndo();
       return true;
     } catch {
@@ -471,7 +471,7 @@ export function useTasks() {
       await deleteProductivityRecords({ projectIds: [id], tasks: affectedTasks });
       setProjects((current) => current.filter((item) => item.id !== id));
       setTasks((current) => current.map((task) => affectedTasks.find((item) => item.id === task.id) ?? task));
-      setMessage("プロジェクトを削除し、未完了のタスクをInboxへ移しました。");
+      setMessage("プロジェクトを削除し、未完了のタスクを今日の一覧へ戻しました。");
       clearUndo();
       return true;
     } catch {

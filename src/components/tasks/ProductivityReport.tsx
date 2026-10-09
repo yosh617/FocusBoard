@@ -135,11 +135,11 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
     <div className={`productivity-report${focusHeatmap.totalFocusedMs === 0 ? " productivity-report--no-activity" : ""}`}>
       <div className="report-heading">
         <h3>集中レポート</h3>
-        <div className="report-period" aria-label="集計期間">
+        <div className="report-period" role="group" aria-label="集計期間">
           {periods.map((item) => <button type="button" aria-pressed={period === item.value} onClick={() => { setPeriod(item.value); setPeriodOffset(0); setEditingSessionId(null); }} key={item.value}>{item.label}</button>)}
         </div>
       </div>
-      <div className="report-period-navigation" aria-label="レポート期間の移動">
+      <div className="report-period-navigation" role="group" aria-label="レポート期間の移動">
         <button type="button" aria-label={`前の${periodLabel}`} onClick={() => { setPeriodOffset((current) => current - 1); setEditingSessionId(null); }}>‹</button>
         <span aria-live="polite">{report.periodLabel}</span>
         <button type="button" aria-label={`次の${periodLabel}`} disabled={periodOffset >= 0} onClick={() => { setPeriodOffset((current) => Math.min(0, current + 1)); setEditingSessionId(null); }}>›</button>
@@ -149,11 +149,11 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
       <section className="report-activity" aria-labelledby="report-activity-title">
         <div className="report-activity__heading">
           <div>
-            <h4 id="report-activity-title">直近1年の勉強時間</h4>
+            <h4 id="report-activity-title">直近1年の集中時間</h4>
           </div>
           <strong>{formatFocusedTime(focusHeatmap.totalFocusedMs)}</strong>
         </div>
-        <div className="report-activity__calendar" aria-label="直近1年の勉強時間ヒートマップ">
+        <div className="report-activity__calendar" aria-label="直近1年の集中時間ヒートマップ">
           <div className="report-activity__weekdays" aria-hidden="true">
             <span className="report-activity__month-spacer" />
             <span>日</span>
@@ -294,7 +294,7 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
                     <button
                       className="session-history__select"
                       type="button"
-                      aria-pressed={isEditing}
+                      aria-expanded={isEditing}
                       aria-label={`集中記録を編集：${session.taskTitleSnapshot ?? "タスクなし"} ${formatHistoryDate(session.startedAt)}から${formatHistoryDate(session.endedAt)}、${session.result === "completed" ? "完了" : "中断"}`}
                       onClick={() => setEditingSessionId((current) => current === session.id ? null : session.id)}
                     >

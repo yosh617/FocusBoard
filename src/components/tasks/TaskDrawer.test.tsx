@@ -91,6 +91,10 @@ function renderDrawer(overrides: Partial<React.ComponentProps<typeof TaskDrawer>
   return props;
 }
 
+function openQuickAddSettings() {
+  fireEvent.click(screen.getByRole("button", { name: "詳細を追加" }));
+}
+
 function chooseSelect(container: ReturnType<typeof within>, label: string, option: string) {
   fireEvent.click(container.getByLabelText(label));
   fireEvent.click(container.getByRole("option", { name: option }));
@@ -109,7 +113,7 @@ describe("TaskDrawer", () => {
     expect(overview.getAllByText("00:00")).toHaveLength(2);
     expect(overview.getAllByText("0")).toHaveLength(2);
     expect(screen.getByText("タスクなし")).toBeTruthy();
-    expect(screen.getByText("上の入力欄から今日のタスクを追加できます。")).toBeTruthy();
+    expect(screen.getByText("上の入力欄から追加できます。期限なしのタスクも、この一覧に表示されます。")).toBeTruthy();
     expect(screen.getByText("記録なし")).toBeTruthy();
     expect(screen.getByLabelText("新しいタスク")).toBeTruthy();
   });
@@ -127,7 +131,8 @@ describe("TaskDrawer", () => {
 
   it("keeps settings below an independently scrolling task list", () => {
     renderDrawer({ sessions: [session] });
-    expect(screen.getByRole("heading", { name: "今日" })).toBeTruthy();
+    openQuickAddSettings();
+    expect(screen.getByRole("heading", { name: "今日", level: 3 })).toBeTruthy();
     expect(screen.getByLabelText("新しいタスク")).toBeTruthy();
     const taskList = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
     const settingsHeading = screen.getByRole("heading", { name: "設定" });
@@ -331,8 +336,8 @@ describe("TaskDrawer", () => {
 
   it("opens the active task in the dedicated editor even after filter narrowing", async () => {
     renderDrawer({ timerStatus: "running", activeTaskId: task.id });
-    fireEvent.click(screen.getByRole("button", { name: /^Inbox / }));
     fireEvent.click(screen.getByRole("button", { name: "期限切れ 0" }));
+    expect(screen.getByText("該当するタスクはありません")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "すべて 1" }));
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
@@ -367,7 +372,6 @@ describe("TaskDrawer", () => {
       activeTaskId: task.id
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /^Inbox / }));
     fireEvent.click(screen.getByRole("button", { name: "期限切れ 1" }));
     const list = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
     await waitFor(() => expect(within(list).getByText("英語の宿題")).toBeTruthy());
@@ -397,7 +401,7 @@ describe("TaskDrawer", () => {
     expect(screen.queryByRole("heading", { name: "勉強" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "仕事" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "プロジェクトなし" })).toBeNull();
-    expect(screen.queryByLabelText(/集中目安/)).toBeNull();
+    expect(within(list).getByRole("heading", { name: "今日" })).toBeTruthy();
   });
 
   it("keeps overdue task cards compact while retaining their details", () => {
@@ -531,6 +535,7 @@ describe("TaskDrawer", () => {
 
   it("sets today on the first due-date tap and opens the calendar on the second", async () => {
     const props = renderDrawer();
+    openQuickAddSettings();
     fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "理科の暗記" } });
     expect(screen.queryByRole("dialog", { name: "期限を設定" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "期限を今日に設定" }));
@@ -544,6 +549,7 @@ describe("TaskDrawer", () => {
 
   it("adds a task with a planned pomodoro count", async () => {
     const props = renderDrawer();
+    openQuickAddSettings();
     fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "理科の暗記" } });
     fireEvent.click(screen.getByRole("button", { name: "2回" }));
     fireEvent.click(screen.getByRole("button", { name: "タスクを追加" }));
@@ -552,6 +558,7 @@ describe("TaskDrawer", () => {
 
   it("adjusts the planned pomodoro count down to one or by number input", () => {
     renderDrawer();
+    openQuickAddSettings();
     fireEvent.click(screen.getByRole("button", { name: "5回以上を設定" }));
     expect(screen.queryByRole("button", { name: "2回" })).toBeNull();
     const slider = screen.getByRole("slider", { name: "予定ポモドーロのスライダー" });
@@ -566,6 +573,7 @@ describe("TaskDrawer", () => {
 
   it("adds the selected priority and project from the bottom toolbar", async () => {
     const props = renderDrawer();
+    openQuickAddSettings();
     fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "重要な課題" } });
     fireEvent.click(screen.getByRole("button", { name: "優先度 なし" }));
     fireEvent.click(within(screen.getByRole("dialog", { name: "優先度を設定" })).getByRole("button", { name: "高" }));
@@ -577,6 +585,7 @@ describe("TaskDrawer", () => {
 
   it("creates and saves tags from the bottom toolbar", async () => {
     const props = renderDrawer();
+    openQuickAddSettings();
     fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "タグ付き課題" } });
     fireEvent.click(screen.getByRole("button", { name: "タグを設定" }));
     const tagDialog = screen.getByRole("dialog", { name: "タグを設定" });
@@ -587,24 +596,23 @@ describe("TaskDrawer", () => {
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ tags: ["試験"] })));
   });
 
-  it("shows filters only in Inbox and puts overdue work last in Today", () => {
+  it("shows filters in Today and groups overdue work separately", () => {
     const overdueTask = { ...task, id: "task-overdue", title: "期限切れタスク", dueDate: addLocalDays(today, -1), order: 2 };
     renderDrawer({ tasks: [overdueTask, task] });
 
-    expect(screen.queryByRole("group", { name: "表示するタスクを絞り込む" })).toBeNull();
-    const todayList = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
-    expect(within(todayList).getAllByRole("article").at(-1)?.textContent).toContain("期限切れタスク");
-
-    fireEvent.click(screen.getByRole("button", { name: /^Inbox / }));
     expect(screen.getByRole("group", { name: "表示するタスクを絞り込む" })).toBeTruthy();
+    const todayList = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
+    expect(within(todayList).getByRole("heading", { name: "今日・期限切れ" })).toBeTruthy();
+    expect(within(todayList).getByText("期限切れタスク")).toBeTruthy();
   });
 
-  it("does not carry hidden Inbox filters into Today or mix them with completed tasks", () => {
+  it("includes undated tasks in Today without counting them as scheduled work", () => {
     const unfilteredTodayTask: TaskRecord = {
       ...task,
       id: "task-today-unfiltered",
       title: "予定のない今日タスク",
       bucket: "inbox",
+      dueDate: null,
       estimatedPomodoros: 0,
       order: 1,
       updatedAt: 2
@@ -622,17 +630,11 @@ describe("TaskDrawer", () => {
     };
     renderDrawer({ tasks: [task, unfilteredTodayTask, completedTodayTask] });
 
-    fireEvent.click(screen.getByRole("button", { name: /^Inbox / }));
-    fireEvent.click(screen.getByRole("button", { name: "集中目安 1" }));
-    const inboxList = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
-    expect(within(inboxList).getByText("数学の復習")).toBeTruthy();
-    expect(within(inboxList).queryByText("予定のない今日タスク")).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: /^今日 / }));
-    expect(screen.queryByRole("group", { name: "表示するタスクを絞り込む" })).toBeNull();
     const todayList = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
     expect(within(todayList).getByText("数学の復習")).toBeTruthy();
     expect(within(todayList).getByText("予定のない今日タスク")).toBeTruthy();
+    expect(within(todayList).getByRole("heading", { name: "日付なし" })).toBeTruthy();
+    expect(screen.getByText("未完了タスク").parentElement?.textContent).toContain("1");
 
     fireEvent.click(within(todayList).getByRole("button", { name: "今日の完了済みタスク 1件" }));
     expect(within(todayList).getByText("今日完了したタスク")).toBeTruthy();
@@ -687,6 +689,7 @@ describe("TaskDrawer", () => {
   it("uses tomorrow as the quick-add default in the tomorrow view", async () => {
     const props = renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: new RegExp(`^明日 `) }));
+    openQuickAddSettings();
     expect(screen.getByRole("button", { name: "期限を明日に設定" })).toBeTruthy();
     fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "明日の復習" } });
     fireEvent.click(screen.getByRole("button", { name: "タスクを追加" }));
@@ -787,7 +790,7 @@ describe("TaskDrawer", () => {
     fireEvent.change(screen.getByLabelText("見積もり"), { target: { value: "3" } });
     fireEvent.click(screen.getByText("通知と繰り返し"));
     chooseSelect(within(screen.getByRole("form", { name: "数学の復習の詳細" })), "繰り返し", "毎日");
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    fireEvent.click(screen.getByRole("button", { name: "変更を保存" }));
     await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({ title: "数学Iの復習", estimatedPomodoros: 3, repeatRule: { type: "daily", interval: 1 } })));
   });
 
@@ -811,7 +814,7 @@ describe("TaskDrawer", () => {
     chooseSelect(details, "繰り返し", "カスタム");
     fireEvent.change(screen.getByLabelText("繰り返し間隔"), { target: { value: "2" } });
     chooseSelect(details, "繰り返し単位", "週ごと");
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    fireEvent.click(screen.getByRole("button", { name: "変更を保存" }));
 
     await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({
       projectId: null,
@@ -943,7 +946,6 @@ describe("TaskDrawer", () => {
       tasks: [task, overdueTask, reminderTask, plainTask]
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /^Inbox / }));
     const list = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
     fireEvent.click(screen.getByRole("button", { name: "期限切れ 1" }));
     expect(within(list).getByText("英語の宿題")).toBeTruthy();
@@ -965,7 +967,7 @@ describe("TaskDrawer", () => {
     renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: "レポート" }));
     expect(screen.getByRole("heading", { name: "集中レポート" })).toBeTruthy();
-    expect(screen.getByText("この期間の集中記録はまだありません。")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "この期間の集中記録はありません" })).toBeTruthy();
     expect(screen.queryByRole("navigation", { name: "タスク一覧" })).toBeNull();
   });
 
@@ -998,7 +1000,7 @@ describe("TaskDrawer", () => {
     chooseSelect(details, "繰り返し", "カスタム");
     fireEvent.change(details.getByLabelText("繰り返し間隔"), { target: { value: "2" } });
     chooseSelect(details, "繰り返し単位", "週ごと");
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    fireEvent.click(screen.getByRole("button", { name: "変更を保存" }));
     await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({ repeatRule: expect.objectContaining({ type: "weekly", interval: 2 }) })));
   });
 
@@ -1012,7 +1014,7 @@ describe("TaskDrawer", () => {
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
     const details = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
     fireEvent.change(details.getByLabelText("タスク名"), { target: { value: "月末の復習" } });
-    fireEvent.click(details.getByRole("button", { name: "保存" }));
+    fireEvent.click(details.getByRole("button", { name: "変更を保存" }));
     await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(repeatingTask.id, expect.objectContaining({
       repeatRule: { type: "monthly", interval: 1, day: 31 }
     })));
@@ -1025,7 +1027,7 @@ describe("TaskDrawer", () => {
     openAdvancedSettings(details);
     fireEvent.click(details.getByLabelText("期限"));
     fireEvent.click(within(details.getByRole("dialog", { name: "期限を選択" })).getByRole("button", { name: "明日" }));
-    fireEvent.click(details.getByRole("button", { name: "保存" }));
+    fireEvent.click(details.getByRole("button", { name: "変更を保存" }));
     await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({ dueDate: addLocalDays(today, 1) })));
   });
 
@@ -1037,7 +1039,7 @@ describe("TaskDrawer", () => {
     fireEvent.click(details.getByText("通知と繰り返し"));
     fireEvent.click(details.getByLabelText("リマインダー"));
     fireEvent.click(within(details.getByRole("dialog", { name: "リマインダーの日付を選択" })).getByRole("button", { name: "明日" }));
-    fireEvent.click(details.getByRole("button", { name: "保存" }));
+    fireEvent.click(details.getByRole("button", { name: "変更を保存" }));
     await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({ reminderAt: new Date(`${addLocalDays(today, 1)}T09:00:00`).getTime() })));
   });
 
@@ -1048,7 +1050,7 @@ describe("TaskDrawer", () => {
     openAdvancedSettings(details);
     fireEvent.change(details.getByLabelText("見積もり"), { target: { value: "4" } });
     expect((details.getByLabelText("見積もり") as HTMLInputElement).value).toBe("4");
-    fireEvent.click(details.getByRole("button", { name: "保存" }));
+    fireEvent.click(details.getByRole("button", { name: "変更を保存" }));
     await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({ estimatedPomodoros: 4 })));
   });
 
@@ -1063,14 +1065,14 @@ describe("TaskDrawer", () => {
     expect(inSevenDays.getAttribute("aria-pressed")).toBe("true");
     const expectedMonth = Number(addLocalDays(today, 7).slice(5, 7));
     expect(details.getByLabelText("期限").textContent).toContain(`${expectedMonth}月`);
-    expect(details.getByLabelText("分類").textContent).toContain("Inbox");
+    expect(details.getByLabelText("分類").textContent).toContain("通常");
 
     const fourPomodoros = details.getByRole("button", { name: "4" });
     fireEvent.click(fourPomodoros);
     expect(fourPomodoros.getAttribute("aria-pressed")).toBe("true");
     expect((details.getByLabelText("見積もり") as HTMLInputElement).value).toBe("4");
 
-    fireEvent.click(details.getByRole("button", { name: "保存" }));
+    fireEvent.click(details.getByRole("button", { name: "変更を保存" }));
     await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({ dueDate: addLocalDays(today, 7), bucket: "inbox", estimatedPomodoros: 4 })));
   });
 
@@ -1084,7 +1086,7 @@ describe("TaskDrawer", () => {
     expect(someday.getAttribute("aria-pressed")).toBe("true");
     expect(details.getByLabelText("期限").textContent).toContain("日付を選択");
     expect(details.getByLabelText("分類").textContent).toContain("いつか");
-    fireEvent.click(details.getByRole("button", { name: "保存" }));
+    fireEvent.click(details.getByRole("button", { name: "変更を保存" }));
     await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({ dueDate: null, bucket: "someday" })));
   });
 
@@ -1101,7 +1103,7 @@ describe("TaskDrawer", () => {
     fireEvent.click(details.getByText("通知と繰り返し"));
     fireEvent.click(details.getByLabelText("リマインダー"));
     fireEvent.click(within(details.getByRole("dialog", { name: "リマインダーの日付を選択" })).getByRole("button", { name: "明日" }));
-    fireEvent.click(details.getByRole("button", { name: "保存" }));
+    fireEvent.click(details.getByRole("button", { name: "変更を保存" }));
 
     await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({
       dueDate: addLocalDays(today, 1),
@@ -1118,7 +1120,7 @@ describe("TaskDrawer", () => {
     openAdvancedSettings(details);
     fireEvent.change(details.getByLabelText("新しいタグ名"), { target: { value: "重要" } });
     fireEvent.click(details.getByRole("button", { name: "タグを追加" }));
-    fireEvent.click(details.getByRole("button", { name: "保存" }));
+    fireEvent.click(details.getByRole("button", { name: "変更を保存" }));
     await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({ tags: ["復習", "重要"] })));
   });
 

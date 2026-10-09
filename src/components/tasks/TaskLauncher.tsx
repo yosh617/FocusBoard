@@ -33,15 +33,15 @@ const defaultPosition: FreePosition = { x: .2, y: .86 };
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLauncher({ todayCount, todaySummary, todayTasks = [], activeTaskTitle, suggestedTask, timerSummary, onClick, position = defaultPosition, onPositionChange = () => undefined, transient = false, fading = false }, ref) {
-  const title = timerSummary?.title ?? activeTaskTitle ?? suggestedTask?.title ?? "Today";
+  const title = timerSummary?.title ?? activeTaskTitle ?? suggestedTask?.title ?? "今日";
   const detail = timerSummary?.detail
     ?? (activeTaskTitle
       ? `今日の未完了 ${todayCount}件`
       : suggestedTask?.detail
         ?? (todayCount === 0 ? "今日の予定はありません" : `${todayCount}件を整理`));
-  const status = timerSummary?.statusText ?? (activeTaskTitle ? "FOCUS" : suggestedTask ? "NEXT" : "TODAY");
+  const status = timerSummary?.statusText ?? (activeTaskTitle ? "集中" : suggestedTask ? "次のタスク" : "今日");
   const isEmphasized = activeTaskTitle !== null || timerSummary !== null;
-  const isBreakFlow = timerSummary !== null && timerSummary.statusText !== "FOCUS";
+  const isBreakFlow = timerSummary !== null && timerSummary.statusText !== "集中";
   const showTodayTasks = !isEmphasized && suggestedTask === null;
   const queueLabel = todayCount === 0 ? "今日の未完了なし" : `未完了 ${todayCount}件`;
   const completionRate = todaySummary && todaySummary.totalCount > 0

@@ -38,8 +38,7 @@ describe("task smart lists", () => {
   ];
 
   it("groups tasks by local due date and excludes subtasks", () => {
-    expect(getTasksForView(tasks, "inbox", today).map((task) => task.id)).toEqual(["overdue", "today", "tomorrow", "future", "inbox"]);
-    expect(getTasksForView(tasks, "today", today).map((task) => task.id)).toEqual(["overdue", "today"]);
+    expect(getTasksForView(tasks, "today", today).map((task) => task.id)).toEqual(["overdue", "today", "inbox"]);
     expect(getTasksForView(tasks, "tomorrow", today).map((task) => task.id)).toEqual(["tomorrow"]);
     expect(getTasksForView(tasks, "upcoming", today).map((task) => task.id)).toEqual(["future"]);
     expect(getTasksForView(tasks, "someday", today).map((task) => task.id)).toEqual(["someday"]);
@@ -50,9 +49,9 @@ describe("task smart lists", () => {
   it("uses manual order before due date when displaying a view", () => {
     const ordered = [
       createTask("later", { dueDate: "2026-07-25", order: 0 }),
-      createTask("earlier", { dueDate: "2026-07-19", order: 1 })
+      createTask("earlier", { dueDate: "2026-07-22", order: 1 })
     ];
-    expect(getTasksForView(ordered, "inbox", today).map((task) => task.id)).toEqual(["later", "earlier"]);
+    expect(getTasksForView(ordered, "upcoming", today).map((task) => task.id)).toEqual(["later", "earlier"]);
   });
 
   it("filters projects and hides archived projects", () => {

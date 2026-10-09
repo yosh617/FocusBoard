@@ -23,7 +23,7 @@ function taskMeta(task: TaskRecord, projects: ProjectRecord[]) {
   if (project) parts.push(project.name);
   if (task.dueDate) parts.push(task.dueDate.replace(/-/g, "/"));
   if (task.estimatedPomodoros > 0) parts.push(`目安 ${task.estimatedPomodoros}セット`);
-  return parts.join(" ・ ") || "Inbox";
+  return parts.join(" ・ ");
 }
 
 export function TimerTaskPicker({
@@ -94,13 +94,13 @@ export function TimerTaskPicker({
       <div className="timer-task-picker" role="dialog" aria-modal="true" aria-labelledby="timer-task-picker-title" ref={dialogRef}>
         <div className="timer-task-picker__heading">
           <div>
-            <span>FOCUS</span>
+            <span>集中</span>
             <h2 id="timer-task-picker-title">{intent === "start" ? "どのタスクを始めますか？" : "取り組むタスクを選ぶ"}</h2>
           </div>
           <button type="button" onClick={onClose} aria-label="タスク選択を閉じる">×</button>
         </div>
 
-        <form className="timer-task-picker__add" onSubmit={addAndContinue}>
+        <form className="timer-task-picker__add" onSubmit={addAndContinue} aria-describedby={!storageAvailable ? "timer-task-storage-note" : undefined}>
           <label htmlFor="timer-task-title">新しいタスク</label>
           <div>
             <input
@@ -116,15 +116,17 @@ export function TimerTaskPicker({
             </button>
           </div>
         </form>
+        {!storageAvailable && <p id="timer-task-storage-note" className="timer-task-picker__storage-note" role="status">タスクを保存できないため、新しいタスクは追加できません。</p>}
 
         {tasks.length > 0 ? (
-          <div className="timer-task-picker__list" aria-label="未完了のタスク">
+          <div className="timer-task-picker__list" role="group" aria-label="未完了のタスク">
             {tasks.map((task) => {
               const selected = task.id === selectedTaskId;
               return (
                 <button
                   className={selected ? "timer-task-picker__task is-selected" : "timer-task-picker__task"}
                   type="button"
+                  aria-pressed={selected}
                   onClick={() => chooseTask(task.id)}
                   aria-label={`${task.title}${intent === "start" ? "を開始" : "を選択"}`}
                   key={task.id}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { colorPresets, dateFormatPresets, defaultSettings, describeFontSize, fontOptions, orientations, settingRanges, taskThemePresets, uiAccentPresets, type AppSettings, type BackgroundChoice, type BackgroundFrame, type FontOption, type Orientation, type PositionPreset, type TaskThemePreset } from "../types/settings";
 import { MAX_CUSTOM_BACKGROUNDS, type CustomBackground } from "../utils/backgroundStorage";
 import { defaultBackgrounds } from "./BackgroundSlideshow";
@@ -186,7 +186,7 @@ function BackgroundSettings({ settings, frame, customBackgrounds, frameOptions, 
 }
 
 export function SettingsPanel({ open, settings, orientation, saveState, onChange: applySettings, onClose, onOpenTasks, onStartBackgroundEditing, fullscreenSupported, onFullscreenToggle, onResetSettings, onClearTimer, onMessage, adaptivePalette, customBackgrounds, onAddBackgrounds, onRemoveBackground, onReorderBackgrounds }: Props) {
-  const drawerRef = useRef<HTMLElement>(null); const closeRef = useRef<HTMLButtonElement>(null); const contentRef = useRef<HTMLDivElement>(null); const [category, setCategory] = useState<Category>("background"); const [frameTarget, setFrameTarget] = useState<BackgroundFrameTarget>("bg1"); const [clockTarget, setClockTarget] = useState<BackgroundFrameTarget | "">(""); const [positionOrientation, setPositionOrientation] = useState<Orientation>(orientation);
+  const drawerRef = useRef<HTMLElement>(null); const closeRef = useRef<HTMLButtonElement>(null); const contentRef = useRef<HTMLDivElement>(null); const tabsRef = useRef<HTMLElement>(null); const [category, setCategory] = useState<Category>("background"); const [frameTarget, setFrameTarget] = useState<BackgroundFrameTarget>("bg1"); const [clockTarget, setClockTarget] = useState<BackgroundFrameTarget | "">(""); const [positionOrientation, setPositionOrientation] = useState<Orientation>(orientation);
   useEffect(() => { if (!open) return; const previous = document.activeElement as HTMLElement | null; closeRef.current?.focus(); const keys = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); if (event.key !== "Tab" || !drawerRef.current) return; const nodes = [...drawerRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, a[href], [tabindex]:not([tabindex="-1"])')].filter((node) => !node.closest("details:not([open])")); const first = nodes[0], last = nodes.at(-1); if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); } }; document.addEventListener("keydown", keys); return () => { document.removeEventListener("keydown", keys); previous?.focus(); }; }, [open, onClose]);
   useEffect(() => { if (settings.backgroundChoice !== "slideshow") setFrameTarget(settings.backgroundChoice); }, [settings.backgroundChoice]);
   useEffect(() => { setClockTarget(settings.backgroundChoice === "slideshow" ? "" : settings.backgroundChoice); }, [settings.backgroundChoice]);
@@ -205,7 +205,23 @@ export function SettingsPanel({ open, settings, orientation, saveState, onChange
   }, [category]);
   if (!open) return null;
   const uploads = async (files: FileList | null) => { if (!files?.length) return; const created = await onAddBackgrounds([...files]); if (created[0]) { const target = `custom:${created[0].id}` as BackgroundFrameTarget; setFrameTarget(target); onChange({ backgroundChoice: target }); } };
-  const resetSection = (patch: Partial<AppSettings>) => { onChange(patch); onMessage("この項目を初期値に戻しました。"); };
+  const resetSection = (target: ResettableCategory) => {
+    onChange(resetPatches[target]);
+    onMessage(`「${categories.find((item) => item.id === target)?.label ?? "設定"}」を初期値に戻しました。`);
+  };
+  const handleCategoryKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    const currentIndex = categories.findIndex((item) => item.id === category);
+    let nextIndex: number;
+    if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % categories.length;
+    else if (event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + categories.length) % categories.length;
+    else if (event.key === "Home") nextIndex = 0;
+    else if (event.key === "End") nextIndex = categories.length - 1;
+    else return;
+    event.preventDefault();
+    const nextCategory = categories[nextIndex].id;
+    setCategory(nextCategory);
+    tabsRef.current?.querySelector<HTMLButtonElement>(`#settings-tab-${nextCategory}`)?.focus();
+  };
   const exportSettings = () => { onMessage(downloadSettingsExport(settings) ? "設定をJSONファイルに保存しました。" : "設定をエクスポートできませんでした。"); };
   const frameOptions: BackgroundFrameOption[] = [
     ...builtInBackgroundLabels.map((label, index) => ({ value: `bg${index + 1}` as BackgroundFrameTarget, label, imageUrl: `${import.meta.env.BASE_URL}${defaultBackgrounds[index]}` })),
@@ -300,7 +316,7 @@ export function SettingsPanel({ open, settings, orientation, saveState, onChange
         <button className="icon-button" type="button" aria-label="設定を閉じる" title="設定を閉じる" onClick={onClose} ref={closeRef}>×</button>
       </div>
     </header>
-    <nav className="settings-tabs" aria-label="設定カテゴリー" role="tablist">{categories.map((item) => <button id={`settings-tab-${item.id}`} type="button" role="tab" aria-selected={category === item.id} aria-controls="settings-category-panel" className={category === item.id ? "is-active" : ""} onClick={() => setCategory(item.id)} key={item.id}><SettingsCategoryIcon category={item.id} /><span>{item.label}</span></button>)}</nav>
+    <nav className="settings-tabs" aria-label="設定カテゴリー" role="tablist" ref={tabsRef}>{categories.map((item) => <button id={`settings-tab-${item.id}`} type="button" role="tab" tabIndex={category === item.id ? 0 : -1} aria-selected={category === item.id} aria-controls="settings-category-panel" className={category === item.id ? "is-active" : ""} onClick={() => setCategory(item.id)} onKeyDown={handleCategoryKeyDown} key={item.id}><SettingsCategoryIcon category={item.id} /><span>{item.label}</span></button>)}</nav>
     <div className={`settings-content settings-content--${category}`} ref={contentRef}>
       <section id="settings-category-panel" className="settings-section" role="tabpanel" aria-labelledby={`settings-tab-${category}`} tabIndex={0} data-category={category}>
       {category === "background" && <BackgroundSettings settings={settings} frame={backgroundFrame} customBackgrounds={customBackgrounds} frameOptions={frameOptions} frameTarget={frameTarget} onFrameTargetChange={(target) => { setFrameTarget(target); onChange({ backgroundChoice: target }); }} onStartBackgroundEditing={onStartBackgroundEditing} onChange={onChange} uploads={uploads} move={move} onRemoveBackground={onRemoveBackground} />}
@@ -327,7 +343,7 @@ export function SettingsPanel({ open, settings, orientation, saveState, onChange
         </div>
         <ResetPanel onResetSettings={onResetSettings} onClearTimer={onClearTimer} onMessage={onMessage} />
       </>}
-        {category !== "data" && <div className="settings-section__footer"><button className="text-button" type="button" onClick={() => resetSection(resetPatches[category])}>初期値に戻す</button></div>}
+        {category !== "data" && <div className="settings-section__footer"><button className="text-button" type="button" aria-label={`${categories.find((item) => item.id === category)?.label ?? "設定"}を初期値に戻す`} onClick={() => resetSection(category)}>このカテゴリを初期値に戻す</button></div>}
       </section>
     </div>
   </aside></div>;
