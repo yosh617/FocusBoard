@@ -194,7 +194,7 @@ export const defaultSettings: AppSettings = {
   timerNotificationBehavior: "always",
   taskLauncherVisibility: "always",
   taskLauncherPosition: { x: .2, y: .86 },
-  taskTheme: "coral"
+  taskTheme: "blue"
 };
 
 export const fontOptions = {

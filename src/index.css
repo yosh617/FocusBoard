@@ -2182,11 +2182,14 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .task-empty--today { display: grid; align-content: center; justify-items: center; min-height: clamp(170px, 24dvh, 280px); gap: 6px; padding: 16px 12px 12px; text-align: center; }
 .task-empty--today .task-empty__art { display: grid; place-items: center; width: min(156px, 42vw); aspect-ratio: 1.1; margin-bottom: 2px; }
 .task-empty__art svg { width: 100%; height: 100%; overflow: visible; }
-.task-empty__halo { fill: #f0f0f2; }
-.task-empty__dot { fill: #ededf0; }
-.task-empty__paper { fill: #fff; }
-.task-empty__input { fill: none; stroke: #f6d7da; stroke-width: 2; }
-.task-empty__line { fill: none; stroke: #eeeeef; stroke-width: 5; stroke-linecap: round; }
+.task-empty__halo { fill: var(--task-primary-soft); }
+.task-empty__dot { fill: var(--task-primary-border); }
+.task-empty__spark { fill: none; stroke: var(--task-primary); stroke-width: 2.5; stroke-linecap: round; }
+.task-empty__paper { fill: var(--color-paper); stroke: var(--color-hairline); stroke-width: 1.5; }
+.task-empty__input { fill: none; stroke: var(--task-primary); stroke-width: 2; }
+.task-empty__line { fill: none; stroke: var(--color-hairline); stroke-width: 5; stroke-linecap: round; }
+.task-empty__clock { fill: var(--color-paper); stroke: var(--task-primary-border); stroke-width: 2; }
+.task-empty__clock-hand { fill: none; stroke: var(--task-primary-text); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .task-empty--today strong { color: var(--color-ink); font-size: 18px; font-weight: 650; }
 .task-empty--today > span { max-width: 340px; color: var(--color-mid-gray); font-size: 13px; line-height: 1.6; }
 .task-workspace--today .task-list__completed { justify-items: center; margin-top: 4px; padding: 0; border: 0; }
@@ -2278,7 +2281,7 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .task-capture__estimate { display: flex; justify-content: center; padding: 8px 0; border-bottom: 1px solid #e6e8eb; }
 .task-capture__estimate-label { display: none; }
 .task-capture__estimate-options { display: grid; grid-template-columns: repeat(5, 44px); overflow: hidden; border: 1px solid #dfe3e7; border-radius: 9px; }
-.task-capture__estimate button { min-width: 44px; min-height: 40px; padding: 0; color: #737982; border: 0; border-left: 1px solid #dfe3e7; border-radius: 0; background: #fff; font-size: 13px; font-weight: 750; }
+.task-capture__estimate button { min-width: 44px; min-height: 40px; padding: 0; color: var(--task-primary-text); border: 0; border-left: 1px solid #dfe3e7; border-radius: 0; background: #fff; font-size: 13px; font-weight: 750; }
 .task-capture__estimate button:first-child { border-left: 0; }
 .task-capture__estimate button:hover, .task-capture__estimate button.is-active { color: var(--task-primary-text); background: var(--task-primary-soft); }
 .task-capture__estimate button.is-active { box-shadow: inset 0 0 0 2px var(--task-primary-border); }
@@ -2289,25 +2292,25 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .task-capture__estimate-slider input[type="range"]::-moz-range-track { height: 5px; border: 0; border-radius: 999px; background: #dfe3e7; }
 .task-capture__estimate-slider input[type="range"]::-moz-range-progress { height: 5px; border-radius: 999px; background: var(--task-primary); }
 .task-capture__estimate-slider input[type="range"]::-moz-range-thumb { width: 17px; height: 17px; border: 0; border-radius: 50%; background: var(--task-primary); }
-.task-capture__estimate-number { width: 62px; min-height: 38px; padding: 0 7px; color: #252a31; border: 1px solid #dfe3e7; border-radius: 8px; background: #fff; font-size: 14px; font-variant-numeric: tabular-nums; text-align: center; }
-.task-capture__estimate-back { min-width: 36px; min-height: 36px; padding: 0; color: #737982; border: 0; background: transparent; font-size: 20px; }
+.task-capture__estimate-number { width: 62px; min-height: 38px; padding: 0 7px; color: var(--task-primary-text); border: 1px solid #dfe3e7; border-radius: 8px; background: #fff; font-size: 14px; font-variant-numeric: tabular-nums; text-align: center; }
+.task-capture__estimate-back { min-width: 36px; min-height: 36px; padding: 0; color: var(--task-primary-text); border: 0; background: transparent; font-size: 20px; }
 .task-capture__toolbar-copy { display: none; }
 
 @media (min-width: 900px) {
   .task-capture__settings { padding: 10px 0 0; }
   .task-capture__estimate { display: grid; grid-template-columns: minmax(150px, .8fr) minmax(280px, 1.7fr); align-items: center; gap: 12px; padding: 0 12px 14px; }
-  .task-capture__estimate-label { display: flex; align-items: center; gap: 8px; color: #626973; }
+  .task-capture__estimate-label { display: flex; align-items: center; gap: 8px; color: var(--task-primary-text); }
   .task-capture__estimate-label svg { flex: none; width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
   .task-capture__estimate-label strong { font-size: 13px; white-space: nowrap; }
   .task-capture__estimate-options { grid-template-columns: repeat(5, minmax(64px, 1fr)); border-radius: 10px; }
   .task-capture__estimate button { min-width: 0; min-height: 38px; font-size: 14px; }
   .task-capture__toolbar { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 12px 12px 14px; border-top: 0; }
-  .task-capture__toolbar button { display: flex; width: auto; min-height: 50px; gap: 7px; padding: 6px 9px; color: #737982; text-align: left; border: 1px solid #dfe3e7; border-radius: 9px; background: #fff; }
+  .task-capture__toolbar button { display: flex; width: auto; min-height: 50px; gap: 7px; padding: 6px 9px; color: var(--task-primary-text); text-align: left; border: 1px solid #dfe3e7; border-radius: 9px; background: #fff; }
   .task-capture__toolbar button:hover:not(:disabled), .task-capture__toolbar button.is-active { border-color: var(--task-primary-border); background: var(--task-primary-soft); }
   .task-capture__toolbar button svg { flex: none; width: 20px; height: 20px; }
   .task-capture__toolbar-copy { display: grid; min-width: 0; gap: 2px; }
-  .task-capture__toolbar-copy strong { color: #555d67; font-size: 12px; }
-  .task-capture__toolbar-copy small { overflow: hidden; color: #737982; font-size: 11px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+  .task-capture__toolbar-copy strong { color: var(--task-primary-text); font-size: 12px; }
+  .task-capture__toolbar-copy small { overflow: hidden; color: var(--task-primary-text); font-size: 11px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
 }
 /* Navigation counts are plain text so the list stays visually quiet. */
 .task-navigation__views button strong,
