@@ -2170,7 +2170,7 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .task-workspace--today .task-workspace__heading { margin-bottom: 0; }
 .today-overview { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 10px 8px; border: 1px solid var(--color-hairline); border-radius: 13px; background: var(--color-paper); }
 .today-overview > div { display: grid; align-content: start; justify-items: center; min-width: 0; gap: 4px; }
-.today-overview > div > span { min-height: 22px; color: var(--color-mid-gray); text-align: center; font-size: 10px; line-height: 1.2; }
+.today-overview > div > span { min-height: 22px; color: var(--task-primary-text); text-align: center; font-size: 10px; line-height: 1.2; }
 .today-overview strong { color: var(--task-primary-text); font-size: clamp(17px, 5vw, 25px); font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
 .task-workspace--today .task-quick-add.task-capture { margin: 0; }
 .task-workspace--today .task-capture__title { min-height: 48px; grid-template-columns: 36px minmax(0, 1fr); padding-inline: 8px; border-color: transparent; border-radius: 11px; background: var(--color-paper); }
