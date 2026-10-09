@@ -40,7 +40,7 @@ const withoutOverlayHistoryState = (state: unknown): Record<string, unknown> | n
 };
 
 export default function App() {
-  const { settings, updateSettings, undoSettings, resetSettings, storageMessage, setStorageMessage, saveState } = useLocalStorageSettings();
+  const { settings, updateSettings, resetSettings, storageMessage, setStorageMessage, saveState } = useLocalStorageSettings();
   const orientation = useOrientation();
   const {
     tasks,
@@ -692,7 +692,6 @@ export default function App() {
         orientation={orientation}
         saveState={saveState}
         onChange={updateSettings}
-        onUndo={undoSettings}
         onClose={closeSettings}
         onOpenTasks={openTasks}
         onStartBackgroundEditing={startBackgroundEditing}

@@ -12,7 +12,7 @@ type Props = {
 export function ResetPanel({ onResetSettings, onClearTimer, onMessage }: Props) {
   const [showDeleteGuide, setShowDeleteGuide] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [pendingAction, setPendingAction] = useState<"everything" | "pwa" | null>(null);
+  const [pendingAction, setPendingAction] = useState<"settings" | "timer" | "everything" | "pwa" | null>(null);
 
   const clearEverything = async () => {
     setBusy(true);
@@ -26,10 +26,10 @@ export function ResetPanel({ onResetSettings, onClearTimer, onMessage }: Props) 
     try {
       const result = await clearPwaCachesAndWorkers();
       onMessage(result.supported
-        ? `キャッシュ${result.cachesDeleted}件、Service Worker${result.registrationsDeleted}件を削除しました。アプリを再読み込みしてください。`
-        : "このブラウザはキャッシュまたはService Workerの削除に対応していません。");
+        ? `キャッシュ${result.cachesDeleted}件と、オフライン動作に関する情報${result.registrationsDeleted}件を削除しました。アプリを再読み込みしてください。`
+        : "このブラウザではオフライン用データを削除できません。");
     } catch {
-      onMessage("キャッシュの削除中にエラーが発生しました。SafariのWebサイトデータ設定をご確認ください。");
+      onMessage("オフライン用データを削除できませんでした。ブラウザのWebサイトデータ設定をご確認ください。");
     } finally {
       setBusy(false);
     }
@@ -37,15 +37,28 @@ export function ResetPanel({ onResetSettings, onClearTimer, onMessage }: Props) 
 
   return (
     <section className="settings-section settings-section--danger" aria-labelledby="reset-heading">
-      <h3 id="reset-heading">リセット / 削除</h3>
+      <h3 id="reset-heading">リセットと削除</h3>
       <p className="settings-help">必要なデータだけを個別に初期化できます。</p>
       <div className="reset-actions">
-        <button type="button" className="secondary-button" onClick={onResetSettings}>設定を初期化</button>
-        <button type="button" className="secondary-button" onClick={onClearTimer}>タイマー状態を削除</button>
-        <button type="button" className="danger-button" onClick={() => setPendingAction("everything")} disabled={busy}>すべてのローカルデータを削除</button>
-        <button type="button" className="danger-button" onClick={() => setPendingAction("pwa")} disabled={busy}>キャッシュとService Workerを削除</button>
-        <button type="button" className="secondary-button" onClick={() => setShowDeleteGuide((shown) => !shown)} aria-expanded={showDeleteGuide}>
-          PWA削除方法を表示
+        <div className="reset-actions__individual" role="group" aria-label="個別にリセット">
+          <button type="button" className="reset-action" onClick={() => setPendingAction("settings")}>
+            <strong>設定を初期化</strong><small>表示やタイマー設定を戻す</small>
+          </button>
+          <button type="button" className="reset-action" onClick={() => setPendingAction("timer")}>
+            <strong>タイマー状態を削除</strong><small>進行中のタイマーを消す</small>
+          </button>
+        </div>
+        <div className="reset-actions__destructive" role="group" aria-labelledby="reset-data-heading">
+          <h4 id="reset-data-heading">データを削除</h4>
+          <button type="button" className="reset-action reset-action--danger" onClick={() => setPendingAction("everything")} disabled={busy}>
+            <strong>アプリ内データをすべて削除</strong><small>設定・背景画像・タスク・集中履歴</small>
+          </button>
+          <button type="button" className="reset-action reset-action--danger" onClick={() => setPendingAction("pwa")} disabled={busy} aria-busy={busy}>
+            <strong>{busy ? "削除しています…" : "オフライン用データを削除"}</strong><small>アプリを再読み込みすると作り直せます</small>
+          </button>
+        </div>
+        <button type="button" className="reset-actions__guide" onClick={() => setShowDeleteGuide((shown) => !shown)} aria-expanded={showDeleteGuide}>
+          {showDeleteGuide ? "アプリの削除手順を隠す" : "アプリの削除手順を表示"}
         </button>
       </div>
       {showDeleteGuide && (
@@ -56,20 +69,26 @@ export function ResetPanel({ onResetSettings, onClearTimer, onMessage }: Props) 
             <li>「ブックマークを削除」または「Appを削除」を選びます。</li>
             <li>必要であれば、Safariの設定からWebサイトデータも削除します。</li>
           </ol>
-          <p>アプリ内の「すべてのローカルデータを削除」では、設定、タイマー、背景画像、タスク、プロジェクト、集中履歴を削除できます。</p>
+          <p>アプリ内でデータをすべて削除すると、設定、タイマー、背景画像、タスク、プロジェクト、集中履歴が消えます。</p>
         </div>
       )}
       <ConfirmDialog
         open={pendingAction !== null}
-        title={pendingAction === "everything" ? "ローカルデータをすべて削除しますか？" : "キャッシュとService Workerを削除しますか？"}
-        description={pendingAction === "everything"
-          ? "設定、タイマー、背景画像、タスク、プロジェクト、集中履歴を削除します。この操作は元に戻せません。"
-          : "オフラインキャッシュと、このアプリのService Workerを削除します。アプリの再読み込みが必要です。"}
-        confirmLabel="削除する"
+        title={pendingAction === "settings" ? "設定を初期化しますか？" : pendingAction === "timer" ? "タイマー状態を削除しますか？" : pendingAction === "everything" ? "アプリ内データをすべて削除しますか？" : "オフライン用データを削除しますか？"}
+        description={pendingAction === "settings"
+          ? "表示やタイマーなどの設定を初期値に戻します。タスクと集中履歴は残ります。"
+          : pendingAction === "timer"
+            ? "進行中または一時停止中のタイマーを消します。タスクと集中履歴は残ります。"
+            : pendingAction === "everything"
+              ? "設定、タイマー、背景画像、タスク、プロジェクト、集中履歴を削除します。この操作は元に戻せません。"
+              : "オフライン用の保存データを削除します。アプリの再読み込みが必要です。"}
+        confirmLabel={pendingAction === "settings" ? "初期化する" : "削除する"}
         onCancel={() => setPendingAction(null)}
         onConfirm={() => {
           const action = pendingAction;
           setPendingAction(null);
+          if (action === "settings") onResetSettings();
+          if (action === "timer") onClearTimer();
           if (action === "everything") void clearEverything();
           if (action === "pwa") void clearPwa();
         }}

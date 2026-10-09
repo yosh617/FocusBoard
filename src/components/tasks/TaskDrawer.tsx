@@ -632,6 +632,7 @@ export function TaskDrawer({
   const [quickTags, setQuickTags] = useState<string[]>([]);
   const [quickProjectId, setQuickProjectId] = useState<string | null>(null);
   const [quickPanel, setQuickPanel] = useState<"date" | "priority" | "tag" | "project" | "estimate" | null>(null);
+  const [quickSettingsOpen, setQuickSettingsOpen] = useState(false);
   const [returnFocusToQuickAdd, setReturnFocusToQuickAdd] = useState(false);
   const [listFilter, setListFilter] = useState<TaskListFilter>("all");
   const [workspaceMode, setWorkspaceMode] = useState<"tasks" | "report" | "backup">("tasks");
@@ -839,6 +840,7 @@ export function TaskDrawer({
       setQuickTags([]);
       setQuickProjectId(null);
       setQuickPanel(null);
+      setQuickSettingsOpen(false);
       setReturnFocusToQuickAdd(true);
     }
   };
@@ -1201,6 +1203,16 @@ export function TaskDrawer({
                   <button className="task-capture__add" type="submit" aria-label="タスクを追加" disabled={!storageAvailable || !title.trim()}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg></button>
                   <input id="task-title" ref={quickAddInputRef} placeholder="タスクを追加" maxLength={200} value={title} onChange={(event) => setTitle(event.target.value)} disabled={!storageAvailable} />
                 </div>
+                <button
+                  className="task-capture__details-toggle"
+                  type="button"
+                  aria-expanded={quickSettingsOpen}
+                  aria-controls="task-quick-add-details"
+                  onClick={() => { setQuickSettingsOpen((open) => !open); setQuickPanel(null); }}
+                >
+                  <span>{quickSettingsOpen ? "詳細を閉じる" : "詳細を追加"}</span>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d={quickSettingsOpen ? "m6 15 6-6 6 6" : "m6 9 6 6 6-6"} /></svg>
+                </button>
               </form>}
               {showResumeBanner && toolbarContext && (
                 <section className="task-inline-context" aria-label="一覧へ戻ったあとの案内">
@@ -1283,8 +1295,8 @@ export function TaskDrawer({
                 </section>}
               </div>}
             </div>
-            {view !== "completed" && view !== "archived" && (
-              <section className="task-capture__settings" aria-labelledby="task-capture-settings-heading">
+            {view !== "completed" && view !== "archived" && quickSettingsOpen && (
+              <section className="task-capture__settings" id="task-quick-add-details" aria-labelledby="task-capture-settings-heading">
                 <h4 id="task-capture-settings-heading" className="task-capture__settings-heading">設定</h4>
                 <div className="task-capture__estimate">
                   <span className="task-capture__estimate-label"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="7" /><path d="M9 3h6M12 6v7l3 2" /></svg><strong>予定ポモドーロ</strong></span>

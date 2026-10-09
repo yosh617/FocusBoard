@@ -132,7 +132,7 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
   const todayCompletionRate = todayTaskCount === 0 ? 0 : Math.round((report.todayCompletedTasks / todayTaskCount) * 100);
 
   return (
-    <div className="productivity-report">
+    <div className={`productivity-report${focusHeatmap.totalFocusedMs === 0 ? " productivity-report--no-activity" : ""}`}>
       <div className="report-heading">
         <h3>集中レポート</h3>
         <div className="report-period" aria-label="集計期間">
@@ -149,9 +149,9 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
       <section className="report-activity" aria-labelledby="report-activity-title">
         <div className="report-activity__heading">
           <div>
-            <h4 id="report-activity-title">勉強時間</h4>
+            <h4 id="report-activity-title">直近1年の勉強時間</h4>
           </div>
-          <strong>{formatFocusedTime(report.focusedMs)}</strong>
+          <strong>{formatFocusedTime(focusHeatmap.totalFocusedMs)}</strong>
         </div>
         <div className="report-activity__calendar" aria-label="直近1年の勉強時間ヒートマップ">
           <div className="report-activity__weekdays" aria-hidden="true">
@@ -213,7 +213,7 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
 
       {report.focusedMs === 0 ? <section className="report-empty-state" aria-labelledby="report-empty-title">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V5M16 20v-7M22 20H2" /></svg>
-        <div><h4 id="report-empty-title">この期間の集中記録はまだありません。</h4><p>{report.periodLabel}</p></div>
+        <div><h4 id="report-empty-title">この期間の集中記録はありません</h4><p>{report.periodLabel}。タイマーを使うと、ここに記録が表示されます。</p></div>
       </section> : <>
       <section className="focus-timeline-section" aria-labelledby="focus-timeline-title">
         <div className="report-section-heading"><h4 id="focus-timeline-title">実施時間帯</h4><strong>{formatFocusedTime(report.focusedMs)}</strong></div>

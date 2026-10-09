@@ -16,7 +16,7 @@ type BackgroundFrameTarget = Exclude<BackgroundChoice, "slideshow">;
 type Props = {
   open: boolean; settings: AppSettings; saveState: "saved" | "saving" | "failed";
   orientation: Orientation;
-  onChange: (patch: Partial<AppSettings>) => void; onUndo: () => boolean; onClose: () => void; onOpenTasks: () => void;
+  onChange: (patch: Partial<AppSettings>) => void; onClose: () => void; onOpenTasks: () => void;
   fullscreenSupported: boolean; onFullscreenToggle: (enabled: boolean) => Promise<void>;
   onResetSettings: () => void; onClearTimer: () => void; onMessage: (message: string) => void; onStartBackgroundEditing: () => void; adaptivePalette: AdaptivePalette;
   customBackgrounds: CustomBackground[]; onAddBackgrounds: (files: File[]) => Promise<CustomBackground[]>;
@@ -185,7 +185,7 @@ function BackgroundSettings({ settings, frame, customBackgrounds, frameOptions, 
   </>;
 }
 
-export function SettingsPanel({ open, settings, orientation, saveState, onChange: applySettings, onUndo, onClose, onOpenTasks, onStartBackgroundEditing, fullscreenSupported, onFullscreenToggle, onResetSettings, onClearTimer, onMessage, adaptivePalette, customBackgrounds, onAddBackgrounds, onRemoveBackground, onReorderBackgrounds }: Props) {
+export function SettingsPanel({ open, settings, orientation, saveState, onChange: applySettings, onClose, onOpenTasks, onStartBackgroundEditing, fullscreenSupported, onFullscreenToggle, onResetSettings, onClearTimer, onMessage, adaptivePalette, customBackgrounds, onAddBackgrounds, onRemoveBackground, onReorderBackgrounds }: Props) {
   const drawerRef = useRef<HTMLElement>(null); const closeRef = useRef<HTMLButtonElement>(null); const contentRef = useRef<HTMLDivElement>(null); const [category, setCategory] = useState<Category>("background"); const [frameTarget, setFrameTarget] = useState<BackgroundFrameTarget>("bg1"); const [clockTarget, setClockTarget] = useState<BackgroundFrameTarget | "">(""); const [positionOrientation, setPositionOrientation] = useState<Orientation>(orientation);
   useEffect(() => { if (!open) return; const previous = document.activeElement as HTMLElement | null; closeRef.current?.focus(); const keys = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); if (event.key !== "Tab" || !drawerRef.current) return; const nodes = [...drawerRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, a[href], [tabindex]:not([tabindex="-1"])')].filter((node) => !node.closest("details:not([open])")); const first = nodes[0], last = nodes.at(-1); if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); } }; document.addEventListener("keydown", keys); return () => { document.removeEventListener("keydown", keys); previous?.focus(); }; }, [open, onClose]);
   useEffect(() => { if (settings.backgroundChoice !== "slideshow") setFrameTarget(settings.backgroundChoice); }, [settings.backgroundChoice]);
@@ -325,7 +325,6 @@ export function SettingsPanel({ open, settings, orientation, saveState, onChange
             <button className="secondary-button" type="button" onClick={() => window.location.reload()}>アプリを再読み込み</button>
           </section>
         </div>
-        <div className="data-undo"><div><strong>変更履歴</strong><span>直前の設定変更だけ元に戻せます。</span></div><button className="secondary-button" type="button" onClick={() => onUndo() ? onMessage("直前の変更を元に戻しました。") : onMessage("元に戻せる変更はありません。")}>元に戻す</button></div>
         <ResetPanel onResetSettings={onResetSettings} onClearTimer={onClearTimer} onMessage={onMessage} />
       </>}
         {category !== "data" && <div className="settings-section__footer"><button className="text-button" type="button" onClick={() => resetSection(resetPatches[category])}>初期値に戻す</button></div>}
