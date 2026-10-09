@@ -43,6 +43,18 @@ function getTaskTree(tasks: TaskRecord[], rootId: string) {
   return tasks.filter((task) => taskIds.has(task.id));
 }
 
+function getSessionProjectUpdates(sessions: FocusSessionRecord[], updatedTasks: TaskRecord[], projects: ProjectRecord[]) {
+  const updatedTasksById = new Map(updatedTasks.map((task) => [task.id, task]));
+  const projectsById = new Map(projects.map((project) => [project.id, project]));
+  return sessions.flatMap((session) => {
+    const task = session.taskId ? updatedTasksById.get(session.taskId) : null;
+    if (!task) return [];
+    const project = task.projectId ? projectsById.get(task.projectId) ?? null : null;
+    if (session.projectIdSnapshot === task.projectId && session.projectNameSnapshot === (project?.name ?? null)) return [];
+    return [{ ...session, projectIdSnapshot: task.projectId, projectNameSnapshot: project?.name ?? null }];
+  });
+}
+
 export function useTasks() {
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [projects, setProjects] = useState<ProjectRecord[]>([]);
@@ -185,9 +197,17 @@ export function useTasks() {
       setMessage("タスクの入力内容を確認してください。");
       return false;
     }
+    const updatedSessions = previous.projectId === candidate.projectId
+      ? []
+      : getSessionProjectUpdates(sessionsRef.current, [candidate], projectsRef.current);
     try {
-      await saveTaskRecord(candidate);
+      if (updatedSessions.length > 0) await saveProductivityRecords({ tasks: [candidate], sessions: updatedSessions });
+      else await saveTaskRecord(candidate);
       setTasks((current) => current.map((task) => task.id === id ? candidate : task));
+      if (updatedSessions.length > 0) {
+        const updatedSessionsById = new Map(updatedSessions.map((session) => [session.id, session]));
+        setSessions((current) => current.map((session) => updatedSessionsById.get(session.id) ?? session));
+      }
       clearUndo();
       return true;
     } catch {
@@ -443,10 +463,15 @@ export function useTasks() {
     const affectedTasks = tasksRef.current
       .filter((task) => task.projectId === id && task.status !== "archived")
       .map((task) => ({ ...task, projectId: null, bucket: "inbox" as const, updatedAt: now }));
+    const updatedSessions = getSessionProjectUpdates(sessionsRef.current, affectedTasks, projectsRef.current);
     try {
-      await saveProductivityRecords({ tasks: affectedTasks, projects: [archived] });
+      await saveProductivityRecords({ tasks: affectedTasks, projects: [archived], sessions: updatedSessions });
       setProjects((current) => current.map((item) => item.id === id ? archived : item));
       setTasks((current) => current.map((task) => affectedTasks.find((item) => item.id === task.id) ?? task));
+      if (updatedSessions.length > 0) {
+        const updatedSessionsById = new Map(updatedSessions.map((session) => [session.id, session]));
+        setSessions((current) => current.map((session) => updatedSessionsById.get(session.id) ?? session));
+      }
       setMessage("プロジェクトをアーカイブし、タスクを今日の一覧へ戻しました。");
       clearUndo();
       return true;
@@ -467,10 +492,15 @@ export function useTasks() {
         ...(task.status === "archived" ? {} : { bucket: "inbox" as const }),
         updatedAt: Date.now()
       }));
+    const updatedSessions = getSessionProjectUpdates(sessionsRef.current, affectedTasks, projectsRef.current);
     try {
-      await deleteProductivityRecords({ projectIds: [id], tasks: affectedTasks });
+      await deleteProductivityRecords({ projectIds: [id], tasks: affectedTasks, sessions: updatedSessions });
       setProjects((current) => current.filter((item) => item.id !== id));
       setTasks((current) => current.map((task) => affectedTasks.find((item) => item.id === task.id) ?? task));
+      if (updatedSessions.length > 0) {
+        const updatedSessionsById = new Map(updatedSessions.map((session) => [session.id, session]));
+        setSessions((current) => current.map((session) => updatedSessionsById.get(session.id) ?? session));
+      }
       setMessage("プロジェクトを削除し、未完了のタスクを今日の一覧へ戻しました。");
       clearUndo();
       return true;

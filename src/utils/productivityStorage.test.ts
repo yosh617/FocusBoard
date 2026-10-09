@@ -366,6 +366,19 @@ describe("productivityStorage", () => {
     expect(loaded.sessions).toEqual([session]);
   });
 
+  it("updates related focus history in the same transaction that removes a project", async () => {
+    await saveProductivityRecords({ tasks: [task], projects: [project], sessions: [session] });
+    const movedTask = { ...task, projectId: null };
+    const movedSession = { ...session, projectIdSnapshot: null, projectNameSnapshot: null };
+
+    await deleteProductivityRecords({ projectIds: [project.id], tasks: [movedTask], sessions: [movedSession] });
+
+    const loaded = await loadProductivityData();
+    expect(loaded.tasks).toEqual([movedTask]);
+    expect(loaded.projects).toEqual([]);
+    expect(loaded.sessions).toEqual([movedSession]);
+  });
+
   it("loads only validated records and reports invalid entries", async () => {
     await saveProductivityRecords({ tasks: [task], projects: [project], sessions: [session] });
     const database = await openProductivityDb();

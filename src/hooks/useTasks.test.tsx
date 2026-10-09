@@ -1,6 +1,8 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProductivityBackup } from "../utils/productivityBackup";
+import type { FocusSessionRecord } from "../types/focusSession";
+import type { ProjectRecord } from "../types/project";
 import type { TaskRecord } from "../types/task";
 import { createProductivityBackup } from "../utils/productivityBackup";
 import { addLocalDays, toLocalDateKey } from "../utils/taskQueries";
@@ -183,6 +185,82 @@ describe("useTasks", () => {
     expect(result.current.canUndo).toBe(true);
     await act(async () => { await result.current.updateTask(savedTask.id, { title: "更新した数学" }); });
     expect(result.current.canUndo).toBe(false);
+  });
+
+  it("moves existing focus records with the task when its project changes", async () => {
+    const firstProject: ProjectRecord = { version: 1, id: "project-1", name: "勉強", color: "#3f6fab", order: 0, archivedAt: null, createdAt: 1, updatedAt: 1 };
+    const secondProject: ProjectRecord = { version: 1, id: "project-2", name: "仕事", color: "#347b70", order: 1, archivedAt: null, createdAt: 2, updatedAt: 2 };
+    const task = { ...savedTask, projectId: firstProject.id };
+    const session = (id: string, taskId: string | null = task.id): FocusSessionRecord => ({
+      version: 2,
+      id,
+      taskId,
+      taskTitleSnapshot: task.title,
+      projectIdSnapshot: firstProject.id,
+      projectNameSnapshot: firstProject.name,
+      program: "pomodoro",
+      mode: "work",
+      result: "completed",
+      startedAt: 10,
+      endedAt: 20,
+      plannedDurationMs: 10,
+      focusedDurationMs: 8,
+      pauseIntervals: []
+    });
+    const taskSession = session("session-1");
+    const secondTaskSession = session("session-2");
+    const unrelatedSession = session("session-unlinked", null);
+    vi.mocked(loadProductivityData).mockResolvedValue({
+      tasks: [task],
+      projects: [firstProject, secondProject],
+      sessions: [taskSession, secondTaskSession, unrelatedSession],
+      invalidRecordCount: 0,
+      repairedRecordCount: 0
+    });
+    const { result } = renderHook(() => useTasks());
+    await waitFor(() => expect(result.current.tasks).toHaveLength(1));
+
+    await act(async () => { expect(await result.current.updateTask(task.id, { projectId: secondProject.id })).toBe(true); });
+
+    expect(result.current.tasks[0].projectId).toBe(secondProject.id);
+    expect(result.current.sessions[0]).toMatchObject({ taskId: task.id, focusedDurationMs: 8, projectIdSnapshot: secondProject.id, projectNameSnapshot: secondProject.name });
+    expect(result.current.sessions[1]).toMatchObject({ taskId: task.id, focusedDurationMs: 8, projectIdSnapshot: secondProject.id, projectNameSnapshot: secondProject.name });
+    expect(result.current.sessions[2]).toEqual(unrelatedSession);
+    expect(saveProductivityRecords).toHaveBeenCalledWith({
+      tasks: [expect.objectContaining({ id: task.id, projectId: secondProject.id })],
+      sessions: [
+        expect.objectContaining({ id: taskSession.id, projectIdSnapshot: secondProject.id, projectNameSnapshot: secondProject.name, focusedDurationMs: 8 }),
+        expect.objectContaining({ id: secondTaskSession.id, projectIdSnapshot: secondProject.id, projectNameSnapshot: secondProject.name, focusedDurationMs: 8 })
+      ]
+    });
+
+    await act(async () => { expect(await result.current.updateTask(task.id, { projectId: null })).toBe(true); });
+    expect(result.current.sessions.slice(0, 2)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ projectIdSnapshot: null, projectNameSnapshot: null, focusedDurationMs: 8 }),
+      expect.objectContaining({ projectIdSnapshot: null, projectNameSnapshot: null, focusedDurationMs: 8 })
+    ]));
+  });
+
+  it("moves project focus history to unassigned when the project is archived", async () => {
+    const project: ProjectRecord = { version: 1, id: "project-1", name: "勉強", color: "#3f6fab", order: 0, archivedAt: null, createdAt: 1, updatedAt: 1 };
+    const task = { ...savedTask, projectId: project.id };
+    const session: FocusSessionRecord = {
+      version: 2, id: "session-1", taskId: task.id, taskTitleSnapshot: task.title,
+      projectIdSnapshot: project.id, projectNameSnapshot: project.name, program: "pomodoro",
+      mode: "work", result: "completed", startedAt: 10, endedAt: 20,
+      plannedDurationMs: 10, focusedDurationMs: 8, pauseIntervals: []
+    };
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [task], projects: [project], sessions: [session], invalidRecordCount: 0, repairedRecordCount: 0 });
+    const { result } = renderHook(() => useTasks());
+    await waitFor(() => expect(result.current.tasks).toHaveLength(1));
+
+    await act(async () => { expect(await result.current.archiveProject(project.id)).toBe(true); });
+
+    expect(result.current.tasks[0].projectId).toBeNull();
+    expect(result.current.sessions[0]).toMatchObject({ taskId: task.id, focusedDurationMs: 8, projectIdSnapshot: null, projectNameSnapshot: null });
+    expect(saveProductivityRecords).toHaveBeenCalledWith(expect.objectContaining({
+      sessions: [expect.objectContaining({ id: session.id, projectIdSnapshot: null, projectNameSnapshot: null, focusedDurationMs: 8 })]
+    }));
   });
 
   it("normalizes a task added to an archived project into Inbox", async () => {
