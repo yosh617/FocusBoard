@@ -4555,3 +4555,42 @@ body { font-family: var(--font-body); }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Keep the task list and its fixed add settings on the same centered content edges. */
+.task-drawer .task-workspace--list { scrollbar-gutter: auto; }
+.task-workspace__scroll { scrollbar-gutter: stable both-edges; }
+.task-capture__settings { margin-inline: 15px; }
+.task-capture__estimate-options { width: 100%; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+
+@media (pointer: coarse) {
+  .task-workspace__scroll { scrollbar-gutter: auto; }
+  .task-capture__settings { margin-inline: 0; }
+}
+
+@media (min-width: 601px) and (max-width: 899px) {
+  .task-capture__toolbar {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    padding: 8px 0 10px;
+  }
+  .task-capture__toolbar button {
+    display: flex;
+    flex: initial;
+    width: auto;
+    min-width: 0;
+    min-height: 48px;
+    gap: 6px;
+    padding: 6px;
+    border: 1px solid var(--color-hairline);
+    border-radius: var(--radius-control);
+    background: var(--color-paper);
+  }
+  .task-capture__toolbar button svg { flex: none; width: 18px; height: 18px; }
+  .task-capture__toolbar-copy { display: grid; min-width: 0; gap: 1px; }
+  .task-capture__toolbar-copy strong,
+  .task-capture__toolbar-copy small { overflow: hidden; max-width: 100%; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+.task-list-filters { width: 100%; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.task-list-filters button { justify-content: center; }
