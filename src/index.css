@@ -4562,6 +4562,31 @@ body { font-family: var(--font-body); }
   transform: none !important;
 }
 
+@media (max-width: 600px) and (orientation: portrait) {
+  .app-shell--task-launcher-visible .task-launcher {
+    top: auto !important;
+    right: max(16px, env(safe-area-inset-right)) !important;
+    bottom: max(16px, env(safe-area-inset-bottom)) !important;
+    left: auto !important;
+    width: 72px;
+    height: 72px;
+    min-height: 72px;
+    max-height: 72px;
+    grid-template-columns: 1fr;
+    gap: 0;
+    padding: 8px;
+    border-radius: 50%;
+    transform: none !important;
+  }
+  .app-shell--task-launcher-visible .task-launcher:hover { transform: none !important; }
+  .app-shell--task-launcher-visible .task-launcher__main { display: none; }
+  .app-shell--task-launcher-visible .task-launcher__side { position: relative; display: grid; justify-items: center; gap: 0; }
+  .app-shell--task-launcher-visible .task-launcher__icon { width: 42px; height: 42px; }
+  .app-shell--task-launcher-visible .task-launcher__icon::before { width: 34px; height: 34px; }
+  .app-shell--task-launcher-visible .task-launcher__icon svg { width: 19px; height: 19px; }
+  .app-shell--task-launcher-visible .task-launcher__count { position: absolute; top: -7px; right: -7px; min-width: 24px; height: 24px; padding-inline: 5px; margin: 0; font-size: 11px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     scroll-behavior: auto !important;
