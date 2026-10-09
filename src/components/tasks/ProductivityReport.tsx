@@ -20,6 +20,14 @@ function formatHistoryDate(timestamp: number) {
   });
 }
 
+function formatHistoryDay(date: string) {
+  return new Date(`${date}T00:00:00`).toLocaleDateString("ja-JP", {
+    month: "long",
+    day: "numeric",
+    weekday: "short"
+  });
+}
+
 function formatTimelineDate(date: string) {
   return new Date(`${date}T00:00:00`).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short" });
 }
@@ -266,30 +274,48 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
         <details className="report-disclosure">
           <summary><span id="history-title">セッション履歴</span><strong>{report.history.length}件</strong></summary>
           {report.history.length === 0 ? <p className="report-empty">この期間の履歴はありません。</p> : (
-            <ol className="session-history">{report.history.slice(0, 50).map((session) => {
-              const isEditing = editingSessionId === session.id;
-              return <li className={isEditing ? "is-editing" : undefined} key={session.id}>
-                <button
-                  className="session-history__select"
-                  type="button"
-                  aria-pressed={isEditing}
-                  aria-label={`集中記録を編集：${session.taskTitleSnapshot ?? "タスクなし"} ${formatHistoryDate(session.endedAt)}`}
-                  onClick={() => setEditingSessionId((current) => current === session.id ? null : session.id)}
-                >
-                  <div><strong>{session.taskTitleSnapshot ?? "タスクなし"}</strong><span>{session.projectNameSnapshot ?? "プロジェクトなし"}・{formatHistoryDate(session.startedAt)}〜{formatHistoryDate(session.endedAt)}</span></div>
-                  <div><strong>{formatFocusedTime(getFocusedDurationMs(session))}</strong><span>{session.result === "completed" ? "完了" : "中断"}{getPausedDurationMs(session) > 0 ? `・休止 ${formatFocusedTime(getPausedDurationMs(session))}` : ""}</span></div>
-                </button>
-                {isEditing && <SessionEditForm
-                  session={session}
-                  onCancel={() => setEditingSessionId(null)}
-                  onSave={async (patch) => {
-                    const saved = await onUpdateSession(session.id, patch);
-                    if (saved) setEditingSessionId(null);
-                    return saved;
-                  }}
-                />}
-              </li>;
-            })}</ol>
+            <>
+            {report.history.length > 50 && <p className="session-history__limit-note">最新50件を表示しています。</p>}
+            <div className="session-history-groups">{Object.entries(report.history.slice(0, 50).reduce<Record<string, FocusSessionRecord[]>>((groups, session) => {
+              const date = toLocalDateKey(new Date(session.startedAt));
+              (groups[date] ??= []).push(session);
+              return groups;
+            }, {})).map(([date, daySessions]) => {
+              const focusedMs = daySessions.reduce((total, session) => total + getFocusedDurationMs(session), 0);
+              const completedCount = daySessions.filter((session) => session.result === "completed").length;
+              return <section className="session-history-day" aria-label={`${formatHistoryDay(date)}の集中記録`} key={date}>
+                <header className="session-history-day__heading">
+                  <h5>{formatHistoryDay(date)}</h5>
+                  <p><span>集中 {formatFocusedTime(focusedMs)}</span><span>完了 {completedCount}回</span></p>
+                </header>
+                <ol className="session-history">{daySessions.map((session) => {
+                  const isEditing = editingSessionId === session.id;
+                  return <li className={`${isEditing ? "is-editing " : ""}${session.result === "cancelled" ? "is-cancelled" : ""}`} key={session.id}>
+                    <button
+                      className="session-history__select"
+                      type="button"
+                      aria-pressed={isEditing}
+                      aria-label={`集中記録を編集：${session.taskTitleSnapshot ?? "タスクなし"} ${formatHistoryDate(session.startedAt)}から${formatHistoryDate(session.endedAt)}、${session.result === "completed" ? "完了" : "中断"}`}
+                      onClick={() => setEditingSessionId((current) => current === session.id ? null : session.id)}
+                    >
+                      <span className="session-history__mark" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7" /><path d="M9 3h6M12 6v7l3 2" /></svg></span>
+                      <span className="session-history__copy"><strong>{session.taskTitleSnapshot ?? "タスクなし"}</strong><span>{formatFocusedTime(getFocusedDurationMs(session))} ・ {session.result === "completed" ? "完了" : "中断"}{session.projectNameSnapshot ? ` ・ ${session.projectNameSnapshot}` : ""}{getPausedDurationMs(session) > 0 ? ` ・ 休止 ${formatFocusedTime(getPausedDurationMs(session))}` : ""}</span></span>
+                      <span className="session-history__times"><time dateTime={new Date(session.startedAt).toISOString()}>{formatTimelineTime(session.startedAt)}</time><i aria-hidden="true" /> <time dateTime={new Date(session.endedAt).toISOString()}>{formatTimelineTime(session.endedAt)}</time></span>
+                    </button>
+                    {isEditing && <SessionEditForm
+                      session={session}
+                      onCancel={() => setEditingSessionId(null)}
+                      onSave={async (patch) => {
+                        const saved = await onUpdateSession(session.id, patch);
+                        if (saved) setEditingSessionId(null);
+                        return saved;
+                      }}
+                    />}
+                  </li>;
+                })}</ol>
+              </section>;
+            })}</div>
+            </>
           )}
         </details>
       </section>

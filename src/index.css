@@ -1605,6 +1605,34 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .report-summary progress { width: 100%; height: 4px; accent-color: var(--task-primary); }
 .report-empty { padding: 8px 0; color: #6b6f76; border: 0; background: transparent; }
 .session-history li { padding-inline: 0; border-color: #e6e6e2; }
+.session-history-groups { display: grid; gap: 18px; padding-top: 10px; }
+.session-history__limit-note { margin: 8px 0 0; color: #777b83; font-size: 12px; }
+.session-history-day { min-width: 0; }
+.session-history-day__heading { display: grid; gap: 2px; padding: 0 2px 8px; }
+.session-history-day__heading h5 { margin: 0; color: #292b30; font-size: 15px; font-weight: 700; }
+.session-history-day__heading p { display: flex; flex-wrap: wrap; gap: 0 12px; margin: 0; color: #85878d; font-size: 12px; }
+.session-history { gap: 7px; }
+.session-history li { border: 0; border-radius: 11px; background: #fff; box-shadow: 0 1px 2px rgba(22, 35, 55, .04); }
+.session-history__select { min-height: 68px; gap: 11px; padding: 10px 12px; }
+.session-history__mark { display: grid; flex: none; place-items: center; width: 32px; height: 32px; color: #ec5d68; }
+.session-history__mark svg { width: 25px; height: 25px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.session-history li.is-cancelled .session-history__mark { color: #999da5; }
+.session-history__copy { display: grid; flex: 1; min-width: 0; gap: 4px; }
+.session-history__copy strong { color: #303238; font-size: 15px; font-weight: 600; }
+.session-history__copy strong { overflow: visible; overflow-wrap: anywhere; text-overflow: clip; white-space: normal; }
+.session-history__copy > span { overflow: hidden; color: #989ba2; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.session-history__times { display: grid; flex: none; justify-items: end; gap: 2px; color: #8f9299; font-size: 13px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.session-history__times i { width: 1px; height: 7px; margin-right: 15px; background: #c6c8cd; }
+.session-history__times time { white-space: nowrap; }
+.session-history__select:hover,
+.session-history__select[aria-pressed="true"] { background: #f8f8fa; }
+
+@media (max-width: 420px) {
+  .session-history__select { gap: 8px; padding-inline: 9px; }
+  .session-history__mark { width: 26px; }
+  .session-history__copy strong { font-size: 14px; }
+  .session-history__times { font-size: 12px; }
+}
 
 @media (max-width: 600px) {
   .task-workspace__heading { align-items: flex-start; gap: 10px; }

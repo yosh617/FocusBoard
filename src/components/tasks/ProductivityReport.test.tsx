@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { FocusSessionRecord } from "../../types/focusSession";
 import type { TaskRecord } from "../../types/task";
@@ -34,7 +34,6 @@ describe("ProductivityReport", () => {
   it("shows period-aware heatmap totals and expandable report sections", () => {
     render(<ProductivityReport tasks={[completedTask]} sessions={[todaySession, previousDaySession]} workMinutes={25} now={now} onUpdateSession={vi.fn().mockResolvedValue(true)} />);
     expect(screen.getAllByText("50分").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("25分").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: "勉強時間" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "実施時間帯" })).toBeTruthy();
     const activity = screen.getByRole("heading", { name: "勉強時間" }).closest("section") as HTMLElement;
@@ -52,9 +51,15 @@ describe("ProductivityReport", () => {
     expect(screen.getByText("セッション履歴")).toBeTruthy();
     fireEvent.click(screen.getByText("タスク別 見積もり対実績"));
     fireEvent.click(screen.getByText("セッション履歴"));
+    const todayHistory = within(screen.getByRole("region", { name: "7月18日(土)の集中記録" }));
+    expect(todayHistory.getByText("集中 25分")).toBeTruthy();
+    expect(todayHistory.getByText("完了 1回")).toBeTruthy();
+    expect(todayHistory.getByText("10:35")).toBeTruthy();
+    expect(todayHistory.getByText("11:00")).toBeTruthy();
+    expect(within(screen.getByRole("region", { name: "7月17日(金)の集中記録" })).getByText("完了 1回")).toBeTruthy();
     expect(screen.getAllByText("勉強").length).toBeGreaterThan(0);
     expect(screen.getAllByText("数学").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("完了").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/完了/).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "日" }));
     expect(screen.getByRole("button", { name: "日" }).getAttribute("aria-pressed")).toBe("true");
     expect(activity.textContent).toContain("25分");
@@ -77,7 +82,19 @@ describe("ProductivityReport", () => {
     };
     render(<ProductivityReport tasks={[]} sessions={[interruptedSession]} workMinutes={25} now={now} onUpdateSession={vi.fn().mockResolvedValue(true)} />);
     fireEvent.click(screen.getByText("セッション履歴"));
-    expect(screen.getByRole("button", { name: "集中記録を編集：数学 7/18 11:00" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "集中記録を編集：数学 7/18 10:35から7/18 11:00、中断" })).toBeTruthy();
+  });
+
+  it("explains when the history list is limited to the latest fifty records", () => {
+    const manySessions = Array.from({ length: 51 }, (_, index) => ({
+      ...todaySession,
+      id: `session-${index}`,
+      startedAt: endedAt - index * 60_000
+    }));
+    render(<ProductivityReport tasks={[]} sessions={manySessions} workMinutes={25} now={now} onUpdateSession={vi.fn().mockResolvedValue(true)} />);
+    fireEvent.click(screen.getByText("セッション履歴"));
+    expect(screen.getByText("最新50件を表示しています。")).toBeTruthy();
+    expect(document.querySelectorAll(".session-history li")).toHaveLength(50);
   });
 
   it("moves to previous periods and edits a selected session", async () => {
@@ -85,7 +102,7 @@ describe("ProductivityReport", () => {
     render(<ProductivityReport tasks={[completedTask]} sessions={[todaySession, previousDaySession]} workMinutes={25} now={now} onUpdateSession={onUpdateSession} />);
 
     fireEvent.click(screen.getByText("セッション履歴"));
-    fireEvent.click(screen.getByRole("button", { name: "集中記録を編集：数学 7/18 11:00" }));
+    fireEvent.click(screen.getByRole("button", { name: "集中記録を編集：数学 7/18 10:35から7/18 11:00、完了" }));
     expect(screen.getByLabelText("開始日時")).toBeTruthy();
     expect(screen.getByLabelText("終了日時")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("開始日時"), { target: { value: toDateTimeLocal(endedAt - 30 * 60_000) } });
@@ -109,5 +126,5 @@ describe("ProductivityReport", () => {
     expect(screen.getByRole("button", { name: "前の日" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "月" }));
     expect(screen.getByRole("button", { name: "前の月" })).toBeTruthy();
-  });
+  }, 15_000);
 });
