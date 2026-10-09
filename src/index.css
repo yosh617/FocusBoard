@@ -551,8 +551,9 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .color-input:disabled { cursor: not-allowed; filter: grayscale(.7); opacity: .42; }
 .settings-help { margin: 10px 0 0; color: var(--ink-muted); font-size: 13px; line-height: 1.6; }
 .settings-callout { display:grid; gap:4px; padding:14px; margin-top:10px; border:1px solid rgba(63,111,171,.2); border-radius:16px; background:#e7f2ff; }.settings-callout strong { font-size:14px; }.settings-callout span { color:var(--ink-muted); font-size:12px; line-height:1.55; }
-.data-summary { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: flex-start; gap: 12px; padding: 14px; margin-bottom: 14px; color: var(--ink); border: 1px solid rgba(63,111,171,.2); border-radius: 16px; background: #e7f2ff; }.data-summary__icon, .data-card__icon { display: grid; flex: none; place-items: center; width: 44px; height: 44px; color: var(--blue-deep); border-radius: 13px; background: rgba(255,255,255,.72); }.data-summary__icon svg, .data-card__icon svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }.data-summary > div { min-width: 0; }.data-summary strong, .data-summary > div > span { display: block; }.data-summary strong { font-size: 14px; }.data-summary > div > span { margin-top: 3px; color: var(--ink-muted); font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
-.data-cards { display: grid; gap: 12px; }.data-card { display: grid; gap: 14px; padding: 15px; border: 1px solid var(--line); border-radius: 18px; background: rgba(255,255,255,.6); box-shadow: inset 0 1px rgba(255,255,255,.8); }.data-card--primary { border-color: rgba(63,111,171,.28); background: rgba(231,242,255,.68); }.data-card__body { display: flex; align-items: flex-start; gap: 12px; }.data-card h4 { margin: 1px 0 4px; color: var(--ink); font-size: 15px; }.data-card p { margin: 0; color: var(--ink-muted); font-size: 12px; line-height: 1.55; }.data-card .primary-button, .data-card .secondary-button { width: 100%; min-height: 46px; }.data-card__version { display: block; padding: 10px 12px; color: var(--blue-deep); border-radius: 11px; background: rgba(231,242,255,.72); font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.data-location { display: flex; align-items: center; gap: 8px; padding: 0 0 12px; color: var(--ink-muted); border-bottom: 1px solid var(--line); font-size: 12px; }
+.data-location svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.data-cards { display: grid; gap: 0; }.data-card { display: grid; gap: 0; padding: 15px 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; box-shadow: none; }.data-card__body { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px; }.data-card h4 { margin: 0 0 3px; color: var(--ink); font-size: 14px; }.data-card p { margin: 0; color: var(--ink-muted); font-size: 11px; line-height: 1.45; }.data-version { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; }.data-card__version { display: block; color: var(--ink-muted); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }.data-row__action { min-height: 44px; padding: 0 12px; color: var(--accent-contrast); border: 1px solid var(--accent); border-radius: var(--radius-control); background: var(--accent); font-size: 12px; font-weight: 700; white-space: nowrap; }.data-row__action:hover { filter: brightness(.96); }.data-row__action--secondary { color: var(--color-ink); border-color: var(--color-hairline); background: var(--color-surface-alt); }
 .background-help--touch { display: none; }
 .settings-advanced { cursor:pointer; }.settings-advanced summary { color:var(--blue-deep); font-size:16px; font-weight:800; }.settings-advanced__content { padding-top:20px; cursor:default; }.settings-advanced h3 { margin-top:22px; }
 .settings-section--danger { border-bottom: 0; }
@@ -1430,7 +1431,7 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .save-state::before, .save-state--saving::before { background: var(--task-primary); }
 .save-state--failed::before { background: #b94b61; }
 .settings-content { background: #fff; }
-.settings-section, .settings-disclosure, .color-setting-group, .background-frame-settings, .background-frame-current, .settings-callout, .data-summary, .data-card, .color-setting { border-color: #e0e3e7; border-radius: 12px; background: #fff; box-shadow: none; }
+.settings-section, .settings-disclosure, .color-setting-group, .background-frame-settings, .background-frame-current, .settings-callout, .data-card, .color-setting { border-color: #e0e3e7; border-radius: 12px; background: #fff; box-shadow: none; }
 .choice-grid button, .position-grid__cell, .orientation-picker button, .setting-control select, .text-input, .number-input, .reset-value, .color-input, .color-setting input[type="color"], .background-frame-settings__target select { min-height: 44px; border-color: #dfe3e7; border-radius: 10px; background: #fff; }
 .choice-grid button.is-selected, .position-grid__cell.is-selected, .orientation-picker button.is-selected, .clock-color-choice.is-selected { color: var(--task-primary-text); border-color: var(--task-primary); background: var(--task-primary-soft); box-shadow: 0 0 0 2px var(--task-primary-shadow); }
 .choice-grid i, .color-preset__swatches i, .clock-color-choice__sample { border-radius: 8px; }
@@ -2676,9 +2677,7 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .settings-content .color-setting-group > p,
 .settings-content .color-setting-group__note,
 .settings-content .orientation-picker > small,
-.settings-content .setting-control > small,
-.settings-content .data-summary > div > span,
-.settings-content .data-card__body p {
+.settings-content .setting-control > small {
   display: none;
 }
 
@@ -3193,8 +3192,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 .task-header-action, .task-navigation__views button, .task-navigation__projects-heading button, .project-link, .project-add, .task-mode-tabs, .report-period, .task-quick-add__details-toggle, .task-editor__details summary, .task-editor__next-card-action { color: var(--color-mid-gray); border-radius: var(--radius-m); }
 .task-navigation__views button[aria-selected="true"], .task-mode-tabs button[aria-selected="true"], .report-period button[aria-pressed="true"], .project-link.is-selected { color: var(--color-ink); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, #fff); }
-.task-focus-hero, .task-focus-queue, .task-current-list, .task-resume-banner, .task-quick-add, .task-editor, .task-editor__summary, .task-editor__quick-actions, .task-editor__details, .task-editor__section, .task-editor__focus, .task-editor__next-card, .report-overview, .productivity-report section, .productivity-backup section, .data-card, .data-summary, .settings-callout { border-color: var(--color-hairline); border-radius: var(--radius-m); background: var(--color-paper); box-shadow: none; }
-.task-quick-add, .task-editor, .task-focus-hero, .task-focus-queue, .task-current-list, .report-overview, .data-card, .data-summary { padding: 16px; }
+.task-focus-hero, .task-focus-queue, .task-current-list, .task-resume-banner, .task-quick-add, .task-editor, .task-editor__summary, .task-editor__quick-actions, .task-editor__details, .task-editor__section, .task-editor__focus, .task-editor__next-card, .report-overview, .productivity-report section, .productivity-backup section, .data-card, .settings-callout { border-color: var(--color-hairline); border-radius: var(--radius-m); background: var(--color-paper); box-shadow: none; }
+.task-quick-add, .task-editor, .task-focus-hero, .task-focus-queue, .task-current-list, .report-overview, .data-card { padding: 16px; }
 .task-row { min-height: 56px; border-color: var(--color-hairline); border-radius: 0; background: var(--color-paper); box-shadow: none; }
 .task-row:hover, .task-row.is-selected { border-radius: 0; background: color-mix(in srgb, var(--accent) 6%, #fff); box-shadow: inset 2px 0 var(--accent); }
 .task-row__title, .task-row strong, .task-editor__title, .task-editor__section h4 { color: var(--color-ink); }
@@ -3806,12 +3805,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   justify-content: center;
   text-align: center;
 }
-.settings-drawer .data-card--primary .primary-button {
-  color: var(--accent-contrast);
-  border-color: var(--accent);
-  background: var(--accent);
-}
-
 .project-add__palette .color-picker__saved-colors {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -4166,23 +4159,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   background: transparent;
 }
 
-.settings-content .data-summary {
-  border: 0;
-  border-radius: var(--radius-m);
-  background: var(--color-surface-alt);
-}
-
 .settings-content .data-card {
   padding: 14px 0;
   border: 0;
-  border-top: 1px solid var(--color-hairline);
+  border-bottom: 1px solid var(--color-hairline);
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-}
-
-.settings-content .data-card--primary {
-  border-color: var(--color-hairline);
 }
 
 .settings-content .data-card__version {
@@ -4190,6 +4173,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   padding: 0;
   background: transparent;
 }
+
+.settings-content .data-card__body p { display: block; }
 
 .project-settings-screen__section {
   padding: 14px 0;
@@ -4353,30 +4338,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   background: transparent !important;
 }
 
-.settings-drawer .data-card button.primary-button,
-.settings-drawer .data-card button.secondary-button {
-  display: flex;
-  justify-content: flex-start;
-  width: 100%;
-  min-height: 44px;
-  padding: 8px 0;
-  color: var(--color-ink) !important;
-  border: 0 !important;
-  border-top: 1px solid var(--color-hairline) !important;
-  border-radius: 0;
-  background: transparent !important;
-  box-shadow: none !important;
-  text-align: left;
-}
-
 .settings-drawer .data-card__version {
   color: var(--color-mid-gray);
-}
-
-.settings-drawer .data-card button.primary-button:hover:not(:disabled),
-.settings-drawer .data-card button.secondary-button:hover:not(:disabled) {
-  color: var(--color-ink) !important;
-  background: var(--color-surface-alt) !important;
 }
 
 .settings-drawer .reset-actions__individual .reset-action,
@@ -4479,7 +4442,6 @@ body { font-family: var(--font-body); }
 
 .task-drawer .task-row__start,
 .task-drawer .task-editor__quick-save,
-.settings-drawer .data-card__body .primary-button,
 .timer-start-button,
 .timer-return-button {
   color: var(--accent-contrast);
