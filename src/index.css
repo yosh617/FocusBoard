@@ -3908,3 +3908,95 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 
 .task-row, .task-row:hover, .task-row.is-selected { border-radius: 10px; }
+
+/* Use surfaces for grouping and reserve outlines for editable controls and focus. */
+.program-tabs,
+.mode-tabs,
+.category-tabs {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.program-tabs { gap: 6px; }
+.program-tab,
+.mode-tab,
+.category-tab {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.program-tab { background: var(--color-surface-alt); }
+.program-tab--active,
+.mode-tab--active,
+.category-tab--active {
+  color: var(--color-ink);
+  border-color: transparent;
+  background: color-mix(in srgb, var(--timer-accent) 12%, var(--color-paper));
+  box-shadow: none;
+}
+
+.program-tab--active strong,
+.mode-tab--active strong { color: var(--color-ink); }
+
+.program-tab:focus-visible,
+.mode-tab:focus-visible,
+.category-tab:focus-visible,
+.timer-task-select:focus-visible,
+.timer-task-picker__task:focus-visible,
+.timer-task-picker__heading > button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--timer-accent) 58%, #fff);
+  outline-offset: 2px;
+}
+
+.timer-setup__step:has(.program-tabs),
+.timer-setup__step:has(.mode-tabs) { padding-inline: 0; }
+
+.timer-setup__step:has(.mode-tabs) .mode-tabs { gap: 6px; }
+.timer-setup__step:has(.mode-tabs) .mode-tab { background: var(--color-surface-alt); }
+.timer-setup__step:has(.mode-tabs) .mode-tab--active { background: color-mix(in srgb, var(--timer-accent) 12%, var(--color-paper)); }
+
+.timer-task-picker__add {
+  padding: 13px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.timer-task-picker__add input {
+  border-color: var(--color-hairline);
+  background: var(--color-paper);
+}
+
+.timer-task-picker__add input:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--timer-accent) 42%, #fff);
+  outline-offset: 2px;
+}
+
+.timer-task-picker__add button:disabled {
+  color: var(--color-mid-gray);
+  border-color: transparent;
+  background: var(--color-surface-alt);
+  cursor: not-allowed;
+}
+
+.timer-task-picker__list { gap: 0; padding-inline: 0; }
+.timer-task-picker__task {
+  border-color: transparent;
+  border-radius: var(--radius-s);
+  background: transparent;
+}
+
+.timer-task-picker__task + .timer-task-picker__task { border-top-color: var(--color-hairline); }
+.timer-task-picker__task:hover { border-color: transparent; background: var(--color-surface-alt); }
+.timer-task-picker__task.is-selected {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--timer-accent) 10%, var(--color-paper));
+}
+
+.timer-task-picker__empty {
+  border: 0;
+  border-radius: var(--radius-m);
+  background: var(--color-surface-alt);
+}
