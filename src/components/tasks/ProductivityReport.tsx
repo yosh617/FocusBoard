@@ -194,11 +194,6 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
             </div>
           </div>
         </div>
-        <div className="report-activity__legend" aria-hidden="true">
-          <span>少ない</span>
-          {[0, 1, 2, 3, 4].map((level) => <i data-level={level} key={level} />)}
-          <span>多い</span>
-        </div>
       </section>
 
       <section className="report-summary" aria-label={`${report.periodLabel}のサマリー`}>
