@@ -630,7 +630,7 @@ export function TaskDrawer({
   const [quickTags, setQuickTags] = useState<string[]>([]);
   const [quickProjectId, setQuickProjectId] = useState<string | null>(null);
   const [quickPanel, setQuickPanel] = useState<"date" | "priority" | "tag" | "project" | "estimate" | null>(null);
-  const [quickSettingsOpen, setQuickSettingsOpen] = useState(false);
+  const [quickSettingsOpen, setQuickSettingsOpen] = useState(true);
   const [returnFocusToQuickAdd, setReturnFocusToQuickAdd] = useState(false);
   const [listFilter, setListFilter] = useState<TaskListFilter>("all");
   const [workspaceMode, setWorkspaceMode] = useState<"tasks" | "report" | "backup">("tasks");
@@ -857,7 +857,7 @@ export function TaskDrawer({
       setQuickTags([]);
       setQuickProjectId(null);
       setQuickPanel(null);
-      setQuickSettingsOpen(false);
+      setQuickSettingsOpen(true);
       setReturnFocusToQuickAdd(true);
     }
   };

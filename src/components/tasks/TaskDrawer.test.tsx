@@ -92,7 +92,8 @@ function renderDrawer(overrides: Partial<React.ComponentProps<typeof TaskDrawer>
 }
 
 function openQuickAddSettings() {
-  fireEvent.click(screen.getByRole("button", { name: "詳細を追加" }));
+  const toggle = screen.getByRole("button", { name: /詳細を(追加|閉じる)/ });
+  if (toggle.getAttribute("aria-expanded") !== "true") fireEvent.click(toggle);
 }
 
 function chooseSelect(container: ReturnType<typeof within>, label: string, option: string) {
@@ -116,6 +117,8 @@ describe("TaskDrawer", () => {
     expect(screen.getByText("上の入力欄から追加できます。期限なしのタスクも、この一覧に表示されます。")).toBeTruthy();
     expect(screen.getByText("記録なし")).toBeTruthy();
     expect(screen.getByLabelText("新しいタスク")).toBeTruthy();
+    expect(screen.getByRole("region", { name: "設定" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "詳細を閉じる" }).getAttribute("aria-expanded")).toBe("true");
   });
 
   it("calculates today's estimate, focus time, and completed task count", () => {
