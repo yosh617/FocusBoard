@@ -58,8 +58,6 @@ type Props = {
   } | null;
 };
 
-type TaskListFilter = "all" | "overdue" | "reminders" | "focus";
-
 type TaskListSection = {
   key: string;
   label: string;
@@ -632,7 +630,6 @@ export function TaskDrawer({
   const [quickPanel, setQuickPanel] = useState<"date" | "priority" | "tag" | "project" | "estimate" | null>(null);
   const [quickSettingsOpen, setQuickSettingsOpen] = useState(true);
   const [returnFocusToQuickAdd, setReturnFocusToQuickAdd] = useState(false);
-  const [listFilter, setListFilter] = useState<TaskListFilter>("all");
   const [workspaceMode, setWorkspaceMode] = useState<"tasks" | "report" | "backup">("tasks");
   const [projectSettingsOpen, setProjectSettingsOpen] = useState(false);
   const [navigationCollapsed, setNavigationCollapsed] = useState(false);
@@ -692,13 +689,6 @@ export function TaskDrawer({
     ))
     .sort((left, right) => (right.completedAt ?? 0) - (left.completedAt ?? 0)), [tasks, today]);
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null;
-  const activeListFilter = !projectId && view === "today" ? listFilter : "all";
-  const filteredTasks = useMemo(() => {
-    if (activeListFilter === "all") return scopedTasks;
-    if (activeListFilter === "overdue") return scopedTasks.filter((task) => task.dueDate !== null && task.dueDate < today);
-    if (activeListFilter === "reminders") return scopedTasks.filter((task) => task.reminderAt !== null);
-    return scopedTasks.filter((task) => activeTaskId === task.id || task.estimatedPomodoros > 0 || (completedPomodorosByTask.get(task.id) ?? 0) > 0);
-  }, [activeListFilter, activeTaskId, completedPomodorosByTask, scopedTasks, today]);
   const todayOpenTasks = view === "today" && !projectId ? scopedTasks.filter((task) => task.status === "open" && task.dueDate !== null) : [];
   const todayEstimatedMinutes = todayOpenTasks.reduce((total, task) => total + task.estimatedPomodoros * workMinutes, 0);
   const todayFocusedMinutes = sessions
@@ -708,25 +698,25 @@ export function TaskDrawer({
     .filter((session) => session.mode === "work" && toLocalDateKey(new Date(session.endedAt)) === today)
     .sort((left, right) => right.endedAt - left.endedAt), [sessions, today]);
   const taskSections = useMemo<TaskListSection[]>(() => {
-    if (filteredTasks.length === 0) return [];
+    if (scopedTasks.length === 0) return [];
     if (projectId) {
       return [{
         key: currentProject?.id ?? projectId,
         label: currentProject?.name ?? currentListLabel,
         color: currentProject?.color ?? null,
-        tasks: filteredTasks,
-        openCount: filteredTasks.filter((task) => task.status === "open").length,
-        completedPomodoros: filteredTasks.reduce((sum, task) => sum + (completedPomodorosByTask.get(task.id) ?? 0), 0),
-        estimatedPomodoros: filteredTasks.reduce((sum, task) => sum + task.estimatedPomodoros, 0)
+        tasks: scopedTasks,
+        openCount: scopedTasks.filter((task) => task.status === "open").length,
+        completedPomodoros: scopedTasks.reduce((sum, task) => sum + (completedPomodorosByTask.get(task.id) ?? 0), 0),
+        estimatedPomodoros: scopedTasks.reduce((sum, task) => sum + task.estimatedPomodoros, 0)
       }];
     }
 
     if (view === "today") {
       const datedTasks = [
-        ...filteredTasks.filter((task) => task.dueDate !== null && task.dueDate >= today),
-        ...filteredTasks.filter((task) => task.dueDate !== null && task.dueDate < today)
+        ...scopedTasks.filter((task) => task.dueDate !== null && task.dueDate >= today),
+        ...scopedTasks.filter((task) => task.dueDate !== null && task.dueDate < today)
       ];
-      const undatedTasks = filteredTasks.filter((task) => task.dueDate === null);
+      const undatedTasks = scopedTasks.filter((task) => task.dueDate === null);
       const makeSection = (key: string, label: string, sectionTasks: TaskRecord[]): TaskListSection => ({
         key,
         label,
@@ -745,7 +735,7 @@ export function TaskDrawer({
       if (undatedTasks.length > 0) sections.push(makeSection("today-undated", "日付なし", undatedTasks));
       return sections;
     }
-    const orderedTasks = filteredTasks;
+    const orderedTasks = scopedTasks;
     return [{
       key: `ungrouped-${view}`,
       label: currentListLabel,
@@ -755,13 +745,7 @@ export function TaskDrawer({
       completedPomodoros: orderedTasks.reduce((sum, task) => sum + (completedPomodorosByTask.get(task.id) ?? 0), 0),
       estimatedPomodoros: orderedTasks.reduce((sum, task) => sum + task.estimatedPomodoros, 0)
     }];
-  }, [completedPomodorosByTask, currentListLabel, currentProject, filteredTasks, projectId, today, view]);
-  const filterCounts = useMemo(() => ({
-    all: scopedTasks.length,
-    overdue: scopedTasks.filter((task) => task.dueDate !== null && task.dueDate < today).length,
-    reminders: scopedTasks.filter((task) => task.reminderAt !== null).length,
-    focus: scopedTasks.filter((task) => activeTaskId === task.id || task.estimatedPomodoros > 0 || (completedPomodorosByTask.get(task.id) ?? 0) > 0).length
-  }), [activeTaskId, completedPomodorosByTask, scopedTasks, today]);
+  }, [completedPomodorosByTask, currentListLabel, currentProject, scopedTasks, projectId, today, view]);
   const toolbarContext = resumeContext?.showBanner === false ? null : resumeContext;
   useEffect(() => {
     if (!open) return;
@@ -793,7 +777,6 @@ export function TaskDrawer({
   }, [selectedTaskId, tasks]);
 
   useEffect(() => {
-    setListFilter("all");
     setShowTodayCompleted(false);
   }, [projectId, view, workspaceMode]);
 
@@ -822,8 +805,7 @@ export function TaskDrawer({
       setSelectedTaskId(null);
       return;
     }
-    if (!filteredTasks.some((task) => task.id === selectedTaskId)) setSelectedTaskId(null);
-  }, [filteredTasks, scopedTasks, selectedTaskId]);
+  }, [scopedTasks, selectedTaskId]);
 
   useEffect(() => {
     const taskId = pendingTaskFocusIdRef.current;
@@ -900,12 +882,7 @@ export function TaskDrawer({
 
   const quickAddProjectId = quickProjectId === null ? projectId : quickProjectId || null;
   const openTaskDetails = useCallback((task: TaskRecord, options?: { revealInList?: boolean }) => {
-    if (options?.revealInList) {
-      setListFilter("all");
-      selectedTaskScrollModeRef.current = "start";
-    } else {
-      selectedTaskScrollModeRef.current = "nearest";
-    }
+    selectedTaskScrollModeRef.current = options?.revealInList ? "start" : "nearest";
     setWorkspaceMode("tasks");
     collapseNavigationIfCompact();
     setSelectedTaskId(task.id);
@@ -1205,7 +1182,7 @@ export function TaskDrawer({
             <div className="task-workspace__scroll">
             <div className="task-workspace__toolbar">
               <div className="task-workspace__heading">
-                <div className="task-workspace__heading-main"><button className="task-workspace__destination-button" type="button" aria-label="一覧を開く" onClick={openTaskNavigation}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5-7 7 7 7" /></svg></button>{currentProject && <i className="task-workspace__project-color" style={{ background: currentProject.color }} aria-hidden="true" />}<h3>{currentListLabel}</h3><span>{filteredTasks.length + (!projectId && view === "today" ? todayCompletedTasks.length : 0)}件のタスク</span></div>
+                <div className="task-workspace__heading-main"><button className="task-workspace__destination-button" type="button" aria-label="一覧を開く" onClick={openTaskNavigation}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5-7 7 7 7" /></svg></button>{currentProject && <i className="task-workspace__project-color" style={{ background: currentProject.color }} aria-hidden="true" />}<h3>{currentListLabel}</h3><span>{scopedTasks.length + (!projectId && view === "today" ? todayCompletedTasks.length : 0)}件のタスク</span></div>
                 {currentProject && <button className="secondary-button task-workspace__project-settings-button" type="button" onClick={() => setProjectSettingsOpen(true)}>プロジェクト設定</button>}
               </div>
               {!projectId && view === "today" && <section className="today-overview" aria-label="今日の進捗">
@@ -1255,19 +1232,13 @@ export function TaskDrawer({
                   </div>
                 </section>
               )}
-              {!projectId && view === "today" && <div className="task-list-filters" role="group" aria-label="表示するタスクを絞り込む">
-                <button className={listFilter === "all" ? "is-active" : ""} type="button" aria-pressed={listFilter === "all"} onClick={() => setListFilter("all")}><span>すべて</span><strong>{filterCounts.all}</strong></button>
-                <button className={listFilter === "overdue" ? "is-active" : ""} type="button" aria-pressed={listFilter === "overdue"} onClick={() => setListFilter("overdue")}><span>期限切れ</span><strong>{filterCounts.overdue}</strong></button>
-                <button className={listFilter === "reminders" ? "is-active" : ""} type="button" aria-pressed={listFilter === "reminders"} onClick={() => setListFilter("reminders")}><span>通知</span><strong>{filterCounts.reminders}</strong></button>
-                <button className={listFilter === "focus" ? "is-active" : ""} type="button" aria-label={`集中目安 ${filterCounts.focus}`} aria-pressed={listFilter === "focus"} onClick={() => setListFilter("focus")}><span>集中</span><strong>{filterCounts.focus}</strong></button>
-              </div>}
               {!storageAvailable && <div className="task-callout" role="status"><strong>タスク保存を利用できません</strong><span>時計とタイマーはそのまま使えます。ブラウザのサイトデータ設定を確認してください。</span></div>}
             </div>
 
-            {loading ? <p className="task-empty">読み込み中...</p> : filteredTasks.length === 0 && (projectId || view !== "today" || activeListFilter !== "all")
-              ? <div className="task-empty"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14v14H5zM8 3.5h8M8 10h8M8 14h5" /></svg><strong>{activeListFilter === "all" ? "タスクはありません" : "該当するタスクはありません"}</strong></div>
+            {loading ? <p className="task-empty">読み込み中...</p> : scopedTasks.length === 0 && (projectId || view !== "today")
+              ? <div className="task-empty"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14v14H5zM8 3.5h8M8 10h8M8 14h5" /></svg><strong>タスクはありません</strong></div>
               : <div className={`task-list${view === "today" && !projectId ? " task-list--today" : ""}`} aria-label="タスク一覧">
-                {view === "today" && !projectId && filteredTasks.length === 0 && <div className="task-empty task-empty--today">
+                {view === "today" && !projectId && scopedTasks.length === 0 && <div className="task-empty task-empty--today">
                   <div className="task-empty__art" aria-hidden="true"><svg viewBox="0 0 180 160"><circle className="task-empty__halo" cx="95" cy="81" r="58" /><circle className="task-empty__dot" cx="37" cy="105" r="7" /><path className="task-empty__spark" d="M145 29v13m-6.5-6.5h13" /><rect className="task-empty__paper" x="38" y="39" width="96" height="86" rx="13" transform="rotate(-4 86 82)" /><rect className="task-empty__input" x="55" y="56" width="13" height="13" rx="4" /><path className="task-empty__line" d="M77 62h39M55 83h12m10 0h39M55 101h12m10 0h28" /><circle className="task-empty__clock" cx="130" cy="111" r="17" /><path className="task-empty__clock-hand" d="M130 101v10l7 4" /></svg></div>
                   <strong>タスクなし</strong><span>上の入力欄から追加できます。期限なしのタスクも、この一覧に表示されます。</span>
                 </div>}
