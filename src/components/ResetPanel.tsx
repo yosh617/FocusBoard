@@ -45,15 +45,15 @@ export function ResetPanel({ onResetSettings, onClearTimer, onMessage }: Props) 
             <strong>設定を初期化</strong><small>表示やタイマー設定を戻す</small>
           </button>
           <button type="button" className="reset-action" onClick={() => setPendingAction("timer")}>
-            <strong>タイマー状態を削除</strong><small>進行中のタイマーを消す</small>
+            <strong>タイマー状態を削除</strong><small>進行中・一時停止中のタイマーを消す</small>
           </button>
         </div>
         <div className="reset-actions__destructive" role="group" aria-labelledby="reset-data-heading">
           <h4 id="reset-data-heading">データを削除</h4>
-          <button type="button" className="reset-action reset-action--danger" onClick={() => setPendingAction("everything")} disabled={busy}>
-            <strong>アプリ内データをすべて削除</strong><small>設定・背景画像・タスク・集中履歴</small>
+          <button type="button" className="reset-action" onClick={() => setPendingAction("everything")} disabled={busy}>
+            <strong>アプリ内データをすべて削除</strong><small>設定・タイマー・背景画像・タスク・プロジェクト・集中履歴</small>
           </button>
-          <button type="button" className="reset-action reset-action--danger" onClick={() => setPendingAction("pwa")} disabled={busy} aria-busy={busy}>
+          <button type="button" className="reset-action" onClick={() => setPendingAction("pwa")} disabled={busy} aria-busy={busy}>
             <strong>{busy ? "削除しています…" : "オフライン用データを削除"}</strong><small>アプリを再読み込みすると作り直せます</small>
           </button>
         </div>
