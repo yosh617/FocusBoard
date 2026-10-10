@@ -18,7 +18,7 @@ const openSettings = async (page: Page) => {
 };
 
 test.beforeEach(async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator(".app-shell")).toBeVisible();
 });
 
@@ -70,6 +70,16 @@ test("settings categories work and a setting survives a reload", async ({ page }
     await expect(tab).toHaveAttribute("aria-selected", "true");
   }
 
+  await settings.getByRole("tab", { name: "背景" }).click();
+  const lavenderBackground = settings.getByRole("radio", { name: "ラベンダー" });
+  await lavenderBackground.click();
+  await expect(lavenderBackground).toHaveAttribute("aria-checked", "true");
+
+  await settings.getByRole("tab", { name: "タイマー" }).click();
+  const timerToggle = settings.getByRole("checkbox", { name: "タイマーを表示" });
+  const timerWasChecked = await timerToggle.isChecked();
+  await timerToggle.setChecked(!timerWasChecked);
+
   await settings.getByRole("tab", { name: "表示" }).click();
   await settings.locator("summary").filter({ hasText: "時計・日付の見やすさ" }).click();
   await settings.locator("summary").filter({ hasText: "表示形式とサイズ" }).click();
@@ -80,6 +90,10 @@ test("settings categories work and a setting survives a reload", async ({ page }
   await page.reload();
 
   const reloadedSettings = await openSettings(page);
+  await reloadedSettings.getByRole("tab", { name: "背景" }).click();
+  await expect(reloadedSettings.getByRole("radio", { name: "ラベンダー" })).toHaveAttribute("aria-checked", "true");
+  await reloadedSettings.getByRole("tab", { name: "タイマー" }).click();
+  await expect(reloadedSettings.getByRole("checkbox", { name: "タイマーを表示" })).toHaveJSProperty("checked", !timerWasChecked);
   await reloadedSettings.getByRole("tab", { name: "表示" }).click();
   await reloadedSettings.locator("summary").filter({ hasText: "時計・日付の見やすさ" }).click();
   await reloadedSettings.locator("summary").filter({ hasText: "表示形式とサイズ" }).click();
@@ -133,6 +147,28 @@ test("task completion can be undone and task details open from the list", async 
   await expect(tasks.getByRole("form", { name: `${title}の詳細` })).toBeVisible();
 });
 
+test("projects can be created, selected, and persist with their tasks", async ({ page }) => {
+  const tasks = await openTasks(page);
+  const navigation = tasks.getByRole("navigation", { name: "タスク一覧" });
+  await navigation.getByRole("button", { name: "新規" }).click();
+  await navigation.getByRole("textbox", { name: "新しいプロジェクト名" }).fill("E2E プロジェクト");
+  await navigation.getByRole("button", { name: "プロジェクトを追加" }).click();
+  const projectButton = navigation.getByRole("button", { name: "E2E プロジェクト" });
+  await expect(projectButton).toBeVisible();
+  await projectButton.click();
+
+  await tasks.getByRole("textbox", { name: "新しいタスク" }).fill("プロジェクトの保存確認");
+  await tasks.getByRole("button", { name: "タスクを追加" }).click();
+  await expect(tasks.getByText("プロジェクトの保存確認")).toBeVisible();
+  await page.reload();
+
+  const reloadedTasks = await openTasks(page);
+  const reloadedNavigation = reloadedTasks.getByRole("navigation", { name: "タスク一覧" });
+  await expect(reloadedNavigation.getByRole("button", { name: "E2E プロジェクト" })).toBeVisible();
+  await reloadedNavigation.getByRole("button", { name: "E2E プロジェクト" }).click();
+  await expect(reloadedTasks.getByText("プロジェクトの保存確認")).toBeVisible();
+});
+
 test("timer can pause, resume, complete, and show overflow interactions", async ({ page }) => {
   await page.clock.install({ time: new Date("2026-10-10T01:00:00.000Z") });
   await page.reload();
@@ -149,32 +185,43 @@ test("timer can pause, resume, complete, and show overflow interactions", async 
   await page.getByRole("button", { name: "再開" }).click();
   await page.clock.fastForward(60_000);
   await expect(page.getByRole("status").filter({ hasText: /延長中/ })).toBeVisible();
-  await page.getByRole("button", { name: "終了", exact: true }).click();
+  await page.getByRole("button", { name: "タイマーを終了", exact: true }).click();
   await expect(page.getByRole("button", { name: "開始", exact: true })).toBeVisible();
 
   const tasks = await openTasks(page);
   await tasks.getByRole("button", { name: "レポート", exact: true }).click();
-  await expect(page.getByRole("region", { name: "集中レポート" })).toContainText("集中履歴");
+  await expect(page.getByRole("region", { name: "集中レポート" })).toContainText("セッション履歴");
 });
 
-test("app remains usable when browser storage and fullscreen are unavailable", async ({ page }) => {
-  await page.addInitScript(() => {
-    Object.defineProperty(window.indexedDB, "open", {
-      configurable: true,
-      value: () => { throw new DOMException("Storage disabled", "UnknownError"); }
-    });
+test("fullscreen API rejection is reported without breaking the workspace", async ({ page }) => {
+  const settings = await openSettings(page);
+  await settings.getByRole("tab", { name: "表示" }).click();
+  await page.evaluate(() => {
     Object.defineProperty(document.documentElement, "requestFullscreen", {
       configurable: true,
       value: () => Promise.reject(new Error("Fullscreen denied"))
     });
   });
+  await settings.getByRole("checkbox", { name: "全画面表示" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "このブラウザでは全画面表示を利用できません。" })).toBeVisible();
+  await expect(page.locator(".app-shell")).toBeVisible();
+});
+
+test("clock and timer stay usable when IndexedDB is unavailable", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window.indexedDB, "open", {
+      configurable: true,
+      value: () => { throw new DOMException("Storage disabled", "UnknownError"); }
+    });
+  });
   await page.reload();
   await expect(page.locator(".app-shell")).toBeVisible();
-  const settings = await openSettings(page);
-  await settings.getByRole("tab", { name: "表示" }).click();
-  await settings.getByRole("checkbox", { name: "全画面表示" }).click();
-  await expect(page.getByRole("status")).toContainText("このブラウザでは全画面表示を利用できません。");
-  await settings.getByRole("button", { name: "タスクを開く" }).click();
+  const tasks = await openTasks(page);
   await expect(page.getByText("タスク保存を利用できません")).toBeVisible();
+  await tasks.getByRole("button", { name: "タスクを閉じる" }).click();
   await expect(page.getByRole("button", { name: "時計とカレンダーの表示設定を開く" })).toBeVisible();
+  await page.getByRole("button", { name: "開始", exact: true }).click();
+  const picker = page.getByRole("dialog", { name: /タスク/ });
+  if (await picker.count()) await picker.getByRole("button", { name: "タスクなしで開始" }).click();
+  await expect(page.getByRole("button", { name: "一時停止" })).toBeVisible();
 });

@@ -3093,7 +3093,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .clock-editor { border-color: var(--color-hairline); border-radius: var(--radius-l); background: var(--color-paper); box-shadow: 0 18px 48px rgba(0, 0, 0, .18); backdrop-filter: none; -webkit-backdrop-filter: none; }
 
 .timer-card, .timer-setup { width: min(100%, 480px); padding: 20px; color: var(--color-ink); border: 1px solid var(--color-hairline); border-radius: var(--radius-l); background: var(--color-paper); box-shadow: var(--shadow-subtle); backdrop-filter: none; -webkit-backdrop-filter: none; }
-.timer-setup { --timer-ui-accent: var(--timer-accent); }
+.timer-setup {
+  --timer-ui-accent: var(--ui-accent);
+  --timer-accent: var(--ui-accent);
+  --timer-accent-strong: var(--ui-accent);
+}
 .timer-setup--active { box-shadow: var(--shadow-subtle), 0 0 0 2px color-mix(in srgb, var(--timer-accent) 16%, transparent); }
 .timer-setup__heading { min-height: 28px; margin-bottom: 12px; }
 .timer-setup__heading h2, .timer-setup__heading span, .timer-setup__live-note strong, .timer-setup__live-note span, .timer-card__status { color: var(--color-ink); }
@@ -3572,7 +3576,28 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .duration-field input { width: 96px; height: 48px; font-size: 20px; }
 
 .timer-setup__footer:not(.timer-setup__footer--active) { display: block; margin-top: 20px; }
-.timer-start-button { width: 100%; min-height: 52px; }
+.timer-start-button {
+  width: 100%;
+  min-height: 52px;
+  color: var(--ui-accent-contrast);
+  background: var(--ui-accent);
+}
+.timer-start-button:hover { background: color-mix(in srgb, var(--ui-accent) 86%, #000); }
+.timer-return-button,
+.timer-end-button { color: var(--ui-accent-contrast); }
+.timer-task-picker {
+  --timer-accent: var(--ui-accent);
+  --timer-accent-strong: var(--ui-accent);
+}
+.floating-timer__controls .floating-timer__primary {
+  color: var(--ui-accent-contrast);
+  border-color: var(--ui-accent);
+  background: var(--ui-accent);
+}
+.floating-timer__controls button:hover {
+  border-color: var(--ui-accent);
+  background: color-mix(in srgb, var(--ui-accent) 30%, transparent);
+}
 
 @media (max-width: 520px) {
   .timer-card.timer-setup { padding: 18px; }
@@ -3770,21 +3795,24 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   color: var(--color-ink);
   border-color: var(--accent);
   background: var(--accent-soft);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent);
+  box-shadow: none;
 }
-.settings-drawer .background-option.background-option--active,
-.settings-drawer .background-option.background-option--active .background-option__preview {
+.settings-drawer .background-option.background-option--active {
   color: var(--color-ink);
+  background-color: var(--accent-soft);
+  box-shadow: none;
+}
+.settings-drawer .background-option.background-option--active .background-option__preview {
+  border-width: 1px;
   border-color: var(--accent);
   background-color: var(--accent-soft);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent);
+  box-shadow: none;
 }
-.settings-drawer .background-option.background-option--active .background-option__preview { border-width: 1px; }
 .task-drawer .report-period button[aria-pressed="true"] {
   color: var(--color-ink);
   border-color: var(--accent);
   background: var(--accent-soft);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent);
+  box-shadow: none;
 }
 
 .range-control__inputs {
@@ -4274,7 +4302,7 @@ body { font-family: var(--font-body); }
   color: var(--color-ink) !important;
   border-color: var(--accent) !important;
   background: var(--accent-soft) !important;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent);
+  box-shadow: none;
 }
 
 .settings-drawer .settings-tabs button:focus-visible,

@@ -5,7 +5,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["dist/**", "node_modules/**", ".playwright-mcp/**", ".workspace/**"]
+    ignores: ["dist/**", "node_modules/**", "playwright-report/**", "test-results/**", ".playwright-mcp/**", ".workspace/**"]
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
