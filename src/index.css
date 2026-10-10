@@ -4344,20 +4344,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   color: var(--color-mid-gray);
 }
 
-.settings-drawer .reset-actions__individual .reset-action,
-.settings-drawer .reset-actions__destructive .reset-action {
-  border: 0;
-  border-top: 1px solid var(--color-hairline);
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.settings-drawer .reset-actions__individual .reset-action:hover,
-.settings-drawer .reset-actions__destructive .reset-action:hover:not(:disabled) {
-  background: var(--color-surface-alt);
-}
-
 @media (max-width: 600px) {
   .productivity-report .report-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
