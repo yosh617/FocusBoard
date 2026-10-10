@@ -130,6 +130,9 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
   const periodLabel = period === "day" ? "日" : period === "week" ? "週" : "月";
   const todayTaskCount = report.todayRemainingTasks + report.todayCompletedTasks;
   const todayCompletionRate = todayTaskCount === 0 ? 0 : Math.round((report.todayCompletedTasks / todayTaskCount) * 100);
+  const todayFocusedMs = sessions
+    .filter((session) => session.mode === "work" && toLocalDateKey(new Date(session.endedAt)) === todayKey)
+    .reduce((total, session) => total + getFocusedDurationMs(session), 0);
 
   return (
     <div className={`productivity-report${focusHeatmap.totalFocusedMs === 0 ? " productivity-report--no-activity" : ""}`}>
@@ -143,15 +146,16 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
         <button type="button" aria-label={`前の${periodLabel}`} onClick={() => { setPeriodOffset((current) => current - 1); setEditingSessionId(null); }}>‹</button>
         <span aria-live="polite">{report.periodLabel}</span>
         <button type="button" aria-label={`次の${periodLabel}`} disabled={periodOffset >= 0} onClick={() => { setPeriodOffset((current) => Math.min(0, current + 1)); setEditingSessionId(null); }}>›</button>
-        {periodOffset < 0 && <button className="report-period-navigation__current" type="button" onClick={() => { setPeriodOffset(0); setEditingSessionId(null); }}>現在</button>}
+        <button className="report-period-navigation__current" type="button" disabled={periodOffset >= 0} onClick={() => { setPeriodOffset(0); setEditingSessionId(null); }}>現在</button>
       </div>
 
       <section className="report-activity" aria-labelledby="report-activity-title">
         <div className="report-activity__heading">
           <div>
-            <h4 id="report-activity-title">直近1年の集中時間</h4>
+            <h4 id="report-activity-title">今日の集中時間</h4>
+            <p>直近1年の記録</p>
           </div>
-          <strong>{formatFocusedTime(focusHeatmap.totalFocusedMs)}</strong>
+          <strong>{formatFocusedTime(todayFocusedMs)}</strong>
         </div>
         <div className="report-activity__calendar" aria-label="直近1年の集中時間ヒートマップ">
           <div className="report-activity__weekdays" aria-hidden="true">
@@ -293,7 +297,6 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
                       aria-label={`集中記録を編集：${session.taskTitleSnapshot ?? "タスクなし"} ${formatHistoryDate(session.startedAt)}から${formatHistoryDate(session.endedAt)}、${session.result === "completed" ? "完了" : "中断"}`}
                       onClick={() => setEditingSessionId((current) => current === session.id ? null : session.id)}
                     >
-                      <span className="session-history__mark" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7" /><path d="M9 3h6M12 6v7l3 2" /></svg></span>
                       <span className="session-history__copy"><strong>{session.taskTitleSnapshot ?? "タスクなし"}</strong><span>{formatFocusedTime(getFocusedDurationMs(session))} ・ {session.result === "completed" ? "完了" : "中断"}{session.projectNameSnapshot ? ` ・ ${session.projectNameSnapshot}` : ""}{getPausedDurationMs(session) > 0 ? ` ・ 休止 ${formatFocusedTime(getPausedDurationMs(session))}` : ""}</span></span>
                       <span className="session-history__times"><time dateTime={new Date(session.startedAt).toISOString()}>{formatTimelineTime(session.startedAt)}</time><i aria-hidden="true" /> <time dateTime={new Date(session.endedAt).toISOString()}>{formatTimelineTime(session.endedAt)}</time></span>
                     </button>

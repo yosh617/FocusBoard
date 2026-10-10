@@ -4152,15 +4152,16 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   min-height: 44px;
   padding: 0 12px;
   border-radius: var(--radius-control);
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 28%, #fff);
-  background: color-mix(in srgb, var(--accent) 6%, #fff);
+  color: var(--color-ink);
+  border-color: color-mix(in srgb, var(--color-ink) 24%, #fff);
+  background: color-mix(in srgb, var(--color-ink) 4%, #fff);
 }
 .settings-content .reset-action:hover:not(:disabled) {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, #fff);
+  color: var(--color-ink);
+  border-color: var(--color-ink);
+  background: color-mix(in srgb, var(--color-ink) 8%, #fff);
 }
+.settings-content .reset-action:disabled { color: var(--color-mid-gray); border-color: var(--color-hairline); background: var(--color-canvas); opacity: 1; }
 .settings-content .reset-action strong { font-size: 12px; }
 
 .project-settings-screen__section {

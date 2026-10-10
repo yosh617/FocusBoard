@@ -35,7 +35,7 @@ type Props = {
   onAddTask: (draft: TaskDraft) => Promise<string | null>;
   onUpdateTask: (id: string, patch: Partial<TaskRecord>) => Promise<boolean>;
   onUpdateSession: (id: string, patch: Partial<FocusSessionRecord>) => Promise<boolean>;
-  onAddManualSession?: (taskId: string, startedAt: number, endedAt: number) => Promise<boolean>;
+  onAddManualSession?: (taskId: string | null, projectId: string | null, startedAt: number, endedAt: number) => Promise<boolean>;
   onToggleTask: (id: string) => Promise<boolean>;
   onArchiveTask: (id: string) => Promise<boolean>;
   onRestoreTask: (id: string) => Promise<boolean>;
@@ -193,14 +193,23 @@ function estimatedFocusTimeLabel(tasks: TaskRecord[], workMinutes: number) {
   return `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
 }
 
-function ManualSessionForm({ tasks, disabled, onAdd }: {
+function ManualSessionForm({ tasks, projects, disabled, onAdd }: {
   tasks: TaskRecord[];
+  projects: ProjectRecord[];
   disabled: boolean;
-  onAdd: (taskId: string, startedAt: number, endedAt: number) => Promise<boolean>;
+  onAdd: (taskId: string | null, projectId: string | null, startedAt: number, endedAt: number) => Promise<boolean>;
 }) {
-  const completedTasks = tasks.filter((task) => task.status === "completed").sort((left, right) => (right.completedAt ?? 0) - (left.completedAt ?? 0));
-  const [taskId, setTaskId] = useState(completedTasks[0]?.id ?? "");
-  const selectedTaskId = completedTasks.some((task) => task.id === taskId) ? taskId : completedTasks[0]?.id ?? "";
+  const selectableTasks = tasks.filter((task) => task.status !== "archived").sort((left, right) => {
+    if (left.status === "completed" && right.status === "completed") return (right.completedAt ?? 0) - (left.completedAt ?? 0);
+    if (left.status === "completed") return -1;
+    if (right.status === "completed") return 1;
+    return left.title.localeCompare(right.title, "ja");
+  });
+  const [taskId, setTaskId] = useState(selectableTasks[0]?.id ?? "");
+  const selectedTaskId = selectableTasks.some((task) => task.id === taskId) ? taskId : "";
+  const selectedTask = selectableTasks.find((task) => task.id === selectedTaskId);
+  const [projectId, setProjectId] = useState(() => selectedTask?.projectId ?? "");
+  const selectedProjectId = projects.some((project) => project.id === projectId) ? projectId : "";
   const [startedAt, setStartedAt] = useState(() => toDateTimeLocal(Date.now() - 25 * 60_000));
   const [endedAt, setEndedAt] = useState(() => toDateTimeLocal(Date.now()));
   const [error, setError] = useState("");
@@ -211,13 +220,13 @@ function ManualSessionForm({ tasks, disabled, onAdd }: {
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!selectedTaskId || !Number.isFinite(startedAtMs) || !Number.isFinite(endedAtMs) || endedAtMs <= startedAtMs) {
-      setError("タスクと開始・終了日時を確認してください。");
+    if (!Number.isFinite(startedAtMs) || !Number.isFinite(endedAtMs) || endedAtMs <= startedAtMs) {
+      setError("開始・終了日時を確認してください。");
       return;
     }
     setError("");
     setSaving(true);
-    const saved = await onAdd(selectedTaskId, startedAtMs, endedAtMs);
+    const saved = await onAdd(selectedTaskId || null, selectedProjectId || null, startedAtMs, endedAtMs);
     setSaving(false);
     if (saved) {
       const now = Date.now();
@@ -229,13 +238,16 @@ function ManualSessionForm({ tasks, disabled, onAdd }: {
   return <form className="completed-session-add" onSubmit={(event) => void submit(event)} aria-label="集中記録を手動で追加">
     <h4>集中記録を追加</h4>
     <div className="completed-session-add__fields">
-      <label>タスク<select value={selectedTaskId} onChange={(event) => setTaskId(event.target.value)} disabled={disabled || completedTasks.length === 0} required>
-        {completedTasks.length === 0 ? <option value="">完了済みタスクがありません</option> : completedTasks.map((task) => <option value={task.id} key={task.id}>{task.title}</option>)}
-      </select></label>
+      <AppSelect id="manual-session-task" label="タスク" value={selectedTaskId} disabled={disabled} options={[{ value: "", label: "タスクなし" }, ...selectableTasks.map((task) => ({ value: task.id, label: task.title }))]} onChange={(value) => {
+        setTaskId(value);
+        const task = selectableTasks.find((item) => item.id === value);
+        if (task) setProjectId(task.projectId ?? "");
+      }} />
+      <AppSelect id="manual-session-project" label="プロジェクト" value={selectedProjectId} disabled={disabled} options={[{ value: "", label: "プロジェクトなし" }, ...projects.map((project) => ({ value: project.id, label: project.name }))]} onChange={setProjectId} />
       <label>開始<input type="datetime-local" value={startedAt} onChange={(event) => setStartedAt(event.target.value)} disabled={disabled} required /></label>
       <label>終了<input type="datetime-local" value={endedAt} onChange={(event) => setEndedAt(event.target.value)} disabled={disabled} required /></label>
       <div className="completed-session-add__duration"><span>実働時間</span><strong>{durationMs > 0 ? formatFocusedTime(durationMs) : "日時を確認"}</strong></div>
-      <button type="submit" disabled={disabled || saving || !selectedTaskId || durationMs <= 0}>{saving ? "保存中" : "記録を追加"}</button>
+      <button type="submit" disabled={disabled || saving || durationMs <= 0}>{saving ? "保存中" : "記録を追加"}</button>
     </div>
     {error && <p role="alert">{error}</p>}
   </form>;
@@ -762,6 +774,30 @@ export function TaskDrawer({
       }];
     }
 
+    if (view === "completed") {
+      const groups = new Map<string, TaskRecord[]>();
+      const newestFirst = [...scopedTasks].sort((left, right) => (right.completedAt ?? right.updatedAt) - (left.completedAt ?? left.updatedAt));
+      for (const task of newestFirst) {
+        const dateKey = toLocalDateKey(new Date(task.completedAt ?? task.updatedAt));
+        const dayTasks = groups.get(dateKey);
+        if (dayTasks) dayTasks.push(task);
+        else groups.set(dateKey, [task]);
+      }
+      return [...groups.entries()].map(([dateKey, dayTasks]) => {
+        const date = new Date(`${dateKey}T00:00:00`);
+        const label = dateKey === today ? "今日" : dateKey === addLocalDays(today, -1) ? "昨日" : date.toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "short" });
+        return {
+          key: `completed-${dateKey}`,
+          label,
+          color: null,
+          tasks: dayTasks,
+          openCount: 0,
+          completedPomodoros: dayTasks.reduce((sum, task) => sum + (completedPomodorosByTask.get(task.id) ?? 0), 0),
+          estimatedPomodoros: 0
+        };
+      });
+    }
+
     if (view === "today") {
       const datedTasks = [
         ...scopedTasks.filter((task) => task.dueDate !== null && task.dueDate >= today),
@@ -1259,7 +1295,7 @@ export function TaskDrawer({
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d={quickSettingsOpen ? "m6 15 6-6 6 6" : "m6 9 6 6 6-6"} /></svg>
                 </button>
               </form>}
-              {!projectId && view === "completed" && <ManualSessionForm tasks={tasks} disabled={!storageAvailable} onAdd={onAddManualSession} />}
+              {!projectId && view === "completed" && <ManualSessionForm tasks={tasks} projects={activeProjects} disabled={!storageAvailable} onAdd={onAddManualSession} />}
               {showResumeBanner && toolbarContext && (
                 <section className="task-inline-context" aria-label="一覧へ戻ったあとの案内">
                   <div className="task-resume-banner__copy">
@@ -1295,8 +1331,8 @@ export function TaskDrawer({
                   <strong>タスクなし</strong><span>上の入力欄から追加できます。期限なしのタスクも、この一覧に表示されます。</span>
                 </div>}
                 {taskSections.map((section) => (
-                  <section className="task-list__section" aria-labelledby={`task-section-${section.key}`} key={section.key}>
-                    {(taskSections.length > 1 || section.key.startsWith("today-")) && (
+                  <section className={`task-list__section${view === "completed" ? " task-list__section--day" : ""}`} aria-labelledby={`task-section-${section.key}`} key={section.key}>
+                    {(taskSections.length > 1 || section.key.startsWith("today-") || view === "completed") && (
                       <div className="task-list__section-header">
                         <div className="task-list__section-copy">
                           <h4 id={`task-section-${section.key}`}>{section.label}</h4>

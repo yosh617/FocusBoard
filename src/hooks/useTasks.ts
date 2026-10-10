@@ -236,19 +236,19 @@ export function useTasks() {
     }
   }, [fail, storageAvailable]);
 
-  const addManualSession = useCallback(async (taskId: string, startedAt: number, endedAt: number) => {
-    const task = tasksRef.current.find((item) => item.id === taskId && item.status === "completed");
-    if (!task || !storageAvailable || !Number.isFinite(startedAt) || !Number.isFinite(endedAt) || endedAt <= startedAt) {
+  const addManualSession = useCallback(async (taskId: string | null, projectId: string | null, startedAt: number, endedAt: number) => {
+    const task = taskId ? tasksRef.current.find((item) => item.id === taskId && item.status !== "archived") : null;
+    const project = projectId ? projectsRef.current.find((item) => item.id === projectId && item.archivedAt === null) : null;
+    if ((taskId !== null && !task) || (projectId !== null && !project) || !storageAvailable || !Number.isFinite(startedAt) || !Number.isFinite(endedAt) || endedAt <= startedAt) {
       setMessage("開始日時と終了日時を確認してください。");
       return false;
     }
-    const project = task.projectId ? projectsRef.current.find((item) => item.id === task.projectId) : null;
     const focusedDurationMs = calculateFocusedDurationMs(startedAt, endedAt);
     const session = validateFocusSessionRecord({
       version: 2,
       id: createId("session"),
-      taskId: task.id,
-      taskTitleSnapshot: task.title,
+      taskId: task?.id ?? null,
+      taskTitleSnapshot: task?.title ?? null,
       projectIdSnapshot: project?.id ?? null,
       projectNameSnapshot: project?.name ?? null,
       program: "pomodoro",

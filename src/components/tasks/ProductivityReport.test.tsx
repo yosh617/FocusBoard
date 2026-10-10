@@ -34,10 +34,11 @@ describe("ProductivityReport", () => {
   it("shows period-aware heatmap totals and expandable report sections", () => {
     render(<ProductivityReport tasks={[completedTask]} sessions={[todaySession, previousDaySession]} workMinutes={25} now={now} onUpdateSession={vi.fn().mockResolvedValue(true)} />);
     expect(screen.getAllByText("50分").length).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { name: "直近1年の集中時間" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "今日の集中時間" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "実施時間帯" })).toBeTruthy();
-    const activity = screen.getByRole("heading", { name: "直近1年の集中時間" }).closest("section") as HTMLElement;
-    expect(activity.textContent).toContain("50分");
+    const activity = screen.getByRole("heading", { name: "今日の集中時間" }).closest("section") as HTMLElement;
+    expect(activity.textContent).toContain("25分");
+    expect(within(activity).getByText("直近1年の記録")).toBeTruthy();
     expect(screen.getByLabelText("直近1年の集中時間ヒートマップ").querySelectorAll("[role=\"img\"]")).toHaveLength(371);
     expect(document.querySelector(".report-activity__weekdays")?.closest(".report-activity__scroll")).toBeNull();
     expect(screen.getByRole("img", { name: /2026年7月18日 25分/ })).toBeTruthy();
