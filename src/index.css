@@ -4161,12 +4161,12 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   background: transparent;
 }
 
+.settings-content .data-cards { gap: 8px; }
 .settings-content .data-card {
-  padding: 14px 0;
-  border: 0;
-  border-bottom: 1px solid var(--color-hairline);
-  border-radius: 0;
-  background: transparent;
+  padding: 12px 14px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-m);
+  background: var(--color-surface-alt);
   box-shadow: none;
 }
 
@@ -4176,7 +4176,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   background: transparent;
 }
 
-.settings-content .data-card__body p { display: block; }
+.settings-content .data-card__body p { display: block; font-size: 12px; }
 
 .project-settings-screen__section {
   padding: 14px 0;
