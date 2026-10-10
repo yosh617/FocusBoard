@@ -6,7 +6,7 @@ import type { TimerStatus } from "../../types/timer";
 import type { ProductivityBackup } from "../../utils/productivityBackup";
 import type { ConflictPreference, ImportStrategy } from "../../utils/productivityImport";
 import { getActiveProjects, getTasksForProject, getTasksForView, sortTasksForFocus, toLocalDateKey, addLocalDays } from "../../utils/taskQueries";
-import { getFocusedDurationMs } from "../../utils/focusSession";
+import { calculateFocusedDurationMs, getFocusedDurationMs } from "../../utils/focusSession";
 import { formatFocusedTime } from "../../utils/productivityReport";
 import { ProductivityReport } from "./ProductivityReport";
 import { ProductivityBackupPanel } from "./ProductivityBackupPanel";
@@ -16,6 +16,7 @@ import { AppDateTimeField } from "../ui/AppDateTimeField";
 import { AppSelect } from "../ui/AppSelect";
 import { ColorPickerDisclosure } from "../ui/ColorPicker";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
+import "./TaskDrawer.css";
 
 type Props = {
   open: boolean;
@@ -34,6 +35,7 @@ type Props = {
   onAddTask: (draft: TaskDraft) => Promise<string | null>;
   onUpdateTask: (id: string, patch: Partial<TaskRecord>) => Promise<boolean>;
   onUpdateSession: (id: string, patch: Partial<FocusSessionRecord>) => Promise<boolean>;
+  onAddManualSession?: (taskId: string, startedAt: number, endedAt: number) => Promise<boolean>;
   onToggleTask: (id: string) => Promise<boolean>;
   onArchiveTask: (id: string) => Promise<boolean>;
   onRestoreTask: (id: string) => Promise<boolean>;
@@ -189,6 +191,54 @@ function getViewForTask(task: TaskRecord, today: string, tomorrow: string): Task
 function estimatedFocusTimeLabel(tasks: TaskRecord[], workMinutes: number) {
   const totalMinutes = tasks.reduce((sum, task) => sum + task.estimatedPomodoros * workMinutes, 0);
   return `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
+}
+
+function ManualSessionForm({ tasks, disabled, onAdd }: {
+  tasks: TaskRecord[];
+  disabled: boolean;
+  onAdd: (taskId: string, startedAt: number, endedAt: number) => Promise<boolean>;
+}) {
+  const completedTasks = tasks.filter((task) => task.status === "completed").sort((left, right) => (right.completedAt ?? 0) - (left.completedAt ?? 0));
+  const [taskId, setTaskId] = useState(completedTasks[0]?.id ?? "");
+  const selectedTaskId = completedTasks.some((task) => task.id === taskId) ? taskId : completedTasks[0]?.id ?? "";
+  const [startedAt, setStartedAt] = useState(() => toDateTimeLocal(Date.now() - 25 * 60_000));
+  const [endedAt, setEndedAt] = useState(() => toDateTimeLocal(Date.now()));
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const startedAtMs = new Date(startedAt).getTime();
+  const endedAtMs = new Date(endedAt).getTime();
+  const durationMs = calculateFocusedDurationMs(startedAtMs, endedAtMs);
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selectedTaskId || !Number.isFinite(startedAtMs) || !Number.isFinite(endedAtMs) || endedAtMs <= startedAtMs) {
+      setError("タスクと開始・終了日時を確認してください。");
+      return;
+    }
+    setError("");
+    setSaving(true);
+    const saved = await onAdd(selectedTaskId, startedAtMs, endedAtMs);
+    setSaving(false);
+    if (saved) {
+      const now = Date.now();
+      setStartedAt(toDateTimeLocal(now - 25 * 60_000));
+      setEndedAt(toDateTimeLocal(now));
+    } else setError("集中記録を保存できませんでした。");
+  };
+
+  return <form className="completed-session-add" onSubmit={(event) => void submit(event)} aria-label="集中記録を手動で追加">
+    <h4>集中記録を追加</h4>
+    <div className="completed-session-add__fields">
+      <label>タスク<select value={selectedTaskId} onChange={(event) => setTaskId(event.target.value)} disabled={disabled || completedTasks.length === 0} required>
+        {completedTasks.length === 0 ? <option value="">完了済みタスクがありません</option> : completedTasks.map((task) => <option value={task.id} key={task.id}>{task.title}</option>)}
+      </select></label>
+      <label>開始<input type="datetime-local" value={startedAt} onChange={(event) => setStartedAt(event.target.value)} disabled={disabled} required /></label>
+      <label>終了<input type="datetime-local" value={endedAt} onChange={(event) => setEndedAt(event.target.value)} disabled={disabled} required /></label>
+      <div className="completed-session-add__duration"><span>実働時間</span><strong>{durationMs > 0 ? formatFocusedTime(durationMs) : "日時を確認"}</strong></div>
+      <button type="submit" disabled={disabled || saving || !selectedTaskId || durationMs <= 0}>{saving ? "保存中" : "記録を追加"}</button>
+    </div>
+    {error && <p role="alert">{error}</p>}
+  </form>;
 }
 
 function formatDurationClock(totalMinutes: number) {
@@ -602,6 +652,7 @@ export function TaskDrawer({
   onAddTask,
   onUpdateTask,
   onUpdateSession,
+  onAddManualSession = async () => false,
   onToggleTask,
   onArchiveTask,
   onRestoreTask,
@@ -1208,6 +1259,7 @@ export function TaskDrawer({
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d={quickSettingsOpen ? "m6 15 6-6 6 6" : "m6 9 6 6 6-6"} /></svg>
                 </button>
               </form>}
+              {!projectId && view === "completed" && <ManualSessionForm tasks={tasks} disabled={!storageAvailable} onAdd={onAddManualSession} />}
               {showResumeBanner && toolbarContext && (
                 <section className="task-inline-context" aria-label="一覧へ戻ったあとの案内">
                   <div className="task-resume-banner__copy">

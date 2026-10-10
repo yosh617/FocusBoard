@@ -69,7 +69,7 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
   settingsRef.current = settings;
   timerRef.current = timer;
 
-  const emitSession = useCallback((current: TimerState, result: TimerSessionEvent["result"], endedAt: number) => {
+  const emitSession = useCallback((current: TimerState, result: TimerSessionEvent["result"], endedAt: number, provisional = false) => {
     if (!current.activeSessionId || current.sessionStartedAt === null) return;
     const startedAt = current.sessionStartedAt;
     const pauseIntervals: PauseInterval[] = current.pauseStartedAt === null
@@ -85,7 +85,8 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
       endedAt,
       plannedDurationMs: current.durationMs,
       focusedDurationMs: calculateFocusedDurationMs(startedAt, endedAt, pauseIntervals),
-      pauseIntervals
+      pauseIntervals,
+      ...(provisional ? { provisional: true } : {})
     });
   }, [onSessionEnd]);
 
@@ -211,6 +212,7 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
         const message = `${modeLabels[previous.mode]}が終了しました。止めるまで延長中です。`;
         setAnnouncement(message);
         sendTimerNotification(message, settingsRef.current.timerNotificationBehavior);
+        emitSession(previous, "completed", endedAt, true);
       }
       if (countdownCompleted) emitSession(previous, "completed", endedAt);
     }

@@ -46,4 +46,5 @@ export type TimerSessionEvent = {
   plannedDurationMs: number;
   focusedDurationMs: number;
   pauseIntervals: PauseInterval[];
+  provisional?: boolean;
 };

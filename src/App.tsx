@@ -54,6 +54,7 @@ export default function App() {
     addTask,
     updateTask,
     updateSession,
+    addManualSession,
     toggleTask,
     archiveTask,
     restoreTask,
@@ -74,7 +75,7 @@ export default function App() {
   const suppressCompletedSessionDialogRef = useRef(false);
   const handleSessionEnd = useCallback((event: TimerSessionEvent) => {
     recordTimerSession(event);
-    if (event.result === "completed" && event.mode === "work" && event.taskId && !suppressCompletedSessionDialogRef.current) setCompletedSession(event);
+    if (event.result === "completed" && event.mode === "work" && event.taskId && !event.provisional && !suppressCompletedSessionDialogRef.current) setCompletedSession(event);
     suppressCompletedSessionDialogRef.current = false;
   }, [recordTimerSession]);
   const {
@@ -479,9 +480,12 @@ export default function App() {
   const appStyle = {
     color: clockColor,
     fontFamily: fontOptions[settings.fontFamily as keyof typeof fontOptions] ?? fontOptions.system,
-    "--accent": uiAccentColor,
-    "--accent-soft": `color-mix(in srgb, ${uiAccentColor} 12%, white)`,
-    "--accent-contrast": getReadableTextColorForHex(uiAccentColor),
+    "--accent": timerColor,
+    "--accent-soft": `color-mix(in srgb, ${timerColor} 12%, white)`,
+    "--accent-contrast": getReadableTextColorForHex(timerColor),
+    "--ui-accent": uiAccentColor,
+    "--ui-accent-soft": `color-mix(in srgb, ${uiAccentColor} 12%, white)`,
+    "--ui-accent-contrast": getReadableTextColorForHex(uiAccentColor),
     "--timer-accent": timerColor,
     "--timer-accent-strong": getStrongAccent(timerColor),
     "--adaptive-accent": timerColor,
@@ -734,6 +738,7 @@ export default function App() {
         onAddTask={addTask}
         onUpdateTask={updateTask}
         onUpdateSession={updateSession}
+        onAddManualSession={addManualSession}
         onToggleTask={toggleTask}
         onArchiveTask={archiveTask}
         onRestoreTask={restoreTask}

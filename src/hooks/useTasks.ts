@@ -23,6 +23,7 @@ import {
   saveTaskRecord
 } from "../utils/productivityStorage";
 import { validateFocusSessionRecord, validateProjectRecord, validateTaskRecord } from "../utils/taskValidation";
+import { calculateFocusedDurationMs } from "../utils/focusSession";
 import { createTodayRepeatedTasks, getNextDueDate, getRepeatSeriesId } from "../utils/repeatRule";
 import { toLocalDateKey } from "../utils/taskQueries";
 
@@ -228,6 +229,45 @@ export function useTasks() {
       await saveFocusSessionRecord(candidate);
       setSessions((current) => current.map((session) => session.id === id ? candidate : session));
       setMessage("集中記録を更新しました。");
+      return true;
+    } catch {
+      fail();
+      return false;
+    }
+  }, [fail, storageAvailable]);
+
+  const addManualSession = useCallback(async (taskId: string, startedAt: number, endedAt: number) => {
+    const task = tasksRef.current.find((item) => item.id === taskId && item.status === "completed");
+    if (!task || !storageAvailable || !Number.isFinite(startedAt) || !Number.isFinite(endedAt) || endedAt <= startedAt) {
+      setMessage("開始日時と終了日時を確認してください。");
+      return false;
+    }
+    const project = task.projectId ? projectsRef.current.find((item) => item.id === task.projectId) : null;
+    const focusedDurationMs = calculateFocusedDurationMs(startedAt, endedAt);
+    const session = validateFocusSessionRecord({
+      version: 2,
+      id: createId("session"),
+      taskId: task.id,
+      taskTitleSnapshot: task.title,
+      projectIdSnapshot: project?.id ?? null,
+      projectNameSnapshot: project?.name ?? null,
+      program: "pomodoro",
+      mode: "work",
+      result: "completed",
+      startedAt,
+      endedAt,
+      plannedDurationMs: focusedDurationMs,
+      focusedDurationMs,
+      pauseIntervals: []
+    });
+    if (!session) {
+      setMessage("集中記録の入力内容を確認してください。");
+      return false;
+    }
+    try {
+      await saveFocusSessionRecord(session);
+      setSessions((current) => [...current, session]);
+      setMessage("集中記録を追加しました。");
       return true;
     } catch {
       fail();
@@ -613,6 +653,7 @@ export function useTasks() {
     addTask,
     updateTask,
     updateSession,
+    addManualSession,
     toggleTask,
     archiveTask,
     restoreTask,

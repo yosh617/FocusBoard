@@ -131,8 +131,8 @@ export function getAdaptivePalette(source: Rgb, overlayOpacity: number): Adaptiv
   return {
     text,
     textContrast: contrastRatio(background, hexToRgb(text) ?? darkText),
-    accent: hslToHex(hue, 88, 61),
-    accentStrong: hslToHex(hue, 72, 39)
+    accent: hslToHex(hue, 40, 52),
+    accentStrong: hslToHex(hue, 42, 36)
   };
 }
 
@@ -154,8 +154,8 @@ export function getAdaptivePaletteFromSamples(samples: Rgb[], overlayOpacity: nu
   return {
     text,
     textContrast: minimumContrastForSamples(overlaidSamples, text),
-    accent: hslToHex(rgbToHue(source), 88, 61),
-    accentStrong: hslToHex(rgbToHue(source), 72, 39)
+    accent: hslToHex(rgbToHue(source), 40, 52),
+    accentStrong: hslToHex(rgbToHue(source), 42, 36)
   };
 }
 
