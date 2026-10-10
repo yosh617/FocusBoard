@@ -1,13 +1,14 @@
 {
   "name": "focusboard",
   "private": true,
-  "version": "3.0.44",
+  "version": "3.0.45",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "lint": "eslint .",
     "typecheck": "tsc -b --pretty false"
   },
@@ -20,7 +21,9 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.0",
     "@testing-library/react": "^16.3.0",
+    "@types/node": "^26.6.5",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "eslint": "^10.8.0",

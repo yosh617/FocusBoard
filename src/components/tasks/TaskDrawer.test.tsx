@@ -337,48 +337,11 @@ describe("TaskDrawer", () => {
     await waitFor(() => expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy());
   });
 
-  it("opens the active task in the dedicated editor even after filter narrowing", async () => {
+  it("opens the active task in the dedicated editor while the timer is running", async () => {
     renderDrawer({ timerStatus: "running", activeTaskId: task.id });
-    fireEvent.click(screen.getByRole("button", { name: "期限切れ 0" }));
-    expect(screen.getByText("該当するタスクはありません")).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: "すべて 1" }));
-    fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
+    fireEvent.click(screen.getByRole("button", { name: /数学の復習 集中回数/ }));
 
     await waitFor(() => expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy());
-    expect(screen.queryByRole("group", { name: "表示するタスクを絞り込む" })).toBeNull();
-  });
-
-  it("filters overdue work from the compact filter controls", async () => {
-    const reminderTask: TaskRecord = {
-      ...task,
-      id: "task-2",
-      title: "理科の暗記",
-      reminderAt: new Date(`${addLocalDays(today, 1)}T09:30:00`).getTime(),
-      estimatedPomodoros: 0,
-      order: 1,
-      updatedAt: 2
-    };
-    const overdueTask: TaskRecord = {
-      ...task,
-      id: "task-3",
-      title: "英語の宿題",
-      dueDate: addLocalDays(today, -1),
-      estimatedPomodoros: 0,
-      order: 2,
-      updatedAt: 3
-    };
-
-    renderDrawer({
-      tasks: [task, reminderTask, overdueTask],
-      timerStatus: "running",
-      activeTaskId: task.id
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "期限切れ 1" }));
-    const list = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
-    await waitFor(() => expect(within(list).getByText("英語の宿題")).toBeTruthy());
-    expect(within(list).queryByText("理科の暗記")).toBeNull();
   });
 
   it("keeps today tasks in one list regardless of project", () => {
@@ -599,11 +562,10 @@ describe("TaskDrawer", () => {
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ tags: ["試験"] })));
   });
 
-  it("shows filters in Today and groups overdue work separately", () => {
+  it("shows today and overdue work in the date group", () => {
     const overdueTask = { ...task, id: "task-overdue", title: "期限切れタスク", dueDate: addLocalDays(today, -1), order: 2 };
     renderDrawer({ tasks: [overdueTask, task] });
 
-    expect(screen.getByRole("group", { name: "表示するタスクを絞り込む" })).toBeTruthy();
     const todayList = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
     expect(within(todayList).getByRole("heading", { name: "今日・期限切れ" })).toBeTruthy();
     expect(within(todayList).getByText("期限切れタスク")).toBeTruthy();
@@ -915,7 +877,7 @@ describe("TaskDrawer", () => {
     expect(screen.queryByRole("searchbox")).toBeNull();
   });
 
-  it("narrows the visible list with quick filters for overdue, reminders, and focus-ready work", () => {
+  it("groups today and overdue tasks together and excludes future tasks", () => {
     const overdueTask: TaskRecord = {
       ...task,
       id: "task-2",
@@ -929,8 +891,8 @@ describe("TaskDrawer", () => {
       ...task,
       id: "task-3",
       title: "理科の暗記",
-      dueDate: today,
-      reminderAt: new Date(`${today}T21:30:00`).getTime(),
+      dueDate: addLocalDays(today, 1),
+      reminderAt: new Date(`${addLocalDays(today, 1)}T21:30:00`).getTime(),
       estimatedPomodoros: 0,
       order: 2,
       updatedAt: 3
@@ -950,20 +912,11 @@ describe("TaskDrawer", () => {
     });
 
     const list = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
-    fireEvent.click(screen.getByRole("button", { name: "期限切れ 1" }));
-    expect(within(list).getByText("英語の宿題")).toBeTruthy();
-    expect(within(list).queryByText("数学の復習")).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "通知 1" }));
-    expect(within(list).getByText("理科の暗記")).toBeTruthy();
-    expect(within(list).queryByText("英語の宿題")).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "集中目安 1" }));
+    expect(within(list).getByRole("heading", { name: "今日・期限切れ" })).toBeTruthy();
     expect(within(list).getByText("数学の復習")).toBeTruthy();
-    expect(within(list).queryByText("理科の暗記")).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "すべて 4" }));
+    expect(within(list).getByText("英語の宿題")).toBeTruthy();
     expect(within(list).getByText("机を片づける")).toBeTruthy();
+    expect(within(list).queryByText("理科の暗記")).toBeNull();
   });
 
   it("opens the local productivity report", () => {

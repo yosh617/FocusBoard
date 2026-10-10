@@ -11,6 +11,8 @@
 
 # Test output, caches, and logs
 /coverage/
+/playwright-report/
+/test-results/
 .eslintcache
 *.log
 npm-debug.log*

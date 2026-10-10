@@ -145,18 +145,24 @@ describe("usePomodoroTimer", () => {
 
     expect(result.current.timer.mode).toBe("work");
     expect(result.current.timer.status).toBe("overtime");
-    expect(onSessionEnd).not.toHaveBeenCalled();
-
-    act(() => result.current.end());
-    expect(result.current.timer.status).toBe("idle");
     expect(onSessionEnd).toHaveBeenCalledTimes(1);
     expect(onSessionEnd).toHaveBeenCalledWith(expect.objectContaining({
       taskId: "task-1",
       result: "completed",
+      provisional: true
+    }));
+
+    act(() => result.current.end());
+    expect(result.current.timer.status).toBe("idle");
+    expect(onSessionEnd).toHaveBeenCalledTimes(2);
+    expect(onSessionEnd.mock.calls[1][0]).toEqual(expect.objectContaining({
+      taskId: "task-1",
+      result: "completed",
       focusedDurationMs: expect.any(Number)
     }));
-    expect(onSessionEnd.mock.calls[0][0].focusedDurationMs).toBeGreaterThanOrEqual(60_000);
-    expect(onSessionEnd.mock.calls[0][0].focusedDurationMs).toBeLessThan(61_000);
+    expect(onSessionEnd.mock.calls[0][0].id).toBe(onSessionEnd.mock.calls[1][0].id);
+    expect(onSessionEnd.mock.calls[1][0].focusedDurationMs).toBeGreaterThanOrEqual(60_000);
+    expect(onSessionEnd.mock.calls[1][0].focusedDurationMs).toBeLessThan(61_000);
   });
 
   it("starts the next break directly when leaving overtime", async () => {

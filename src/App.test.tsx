@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
-import { defaultSettings } from "./types/settings";
+import { defaultSettings, taskThemePresets } from "./types/settings";
 import type { FocusSessionRecord } from "./types/focusSession";
 import type { ProjectRecord } from "./types/project";
 import type { TaskRecord } from "./types/task";
@@ -284,7 +284,7 @@ describe("App", () => {
     expect(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}").taskTheme).toBe("violet");
     expect(document.querySelector<HTMLElement>(".app-shell")?.style.getPropertyValue("--task-primary")).toBe("#c9b8f4");
     fireEvent.click(screen.getByRole("button", { name: "表示を初期値に戻す" }));
-    expect(document.querySelector<HTMLElement>(".app-shell")?.style.getPropertyValue("--task-primary")).toBe("#f4a6a8");
+    expect(document.querySelector<HTMLElement>(".app-shell")?.style.getPropertyValue("--task-primary")).toBe(taskThemePresets[defaultSettings.taskTheme].primary);
   });
 
   it("applies, persists, and resets the theme independently from clock and timer colors", () => {
