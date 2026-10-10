@@ -2194,17 +2194,6 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .task-workspace--today .task-list__completed-toggle span { font-size: 11px; font-weight: 650; }
 .task-workspace--today .task-list__completed-toggle strong { margin-left: 0; color: var(--color-mid-gray); font-size: 11px; }
 .task-workspace--today .task-list__completed-toggle svg { width: 14px; height: 14px; margin: 0; }
-.today-records { min-height: 0; padding: 8px 0 14px; }
-.today-records > p { margin: 4px 0; color: var(--color-mid-gray); text-align: center; font-size: 13px; }
-.today-records h4 { margin: 0 0 6px; color: var(--color-mid-gray); font-size: 13px; font-weight: 650; }
-.today-records ol { display: grid; gap: 6px; padding: 0; margin: 0; list-style: none; }
-.today-records li { display: flex; align-items: center; min-height: 52px; gap: 10px; padding: 7px 10px; border-radius: 10px; background: var(--color-paper); }
-.today-records__mark { display: grid; flex: none; place-items: center; width: 28px; height: 28px; color: var(--task-primary-text); }
-.today-records__mark svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.today-records__copy { display: grid; flex: 1; min-width: 0; gap: 3px; }
-.today-records__copy strong { overflow-wrap: anywhere; color: var(--color-ink); font-size: 13px; font-weight: 600; }
-.today-records__copy small, .today-records time { color: var(--color-mid-gray); font-size: 11px; }
-.today-records time { flex: none; font-variant-numeric: tabular-nums; }
 
 @media (max-width: 360px) {
   .today-overview { gap: 1px; padding-inline: 4px; }

@@ -757,9 +757,6 @@ export function TaskDrawer({
   const todayFocusedMinutes = sessions
     .filter((session) => session.mode === "work" && toLocalDateKey(new Date(session.endedAt)) === today)
     .reduce((total, session) => total + getFocusedDurationMs(session), 0) / 60_000;
-  const todaySessions = useMemo(() => sessions
-    .filter((session) => session.mode === "work" && toLocalDateKey(new Date(session.endedAt)) === today)
-    .sort((left, right) => right.endedAt - left.endedAt), [sessions, today]);
   const taskSections = useMemo<TaskListSection[]>(() => {
     if (scopedTasks.length === 0) return [];
     if (projectId) {
@@ -1362,13 +1359,6 @@ export function TaskDrawer({
                 </button>
                 {showTodayCompleted && <div className="task-list__section-items">{todayCompletedTasks.map(renderTaskRow)}</div>}
               </section>}
-              {!projectId && view === "today" && <section className="today-records" aria-label="今日の記録">
-                {todaySessions.length === 0 ? <p>記録なし</p> : <><h4>今日の記録</h4><ol>{todaySessions.map((session) => <li key={session.id}>
-                  <span className="today-records__mark" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7" /><path d="M9 3h6M12 6v7l3 2" /></svg></span>
-                  <span className="today-records__copy"><strong>{session.taskTitleSnapshot ?? "タスクなし"}</strong><small>{formatFocusedTime(getFocusedDurationMs(session))} ・ {session.result === "completed" ? "完了" : "中断"}</small></span>
-                  <time>{new Date(session.endedAt).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}</time>
-                </li>)}</ol></>}
-                </section>}
               </div>}
             </div>
             {view !== "completed" && view !== "archived" && quickSettingsOpen && (
