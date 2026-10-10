@@ -38,23 +38,22 @@ export function ResetPanel({ onResetSettings, onClearTimer, onMessage }: Props) 
   return (
     <section className="settings-section settings-section--danger" aria-labelledby="reset-heading">
       <h3 id="reset-heading">リセットと削除</h3>
-      <p className="settings-help">必要なデータだけを個別に初期化できます。</p>
       <div className="reset-actions">
         <div className="reset-actions__individual" role="group" aria-label="個別にリセット">
           <button type="button" className="reset-action" onClick={() => setPendingAction("settings")}>
-            <strong>設定を初期化</strong><small>表示やタイマー設定を戻す</small>
+            <strong>設定を初期化</strong>
           </button>
           <button type="button" className="reset-action" onClick={() => setPendingAction("timer")}>
-            <strong>タイマー状態を削除</strong><small>進行中・一時停止中のタイマーを消す</small>
+            <strong>タイマー状態を削除</strong>
           </button>
         </div>
         <div className="reset-actions__destructive" role="group" aria-labelledby="reset-data-heading">
           <h4 id="reset-data-heading">データを削除</h4>
           <button type="button" className="reset-action" onClick={() => setPendingAction("everything")} disabled={busy}>
-            <strong>アプリ内データをすべて削除</strong><small>設定・タイマー・背景画像・タスク・プロジェクト・集中履歴</small>
+            <strong>アプリ内データをすべて削除</strong>
           </button>
           <button type="button" className="reset-action" onClick={() => setPendingAction("pwa")} disabled={busy} aria-busy={busy}>
-            <strong>{busy ? "削除しています…" : "オフライン用データを削除"}</strong><small>アプリを再読み込みすると作り直せます</small>
+            <strong>{busy ? "削除しています…" : "オフライン用データを削除"}</strong>
           </button>
         </div>
         <button type="button" className="reset-actions__guide" onClick={() => setShowDeleteGuide((shown) => !shown)} aria-expanded={showDeleteGuide}>

@@ -559,14 +559,13 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .settings-section--danger { border-bottom: 0; }
 .reset-actions { display: grid; gap: 14px; }
 .reset-actions__individual { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.reset-action { display: grid; align-content: center; justify-items: start; width: 100%; min-width: 0; min-height: 58px; gap: 3px; padding: 9px 12px; color: var(--color-ink); text-align: left; border: 1px solid var(--color-hairline); border-radius: var(--radius-m); background: var(--color-surface-alt); }
+.reset-action { display: grid; align-content: center; justify-items: start; width: 100%; min-width: 0; min-height: 44px; gap: 0; padding: 0 12px; color: var(--color-ink); text-align: left; border: 1px solid var(--color-hairline); border-radius: var(--radius-control); background: var(--color-surface-alt); }
 .reset-action:hover:not(:disabled) { border-color: var(--color-mid-gray); background: var(--color-canvas); }
-.reset-action strong { font-size: 13px; font-weight: 700; line-height: 1.3; }
-.reset-action small { color: var(--color-mid-gray); font-size: 10px; font-weight: 500; line-height: 1.35; }
+.reset-action strong { font-size: 12px; font-weight: 700; line-height: 1.3; }
 .reset-action:disabled { cursor: not-allowed; opacity: .55; }
 .reset-actions__destructive { display: grid; gap: 7px; padding-top: 12px; border-top: 1px solid var(--color-hairline); }
 .reset-actions__destructive h4 { margin: 0 0 1px; color: var(--color-mid-gray); font-size: 12px; font-weight: 700; }
-.reset-actions__guide { justify-self: start; min-height: 36px; padding: 4px 0; color: var(--color-mid-gray); border: 0; background: transparent; font-size: 12px; font-weight: 650; text-align: left; }
+.reset-actions__guide { justify-self: start; min-height: 36px; padding: 4px 0; color: var(--color-mid-gray); border: 0; background: transparent; font-size: 13px; font-weight: 650; text-align: left; }
 .reset-actions__guide:hover { color: var(--color-ink); text-decoration: underline; }
 .delete-guide { margin-top: 10px; padding: 14px; color: var(--ink); border: 1px solid var(--line); border-radius: 12px; background: var(--color-surface-alt); font-size: 13px; line-height: 1.6; }
 .delete-guide ol { padding-left: 22px; }
@@ -1497,14 +1496,13 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 /* The task workspace is independently themed from the clock and timer palette. */
 .task-theme-setting { margin-top: 20px; }
 .task-theme-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.task-theme-grid button { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; min-height: 56px; gap: 9px; padding: 9px; color: #555d67; border: 1px solid #dfe3e7; border-radius: 10px; background: #fff; text-align: left; }
+.task-theme-grid button { display: grid; grid-template-columns: 36px minmax(0, 1fr); align-items: center; min-height: 56px; gap: 9px; padding: 9px; color: #555d67; border: 1px solid #dfe3e7; border-radius: 10px; background: #fff; text-align: left; }
 .task-theme-grid button:hover { border-color: var(--task-primary-border); background: var(--task-primary-soft); }
 .task-theme-grid button.is-selected { color: #252a31; border-color: var(--task-primary); background: var(--task-primary-soft); box-shadow: 0 0 0 2px var(--task-primary-shadow); }
 .task-theme-grid button:focus-visible { outline: 3px solid var(--task-primary); outline-offset: 2px; }
 .task-theme-option__swatch { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 8px; font-size: 11px; font-weight: 850; }
 .task-theme-grid button > span:nth-child(2) { min-width: 0; }
 .task-theme-grid strong { font-size: 13px; }
-.task-theme-option__preview { min-height: 32px; padding: 0 8px; border-radius: 7px; font-size: 10px; font-weight: 850; line-height: 32px; }
 
 .home-dock__button:hover, .home-dock__button[aria-pressed="true"], .panel-switch-button:hover { color: var(--task-primary-hover); background: var(--task-primary-soft); }
 .home-dock__button:focus-visible, .panel-switch-button:focus-visible, .task-drawer :focus-visible { outline-color: var(--task-primary); }
@@ -4092,13 +4090,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   border-top: 1px solid var(--color-hairline);
 }
 
-.productivity-report > .report-summary {
-  padding: 16px;
-  border: 0;
-  border-radius: var(--radius-m);
-  background: var(--color-surface-alt);
-}
-
 .productivity-report .report-stats div {
   background: var(--color-paper);
 }
@@ -4129,30 +4120,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   border: 0;
 }
 
-.settings-disclosure {
-  margin-block: 8px 14px;
-  overflow: visible;
-  border: 0;
-  border-bottom: 1px solid var(--color-hairline);
-  border-radius: 0;
-  background: transparent;
-}
-
-.settings-disclosure summary {
-  min-height: 50px;
-  padding-inline: 0;
-  color: var(--color-ink);
-}
-
-.settings-disclosure[open] > summary {
-  border-bottom: 0;
-  background: transparent;
-}
-
-.settings-disclosure__body {
-  padding: 12px 0 2px;
-}
-
 .color-setting-group {
   padding: 12px 0;
   border: 0;
@@ -4164,9 +4131,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .settings-content .data-cards { gap: 8px; }
 .settings-content .data-card {
   padding: 12px 14px;
+  min-height: 72px;
   border: 1px solid var(--color-hairline);
   border-radius: var(--radius-m);
-  background: var(--color-surface-alt);
+  background: var(--color-paper);
   box-shadow: none;
 }
 
@@ -4176,7 +4144,24 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   background: transparent;
 }
 
-.settings-content .data-card__body p { display: block; font-size: 12px; }
+.settings-content .data-card__body { min-height: 44px; }
+
+.settings-content .settings-disclosure[open] > summary { border-bottom: 0; }
+
+.settings-content .reset-action {
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: var(--radius-control);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 28%, #fff);
+  background: color-mix(in srgb, var(--accent) 6%, #fff);
+}
+.settings-content .reset-action:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, #fff);
+}
+.settings-content .reset-action strong { font-size: 12px; }
 
 .project-settings-screen__section {
   padding: 14px 0;
@@ -4184,96 +4169,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   border-top: 1px solid var(--color-hairline);
   border-radius: 0;
   background: transparent;
-}
-
-/* Keep settings controls neutral, following the restrained treatment of Apple Settings. */
-.settings-drawer .settings-tabs button:hover {
-  color: var(--color-ink);
-  background: var(--color-canvas);
-}
-
-.settings-drawer .settings-tabs button.is-active,
-.settings-drawer .settings-tabs button[aria-selected="true"] {
-  color: var(--color-ink) !important;
-  border-color: transparent !important;
-  background: #e9e9eb !important;
-  box-shadow: none !important;
-}
-
-.settings-drawer .choice-grid button.is-selected,
-.settings-drawer .orientation-picker button.is-selected {
-  color: var(--color-ink) !important;
-  border-color: transparent !important;
-  background: #e9e9eb !important;
-  box-shadow: none !important;
-}
-
-.settings-drawer .choice-grid button:hover,
-.settings-drawer .orientation-picker button:hover {
-  color: var(--color-ink);
-  border-color: var(--color-hairline);
-  background: var(--color-canvas);
-  box-shadow: none;
-}
-
-.settings-drawer .position-grid__cell.is-selected {
-  border-color: var(--color-ink-soft) !important;
-  background: #e9e9eb !important;
-  box-shadow: none !important;
-}
-
-.settings-drawer .position-grid__cell.is-selected i {
-  background: var(--color-ink) !important;
-  box-shadow: 0 0 0 4px #d5d5d8 !important;
-}
-
-.settings-drawer .background-option.background-option--active,
-.settings-drawer .background-option.background-option--active .background-option__preview {
-  color: var(--color-ink) !important;
-  border-color: var(--color-hairline) !important;
-  background-color: var(--color-surface-alt) !important;
-  box-shadow: 0 0 0 1px var(--color-hairline) !important;
-}
-
-.settings-drawer .background-option__selected-badge {
-  color: #fff !important;
-  background: #4a4a4c !important;
-  box-shadow: none !important;
-}
-
-.settings-drawer .background-upload {
-  color: var(--color-ink) !important;
-  border: 1px solid var(--color-hairline) !important;
-  background: var(--color-canvas) !important;
-}
-
-.settings-drawer .background-upload:hover {
-  border-color: #c8c8cc !important;
-  background: #e9e9eb !important;
-}
-
-.settings-drawer .background-upload__icon {
-  color: var(--color-ink) !important;
-  background: #e9e9eb !important;
-}
-
-.settings-drawer .reset-value {
-  color: var(--color-mid-gray) !important;
-  border-color: var(--color-hairline) !important;
-}
-
-.settings-drawer .primary-button {
-  color: var(--color-ink) !important;
-  border: 1px solid var(--color-hairline) !important;
-  background: var(--color-canvas) !important;
-  box-shadow: none !important;
-}
-
-.settings-drawer .primary-button:hover:not(:disabled) {
-  color: var(--color-ink) !important;
-  border-color: #c8c8cc !important;
-  background: #e9e9eb !important;
-  box-shadow: none !important;
 }
 
 .settings-drawer .settings-section__footer .text-button {
