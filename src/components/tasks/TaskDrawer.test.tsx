@@ -106,7 +106,7 @@ function openAdvancedSettings(container: ReturnType<typeof within>) {
 }
 
 describe("TaskDrawer", () => {
-  it("shows today's totals, task-empty guidance, and an empty record state", () => {
+  it("shows today's totals and task-empty guidance without duplicating session history", () => {
     renderDrawer({ tasks: [], sessions: [] });
     const overview = within(screen.getByRole("region", { name: "今日の進捗" }));
     expect(overview.getByText("見積もり時間")).toBeTruthy();
@@ -115,7 +115,7 @@ describe("TaskDrawer", () => {
     expect(overview.getAllByText("0")).toHaveLength(2);
     expect(screen.getByText("タスクなし")).toBeTruthy();
     expect(screen.getByText("上の入力欄から追加できます。期限なしのタスクも、この一覧に表示されます。")).toBeTruthy();
-    expect(screen.getByText("記録なし")).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "今日の記録" })).toBeNull();
     expect(screen.getByLabelText("新しいタスク")).toBeTruthy();
     expect(screen.getByRole("region", { name: "設定" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "詳細を閉じる" }).getAttribute("aria-expanded")).toBe("true");
@@ -129,7 +129,7 @@ describe("TaskDrawer", () => {
     expect(overview.getByText("00:50")).toBeTruthy();
     expect(overview.getByText("00:25")).toBeTruthy();
     expect(overview.getByText("完了タスク").nextElementSibling?.textContent).toBe("1");
-    expect(screen.getByRole("region", { name: "今日の記録" }).textContent).toContain("数学の復習");
+    expect(screen.queryByRole("region", { name: "今日の記録" })).toBeNull();
   });
 
   it("keeps settings below an independently scrolling task list", () => {
@@ -367,7 +367,7 @@ describe("TaskDrawer", () => {
     expect(screen.queryByRole("heading", { name: "勉強" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "仕事" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "プロジェクトなし" })).toBeNull();
-    expect(within(list).getByRole("heading", { name: "今日" })).toBeTruthy();
+    expect(within(list).getByRole("region", { name: "今日" })).toBeTruthy();
   });
 
   it("keeps overdue task cards compact while retaining their details", () => {
@@ -567,7 +567,7 @@ describe("TaskDrawer", () => {
     renderDrawer({ tasks: [overdueTask, task] });
 
     const todayList = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
-    expect(within(todayList).getByRole("heading", { name: "今日・期限切れ" })).toBeTruthy();
+    expect(within(todayList).getByRole("region", { name: "今日・期限切れ" })).toBeTruthy();
     expect(within(todayList).getByText("期限切れタスク")).toBeTruthy();
   });
 
@@ -912,7 +912,7 @@ describe("TaskDrawer", () => {
     });
 
     const list = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
-    expect(within(list).getByRole("heading", { name: "今日・期限切れ" })).toBeTruthy();
+    expect(within(list).getByRole("region", { name: "今日・期限切れ" })).toBeTruthy();
     expect(within(list).getByText("数学の復習")).toBeTruthy();
     expect(within(list).getByText("英語の宿題")).toBeTruthy();
     expect(within(list).getByText("机を片づける")).toBeTruthy();
