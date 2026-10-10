@@ -1331,8 +1331,8 @@ export function TaskDrawer({
                   <strong>タスクなし</strong><span>上の入力欄から追加できます。期限なしのタスクも、この一覧に表示されます。</span>
                 </div>}
                 {taskSections.map((section) => (
-                  <section className={`task-list__section${view === "completed" ? " task-list__section--day" : ""}`} aria-labelledby={`task-section-${section.key}`} key={section.key}>
-                    {(taskSections.length > 1 || section.key.startsWith("today-") || view === "completed") && (
+                  <section className={`task-list__section${view === "completed" ? " task-list__section--day" : ""}`} aria-labelledby={view === "today" && !projectId && taskSections.length === 1 && section.key.startsWith("today-") ? undefined : `task-section-${section.key}`} aria-label={view === "today" && !projectId && taskSections.length === 1 && section.key.startsWith("today-") ? section.label : undefined} key={section.key}>
+                    {(taskSections.length > 1 || section.key.startsWith("today-") || view === "completed") && !(view === "today" && !projectId && taskSections.length === 1 && section.key.startsWith("today-")) && (
                       <div className="task-list__section-header">
                         <div className="task-list__section-copy">
                           <h4 id={`task-section-${section.key}`}>{section.label}</h4>

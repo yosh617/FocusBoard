@@ -2278,9 +2278,9 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .task-capture__estimate { display: flex; justify-content: center; padding: 8px 0; border-bottom: 1px solid #e6e8eb; }
 .task-capture__estimate-label { display: none; }
 .task-capture__estimate-options { display: grid; grid-template-columns: repeat(5, 44px); overflow: hidden; border: 1px solid #dfe3e7; border-radius: 9px; }
-.task-capture__estimate button { min-width: 44px; min-height: 40px; padding: 0; color: var(--task-primary-text); border: 0; border-left: 1px solid #dfe3e7; border-radius: 0; background: #fff; font-size: 13px; font-weight: 750; }
+.task-capture__estimate button { min-width: 44px; min-height: 40px; padding: 0; color: #202124; border: 0; border-left: 1px solid #dfe3e7; border-radius: 0; background: #fff; font-size: 13px; font-weight: 750; }
 .task-capture__estimate button:first-child { border-left: 0; }
-.task-capture__estimate button:hover, .task-capture__estimate button.is-active { color: var(--task-primary-text); background: var(--task-primary-soft); }
+.task-capture__estimate button:hover, .task-capture__estimate button.is-active { color: #202124; background: var(--task-primary-soft); }
 .task-capture__estimate button.is-active { box-shadow: inset 0 0 0 2px var(--task-primary-border); }
 .task-capture__estimate-slider { display: grid; grid-template-columns: minmax(120px, 1fr) 62px 36px; align-items: center; width: min(420px, calc(100% - 16px)); gap: 8px; margin-inline: auto; }
 .task-capture__estimate-slider input[type="range"] { width: 100%; min-height: 24px; padding: 0; background: transparent; appearance: none; }
@@ -4152,14 +4152,14 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   min-height: 44px;
   padding: 0 12px;
   border-radius: var(--radius-control);
-  color: var(--color-ink);
-  border-color: color-mix(in srgb, var(--color-ink) 24%, #fff);
-  background: color-mix(in srgb, var(--color-ink) 4%, #fff);
+  color: var(--ui-accent-contrast);
+  border-color: var(--ui-accent);
+  background: var(--ui-accent);
 }
 .settings-content .reset-action:hover:not(:disabled) {
-  color: var(--color-ink);
-  border-color: var(--color-ink);
-  background: color-mix(in srgb, var(--color-ink) 8%, #fff);
+  color: var(--ui-accent-contrast);
+  border-color: color-mix(in srgb, var(--ui-accent) 78%, #000);
+  background: color-mix(in srgb, var(--ui-accent) 86%, #000);
 }
 .settings-content .reset-action:disabled { color: var(--color-mid-gray); border-color: var(--color-hairline); background: var(--color-canvas); opacity: 1; }
 .settings-content .reset-action strong { font-size: 12px; }
