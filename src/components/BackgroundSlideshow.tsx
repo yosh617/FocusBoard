@@ -2,13 +2,14 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import type { BackgroundChoice, BackgroundFrame, BackgroundFrames, FreePosition } from "../types/settings";
 import type { CustomBackground } from "../utils/backgroundStorage";
 import { getBackgroundImageLayout } from "../utils/backgroundFrame";
-import { fallbackBackgroundRgb, getAdaptivePaletteFromSamples, sampleImageColorProfile, type AdaptivePalette, type ImageSampleRegion, type Rgb } from "../utils/adaptiveColor";
+import { defaultAdaptiveAccentOptions, fallbackBackgroundRgb, getAdaptivePaletteFromSamples, sampleImageColorProfile, type AdaptiveAccentOptions, type AdaptivePalette, type ImageSampleRegion, type Rgb } from "../utils/adaptiveColor";
 
 export const defaultBackgrounds = ["backgrounds/bg1.svg", "backgrounds/bg2.svg", "backgrounds/bg3.svg"];
 
 type Props = {
   intervalSec: number;
   overlayOpacity: number;
+  adaptiveAccentOptions?: AdaptiveAccentOptions;
   backgroundChoice: BackgroundChoice;
   customBackgrounds: CustomBackground[];
   hiddenBackgroundIds?: string[];
@@ -76,7 +77,7 @@ function getFocusedSampleRegion(
   return { x: imageX - sampleWidth / 2, y: imageY - sampleHeight / 2, width: sampleWidth, height: sampleHeight };
 }
 
-function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundChoice, customBackgrounds, hiddenBackgroundIds = [], clockPosition = defaultClockPosition, clockFontSize = 104, dateFontSize = 20, showClock = true, showDate = true, showSeconds = false, dateFormat = "", backgroundPosition = defaultBackgroundPosition, backgroundScale = minBackgroundScale, backgroundFrames = {}, editing = false, onEditModeChange, onFramePreview, onFrameChange, onPaletteChange, onActiveBackgroundChange }: Props) {
+function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, adaptiveAccentOptions = defaultAdaptiveAccentOptions, backgroundChoice, customBackgrounds, hiddenBackgroundIds = [], clockPosition = defaultClockPosition, clockFontSize = 104, dateFontSize = 20, showClock = true, showDate = true, showSeconds = false, dateFormat = "", backgroundPosition = defaultBackgroundPosition, backgroundScale = minBackgroundScale, backgroundFrames = {}, editing = false, onEditModeChange, onFramePreview, onFrameChange, onPaletteChange, onActiveBackgroundChange }: Props) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [failed, setFailed] = useState<Set<string>>(() => new Set());
   const [imageRevision, setImageRevision] = useState(0);
@@ -246,8 +247,8 @@ function BackgroundSlideshowComponent({ intervalSec, overlayOpacity, backgroundC
   }, [editing, selectedId, imageRevision, viewportRevision, clockPositionX, clockPositionY, persistedSelectedFrame, clockFontSize, dateFontSize, showClock, showDate, showSeconds, dateFormat]);
 
   const palette = useMemo(
-    () => getAdaptivePaletteFromSamples(selectedSamples, overlayOpacity),
-    [selectedSamples, overlayOpacity]
+    () => getAdaptivePaletteFromSamples(selectedSamples, overlayOpacity, adaptiveAccentOptions),
+    [selectedSamples, overlayOpacity, adaptiveAccentOptions.maxChroma, adaptiveAccentOptions.minLightness, adaptiveAccentOptions.maxLightness]
   );
 
   useEffect(() => onPaletteChange?.(palette), [onPaletteChange, palette]);

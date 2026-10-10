@@ -128,6 +128,12 @@ export function migrateSettings(value: unknown): AppSettings {
     && parsedTimerPositions.landscape === defaultSettings.timerPositions.landscape
     ? { portrait: savedTimerPosition, landscape: savedTimerPosition }
     : parsedTimerPositions;
+  const adaptiveAccentChromaLimit = numberValue(value.adaptiveAccentChromaLimit, defaultSettings.adaptiveAccentChromaLimit, 0.04, 0.32);
+  const adaptiveAccentLightnessMin = numberValue(value.adaptiveAccentLightnessMin, defaultSettings.adaptiveAccentLightnessMin, 0.4, 0.9);
+  const adaptiveAccentLightnessMax = Math.max(
+    adaptiveAccentLightnessMin,
+    numberValue(value.adaptiveAccentLightnessMax, defaultSettings.adaptiveAccentLightnessMax, adaptiveAccentLightnessMin, 0.95)
+  );
 
   return {
     version: 2,
@@ -155,6 +161,9 @@ export function migrateSettings(value: unknown): AppSettings {
     matchTimerBackgroundColors: booleanValue(value.matchTimerBackgroundColors, legacyAutoColors),
     matchBackgroundColors: legacyAutoColors,
     uiAccentColor: colorValue(value.uiAccentColor, defaultSettings.uiAccentColor),
+    adaptiveAccentChromaLimit,
+    adaptiveAccentLightnessMin,
+    adaptiveAccentLightnessMax,
     overlayOpacity: isLegacyTheme && value.overlayOpacity === 0.42
       ? defaultSettings.overlayOpacity
       : numberValue(value.overlayOpacity, defaultSettings.overlayOpacity, 0, 0.85),

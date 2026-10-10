@@ -118,7 +118,11 @@ export default function App() {
   const [taskDetailCardFading, setTaskDetailCardFading] = useState(false);
   const [backgroundEditing, setBackgroundEditing] = useState(false);
   const [activeBackgroundId, setActiveBackgroundId] = useState<string>(() => settings.backgroundChoice === "slideshow" ? "bg1" : settings.backgroundChoice);
-  const [adaptivePalette, setAdaptivePalette] = useState<AdaptivePalette>(() => getAdaptivePalette(fallbackBackgroundRgb, settings.overlayOpacity));
+  const [adaptivePalette, setAdaptivePalette] = useState<AdaptivePalette>(() => getAdaptivePalette(fallbackBackgroundRgb, settings.overlayOpacity, {
+    maxChroma: settings.adaptiveAccentChromaLimit,
+    minLightness: settings.adaptiveAccentLightnessMin,
+    maxLightness: settings.adaptiveAccentLightnessMax
+  }));
   const taskDetailCardTimeoutRef = useRef<number | null>(null);
   const taskDetailCardFadeTimeoutRef = useRef<number | null>(null);
   const previousTimerModeRef = useRef(timer.mode);
@@ -487,9 +491,9 @@ export default function App() {
     "--ui-accent-soft": `color-mix(in srgb, ${uiAccentColor} 12%, white)`,
     "--ui-accent-contrast": getReadableTextColorForHex(uiAccentColor),
     "--timer-accent": timerColor,
-    "--timer-accent-strong": getStrongAccent(timerColor),
+    "--timer-accent-strong": getStrongAccent(timerColor, settings.matchTimerBackgroundColors ? settings.adaptiveAccentChromaLimit : undefined),
     "--adaptive-accent": timerColor,
-    "--adaptive-accent-strong": getStrongAccent(timerColor),
+    "--adaptive-accent-strong": getStrongAccent(timerColor, settings.matchTimerBackgroundColors ? settings.adaptiveAccentChromaLimit : undefined),
     "--timer-background-opacity": settings.timerBackgroundOpacity,
     "--task-primary": taskTheme.primary,
     "--task-primary-hover": taskTheme.hover,
@@ -579,6 +583,11 @@ export default function App() {
       <BackgroundSlideshow
         intervalSec={settings.slideshowIntervalSec}
         overlayOpacity={settings.overlayOpacity}
+        adaptiveAccentOptions={{
+          maxChroma: settings.adaptiveAccentChromaLimit,
+          minLightness: settings.adaptiveAccentLightnessMin,
+          maxLightness: settings.adaptiveAccentLightnessMax
+        }}
         backgroundChoice={settings.backgroundChoice}
         customBackgrounds={backgrounds}
         hiddenBackgroundIds={settings.hiddenBackgroundIds}

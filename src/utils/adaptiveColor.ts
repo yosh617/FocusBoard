@@ -8,6 +8,17 @@ export type AdaptivePalette = {
   accent: string;
   accentStrong: string;
 };
+export type AdaptiveAccentOptions = {
+  maxChroma: number;
+  minLightness: number;
+  maxLightness: number;
+};
+
+export const defaultAdaptiveAccentOptions: AdaptiveAccentOptions = {
+  maxChroma: 0.18,
+  minLightness: 0.64,
+  maxLightness: 0.84
+};
 
 export const fallbackBackgroundRgb: Rgb = { r: 195, g: 221, b: 247 };
 
@@ -28,32 +39,82 @@ function contrastRatio(a: Rgb, b: Rgb) {
   return (light + .05) / (dark + .05);
 }
 
-function rgbToHue({ r, g, b }: Rgb) {
-  const red = r / 255;
-  const green = g / 255;
-  const blue = b / 255;
-  const max = Math.max(red, green, blue);
-  const min = Math.min(red, green, blue);
-  const delta = max - min;
-  if (delta < .04) return 205;
-  const segment = max === red
-    ? ((green - blue) / delta) % 6
-    : max === green ? (blue - red) / delta + 2 : (red - green) / delta + 4;
-  return Math.round((segment * 60 + 360) % 360);
+function srgbToLinear(value: number) {
+  const channel = value / 255;
+  return channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4;
 }
 
-function hslToHex(hue: number, saturation: number, lightness: number) {
-  const s = saturation / 100;
-  const l = lightness / 100;
-  const chroma = (1 - Math.abs(2 * l - 1)) * s;
-  const x = chroma * (1 - Math.abs((hue / 60) % 2 - 1));
-  const m = l - chroma / 2;
-  const [red, green, blue] = hue < 60 ? [chroma, x, 0]
-    : hue < 120 ? [x, chroma, 0]
-      : hue < 180 ? [0, chroma, x]
-        : hue < 240 ? [0, x, chroma]
-          : hue < 300 ? [x, 0, chroma] : [chroma, 0, x];
-  return `#${[red, green, blue].map((value) => Math.round((value + m) * 255).toString(16).padStart(2, "0")).join("")}`;
+function rgbToOklch({ r, g, b }: Rgb) {
+  const red = srgbToLinear(r);
+  const green = srgbToLinear(g);
+  const blue = srgbToLinear(b);
+  const l = Math.cbrt(.4122214708 * red + .5363325363 * green + .0514459929 * blue);
+  const m = Math.cbrt(.2119034982 * red + .6806995451 * green + .1073969566 * blue);
+  const s = Math.cbrt(.0883024619 * red + .2817188376 * green + .6299787005 * blue);
+  const lightness = .2104542553 * l + .793617785 * m - .0040720468 * s;
+  const a = 1.9779984951 * l - 2.428592205 * m + .4505937099 * s;
+  const bAxis = .0259040371 * l + .7827717662 * m - .808675766 * s;
+  return {
+    lightness,
+    chroma: Math.hypot(a, bAxis),
+    hue: (Math.atan2(bAxis, a) * 180 / Math.PI + 360) % 360
+  };
+}
+
+function oklchToLinearRgb(lightness: number, chroma: number, hue: number): Rgb {
+  const angle = hue * Math.PI / 180;
+  const a = chroma * Math.cos(angle);
+  const b = chroma * Math.sin(angle);
+  const lRoot = lightness + .3963377774 * a + .2158037573 * b;
+  const mRoot = lightness - .1055613458 * a - .0638541728 * b;
+  const sRoot = lightness - .0894841775 * a - 1.291485548 * b;
+  const l = lRoot ** 3;
+  const m = mRoot ** 3;
+  const s = sRoot ** 3;
+  return {
+    r: 4.0767416621 * l - 3.3077115913 * m + .2309699292 * s,
+    g: -1.2684380046 * l + 2.6097574011 * m - .3413193965 * s,
+    b: -.0041960863 * l - .7034186147 * m + 1.707614701 * s
+  };
+}
+
+function isLinearRgbInGamut({ r, g, b }: Rgb) {
+  return r >= 0 && r <= 1 && g >= 0 && g <= 1 && b >= 0 && b <= 1;
+}
+
+function linearToSrgb(value: number) {
+  const channel = clamp(value, 0, 1);
+  return channel <= .0031308 ? 12.92 * channel : 1.055 * channel ** (1 / 2.4) - .055;
+}
+
+function oklchToHex(lightness: number, chroma: number, hue: number) {
+  let low = 0;
+  let high = chroma;
+  let linearRgb = oklchToLinearRgb(lightness, high, hue);
+  if (!isLinearRgbInGamut(linearRgb)) {
+    for (let index = 0; index < 16; index += 1) {
+      const middle = (low + high) / 2;
+      const candidate = oklchToLinearRgb(lightness, middle, hue);
+      if (isLinearRgbInGamut(candidate)) low = middle;
+      else high = middle;
+    }
+    linearRgb = oklchToLinearRgb(lightness, low, hue);
+  }
+  const encoded: Rgb = {
+    r: linearToSrgb(linearRgb.r) * 255,
+    g: linearToSrgb(linearRgb.g) * 255,
+    b: linearToSrgb(linearRgb.b) * 255
+  };
+  return rgbToHex(encoded);
+}
+
+function createAdaptiveAccent(source: Rgb, options: AdaptiveAccentOptions) {
+  const sourceOklch = rgbToOklch(source);
+  const isNeutral = sourceOklch.chroma < .008;
+  const hue = isNeutral ? 220 : sourceOklch.hue;
+  const lightness = clamp(sourceOklch.lightness, options.minLightness, options.maxLightness);
+  const chroma = Math.min(isNeutral ? .06 : sourceOklch.chroma, options.maxChroma);
+  return oklchToHex(lightness, chroma, hue);
 }
 
 function rgbToHex({ r, g, b }: Rgb) {
@@ -101,7 +162,14 @@ export function getReadableTextColorFromSamples(samples: Rgb[]) {
   return darkScore >= lightScore ? "#122a4c" : "#f7fbff";
 }
 
-export function getStrongAccent(accent: string) {
+function capColorChroma(color: string, maxChroma: number) {
+  const source = hexToRgb(color);
+  if (!source) return color;
+  const oklch = rgbToOklch(source);
+  return oklchToHex(oklch.lightness, Math.min(oklch.chroma, maxChroma), oklch.hue);
+}
+
+export function getStrongAccent(accent: string, maxChroma?: number) {
   const source = hexToRgb(accent);
   if (!source) return "#315f98";
   const white: Rgb = { r: 255, g: 255, b: 255 };
@@ -112,12 +180,19 @@ export function getStrongAccent(accent: string) {
       g: source.g * (1 - amount) + dark.g * amount,
       b: source.b * (1 - amount) + dark.b * amount
     };
-    if (contrastRatio(mixed, white) >= 4.5) return rgbToHex(mixed);
+    const candidate = rgbToHex(mixed);
+    const bounded = maxChroma === undefined ? candidate : capColorChroma(candidate, maxChroma);
+    const boundedRgb = hexToRgb(bounded);
+    if (boundedRgb && contrastRatio(boundedRgb, white) >= 4.5) return bounded;
   }
-  return "#263e5d";
+  return maxChroma === undefined ? "#263e5d" : capColorChroma("#263e5d", maxChroma);
 }
 
-export function getAdaptivePalette(source: Rgb, overlayOpacity: number): AdaptivePalette {
+export function getAdaptivePalette(
+  source: Rgb,
+  overlayOpacity: number,
+  accentOptions: AdaptiveAccentOptions = defaultAdaptiveAccentOptions
+): AdaptivePalette {
   const opacity = clamp(overlayOpacity, 0, .85);
   const overlay: Rgb = { r: 241, g: 247, b: 255 };
   const background: Rgb = {
@@ -126,18 +201,22 @@ export function getAdaptivePalette(source: Rgb, overlayOpacity: number): Adaptiv
     b: source.b * (1 - opacity) + overlay.b * opacity
   };
   const text = getReadableTextColor(background);
-  const hue = rgbToHue(source);
+  const accent = createAdaptiveAccent(source, accentOptions);
 
   return {
     text,
     textContrast: contrastRatio(background, hexToRgb(text) ?? darkText),
-    accent: hslToHex(hue, 40, 52),
-    accentStrong: hslToHex(hue, 42, 36)
+    accent,
+    accentStrong: getStrongAccent(accent, accentOptions.maxChroma)
   };
 }
 
-export function getAdaptivePaletteFromSamples(samples: Rgb[], overlayOpacity: number): AdaptivePalette {
-  if (!samples.length) return getAdaptivePalette(fallbackBackgroundRgb, overlayOpacity);
+export function getAdaptivePaletteFromSamples(
+  samples: Rgb[],
+  overlayOpacity: number,
+  accentOptions: AdaptiveAccentOptions = defaultAdaptiveAccentOptions
+): AdaptivePalette {
+  if (!samples.length) return getAdaptivePalette(fallbackBackgroundRgb, overlayOpacity, accentOptions);
   const source = samples.reduce((total, sample) => ({
     r: total.r + sample.r / samples.length,
     g: total.g + sample.g / samples.length,
@@ -151,11 +230,12 @@ export function getAdaptivePaletteFromSamples(samples: Rgb[], overlayOpacity: nu
     b: sample.b * (1 - opacity) + overlay.b * opacity
   }));
   const text = getReadableTextColorFromSamples(overlaidSamples);
+  const accent = createAdaptiveAccent(source, accentOptions);
   return {
     text,
     textContrast: minimumContrastForSamples(overlaidSamples, text),
-    accent: hslToHex(rgbToHue(source), 40, 52),
-    accentStrong: hslToHex(rgbToHue(source), 42, 36)
+    accent,
+    accentStrong: getStrongAccent(accent, accentOptions.maxChroma)
   };
 }
 

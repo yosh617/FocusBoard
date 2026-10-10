@@ -108,6 +108,9 @@ export type AppSettings = {
   matchBackgroundColors: boolean;
   /** UI-wide accent color, kept separate from clock and timer colors. */
   uiAccentColor: string;
+  adaptiveAccentChromaLimit: number;
+  adaptiveAccentLightnessMin: number;
+  adaptiveAccentLightnessMax: number;
   overlayOpacity: number;
   backgroundScale: number;
   backgroundPosition: FreePosition;
@@ -172,6 +175,9 @@ export const defaultSettings: AppSettings = {
   accentColor: "#91bde8",
   matchBackgroundColors: false,
   uiAccentColor: "#315f98",
+  adaptiveAccentChromaLimit: 0.18,
+  adaptiveAccentLightnessMin: 0.64,
+  adaptiveAccentLightnessMax: 0.84,
   overlayOpacity: 0.16,
   backgroundScale: 100,
   backgroundPosition: { x: 0.5, y: 0.5 },
