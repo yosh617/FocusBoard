@@ -3594,11 +3594,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   --task-primary-border: color-mix(in srgb, var(--timer-setup-accent) 42%, white);
   --task-primary-text: #17345f;
 }
-.floating-timer__controls .floating-timer__primary {
-  color: var(--timer-setup-accent-contrast);
-  border-color: var(--timer-setup-accent-strong);
-  background: var(--timer-setup-accent-strong);
-}
 .floating-timer__controls button:hover {
   border-color: var(--timer-setup-accent);
   background: color-mix(in srgb, var(--timer-setup-accent) 30%, transparent);
