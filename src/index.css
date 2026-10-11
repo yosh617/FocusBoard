@@ -3586,18 +3586,24 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .timer-return-button,
 .timer-end-button { color: var(--ui-accent-contrast); }
 .timer-task-picker {
-  --timer-accent: var(--ui-accent);
-  --timer-accent-strong: var(--ui-accent);
+  --timer-accent: var(--timer-setup-accent);
+  --timer-accent-strong: var(--timer-setup-accent-strong);
+  --task-primary: var(--timer-setup-accent);
+  --task-primary-hover: var(--timer-setup-accent-strong);
+  --task-primary-soft: color-mix(in srgb, var(--timer-setup-accent) 12%, white);
+  --task-primary-border: color-mix(in srgb, var(--timer-setup-accent) 42%, white);
+  --task-primary-text: #17345f;
 }
 .floating-timer__controls .floating-timer__primary {
-  color: var(--ui-accent-contrast);
-  border-color: var(--ui-accent);
-  background: var(--ui-accent);
+  color: var(--timer-setup-accent-contrast);
+  border-color: var(--timer-setup-accent-strong);
+  background: var(--timer-setup-accent-strong);
 }
 .floating-timer__controls button:hover {
-  border-color: var(--ui-accent);
-  background: color-mix(in srgb, var(--ui-accent) 30%, transparent);
+  border-color: var(--timer-setup-accent);
+  background: color-mix(in srgb, var(--timer-setup-accent) 30%, transparent);
 }
+.timer-setup .timer-end-button { color: var(--timer-setup-accent-contrast); }
 
 @media (max-width: 520px) {
   .timer-card.timer-setup { padding: 18px; }
@@ -3619,7 +3625,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .timer-start-button { min-height: 42px; }
 }
 
-/* Settings actions use the shared UI accent; task-theme colors stay inside Tasks. */
+/* Settings and task surfaces follow the app theme; timer actions use the background accent. */
 .settings-drawer .primary-button {
   color: var(--accent-contrast);
   border-color: var(--accent);

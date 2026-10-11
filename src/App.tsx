@@ -17,7 +17,7 @@ import { useFullscreen } from "./hooks/useFullscreen";
 import { useOrientation } from "./hooks/useOrientation";
 import { useTasks } from "./hooks/useTasks";
 import { useTaskReminders } from "./hooks/useTaskReminders";
-import { defaultSettings, fontOptions, positionPresets, taskThemePresets, type OrientationPositions, type PositionPreset } from "./types/settings";
+import { defaultSettings, fontOptions, positionPresets, type OrientationPositions, type PositionPreset } from "./types/settings";
 import type { TimerSessionEvent } from "./types/timer";
 import { getAdaptivePalette, fallbackBackgroundRgb, getReadableTextColorForHex, getStrongAccent, type AdaptivePalette } from "./utils/adaptiveColor";
 import { getFocusedDurationMs } from "./utils/focusSession";
@@ -478,32 +478,33 @@ export default function App() {
   settingsOpenRef.current = settingsOpen;
   sessionOverlayOpenRef.current = completedSession !== null && completedTask !== null;
   const clockColor = activeClockSetting.matchColors ? adaptivePalette.text : activeClockSetting.color;
-  const timerColor = settings.matchTimerBackgroundColors ? adaptivePalette.accent : settings.timerColor;
-  const taskTheme = taskThemePresets[settings.taskTheme];
+  const timerColor = adaptivePalette.accent;
   const uiAccentColor = settings.uiAccentColor;
+  const taskPrimary = `color-mix(in srgb, ${uiAccentColor} 42%, white)`;
+  const taskPrimaryHover = `color-mix(in srgb, ${uiAccentColor} 55%, white)`;
   const appStyle = {
     color: clockColor,
     fontFamily: fontOptions[settings.fontFamily as keyof typeof fontOptions] ?? fontOptions.system,
-    "--accent": timerColor,
-    "--accent-soft": `color-mix(in srgb, ${timerColor} 12%, white)`,
-    "--accent-contrast": getReadableTextColorForHex(timerColor),
+    "--accent": uiAccentColor,
+    "--accent-soft": `color-mix(in srgb, ${uiAccentColor} 12%, white)`,
+    "--accent-contrast": getReadableTextColorForHex(uiAccentColor),
     "--ui-accent": uiAccentColor,
     "--ui-accent-soft": `color-mix(in srgb, ${uiAccentColor} 12%, white)`,
     "--ui-accent-contrast": getReadableTextColorForHex(uiAccentColor),
     "--timer-accent": timerColor,
-    "--timer-accent-strong": getStrongAccent(timerColor, settings.matchTimerBackgroundColors ? settings.adaptiveAccentChromaLimit : undefined),
-    "--timer-setup-accent": adaptivePalette.accent,
-    "--timer-setup-accent-strong": getStrongAccent(adaptivePalette.accent, settings.adaptiveAccentChromaLimit),
-    "--timer-setup-accent-contrast": getReadableTextColorForHex(getStrongAccent(adaptivePalette.accent, settings.adaptiveAccentChromaLimit)),
+    "--timer-accent-strong": getStrongAccent(timerColor, settings.adaptiveAccentChromaLimit),
+    "--timer-setup-accent": timerColor,
+    "--timer-setup-accent-strong": getStrongAccent(timerColor, settings.adaptiveAccentChromaLimit),
+    "--timer-setup-accent-contrast": getReadableTextColorForHex(getStrongAccent(timerColor, settings.adaptiveAccentChromaLimit)),
     "--adaptive-accent": timerColor,
-    "--adaptive-accent-strong": getStrongAccent(timerColor, settings.matchTimerBackgroundColors ? settings.adaptiveAccentChromaLimit : undefined),
+    "--adaptive-accent-strong": getStrongAccent(timerColor, settings.adaptiveAccentChromaLimit),
     "--timer-background-opacity": settings.timerBackgroundOpacity,
-    "--task-primary": taskTheme.primary,
-    "--task-primary-hover": taskTheme.hover,
-    "--task-primary-soft": taskTheme.soft,
-    "--task-primary-border": taskTheme.border,
-    "--task-primary-text": taskTheme.text,
-    "--task-primary-shadow": taskTheme.shadow
+    "--task-primary": taskPrimary,
+    "--task-primary-hover": taskPrimaryHover,
+    "--task-primary-soft": `color-mix(in srgb, ${uiAccentColor} 10%, white)`,
+    "--task-primary-border": `color-mix(in srgb, ${uiAccentColor} 38%, white)`,
+    "--task-primary-text": "#17345f",
+    "--task-primary-shadow": `color-mix(in srgb, ${uiAccentColor} 32%, transparent)`
   } as CSSProperties;
   const taskLauncherVisible = (settings.taskLauncherVisibility === "always" && !(settings.dateDisplayStyle === "calendar" && timer.status === "idle" && !settings.timerSetupCollapsed)) || taskDetailCardVisible;
   const timerSetupLayoutActive = settings.showTimer && (timer.status === "idle" ? !settings.timerSetupCollapsed : timerSetupVisible);

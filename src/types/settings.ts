@@ -170,7 +170,7 @@ export const defaultSettings: AppSettings = {
   clockColor: "#17345f",
   timerColor: "#91bde8",
   matchClockBackgroundColors: true,
-  matchTimerBackgroundColors: false,
+  matchTimerBackgroundColors: true,
   textColor: "#17345f",
   accentColor: "#91bde8",
   matchBackgroundColors: false,

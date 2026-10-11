@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
-import { defaultSettings, taskThemePresets } from "./types/settings";
+import { defaultSettings } from "./types/settings";
 import type { FocusSessionRecord } from "./types/focusSession";
 import type { ProjectRecord } from "./types/project";
 import type { TaskRecord } from "./types/task";
@@ -271,20 +271,21 @@ describe("App", () => {
     expect(document.querySelector(".task-launcher")).toBeNull();
   });
 
-  it("applies, persists, and resets the task workspace theme from display settings", () => {
+  it("uses the app theme color for the task workspace", () => {
     render(<App />);
     openSettings();
     fireEvent.click(screen.getByRole("tab", { name: "表示" }));
     fireEvent.click(screen.getByText("タスク画面"));
-    const taskThemes = screen.getByRole("radiogroup", { name: "テーマ" });
-    const violet = within(taskThemes).getByRole("radio", { name: /バイオレット/ });
-    expect(violet.getAttribute("aria-checked")).toBe("false");
-    fireEvent.click(violet);
-    expect(violet.getAttribute("aria-checked")).toBe("true");
-    expect(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}").taskTheme).toBe("violet");
-    expect(document.querySelector<HTMLElement>(".app-shell")?.style.getPropertyValue("--task-primary")).toBe("#c9b8f4");
+    expect(screen.getByText("タスク画面のテーマ色はアプリのテーマ色と共通です。")).toBeTruthy();
+
+    fireEvent.click(screen.getByText("テーマの色"));
+    const accentPicker = screen.getByRole("region", { name: "アプリのテーマ" });
+    fireEvent.click(within(accentPicker).getByRole("button", { name: /推奨テーマ ピーチ/ }));
+    expect(JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}").uiAccentColor).toBe("#e5b49a");
+    expect(document.querySelector<HTMLElement>(".app-shell")?.style.getPropertyValue("--task-primary")).toBe("color-mix(in srgb, #e5b49a 42%, white)");
+
     fireEvent.click(screen.getByRole("button", { name: "表示を初期値に戻す" }));
-    expect(document.querySelector<HTMLElement>(".app-shell")?.style.getPropertyValue("--task-primary")).toBe(taskThemePresets[defaultSettings.taskTheme].primary);
+    expect(document.querySelector<HTMLElement>(".app-shell")?.style.getPropertyValue("--task-primary")).toBe(`color-mix(in srgb, ${defaultSettings.uiAccentColor} 42%, white)`);
   });
 
   it("applies, persists, and resets the theme independently from clock and timer colors", () => {
@@ -873,14 +874,12 @@ describe("App", () => {
     const clockColor = within(clockPicker).getByRole("textbox", { name: "Hex Color" }) as HTMLInputElement;
     fireEvent.change(clockColor, { target: { value: "#112233" } });
     fireEvent.click(screen.getByRole("tab", { name: "タイマー" }));
-    const timerPicker = screen.getByRole("region", { name: "タイマーの色" });
-    fireEvent.click(within(timerPicker).getByRole("tab", { name: "スライダー" }));
-    const timerColor = within(timerPicker).getByRole("textbox", { name: "Hex Color" }) as HTMLInputElement;
-    fireEvent.change(timerColor, { target: { value: "#aabbcc" } });
     expect(clockColor.value).toBe("#112233");
-    expect(timerColor.value).toBe("#AABBCC");
     expect(screen.getByRole("button", { name: "時計とカレンダーの表示設定を開く" }).style.color).toBe("rgb(17, 34, 51)");
-    expect(document.querySelector<HTMLElement>(".app-shell")?.style.getPropertyValue("--timer-accent")).toBe("#aabbcc");
+    expect(screen.getByText("背景画像に合わせて、タイマー本体と設定画面の差し色を自動調整します。")).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "タイマーの色" })).toBeNull();
+    const appShell = document.querySelector<HTMLElement>(".app-shell");
+    expect(appShell?.style.getPropertyValue("--timer-accent")).toBe(appShell?.style.getPropertyValue("--timer-setup-accent"));
 
     fireEvent.click(screen.getByRole("tab", { name: "表示" }));
     fireEvent.click(screen.getByText("時計・日付の見やすさ"));
@@ -889,21 +888,17 @@ describe("App", () => {
     expect(clockAutoToggle.checked).toBe(true);
     expect(screen.queryByLabelText("時計・日付の色")).toBeNull();
     fireEvent.click(screen.getByRole("tab", { name: "タイマー" }));
-    expect(screen.getByRole("region", { name: "タイマーの色" })).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "タイマーの色" })).toBeNull();
   });
 
-  it("allows clock and timer adaptive colors to be toggled separately", () => {
+  it("keeps clock text color controls separate from the timer accent", () => {
     render(<App />);
     openSettings();
     fireEvent.click(screen.getByRole("tab", { name: "表示" }));
     fireEvent.click(screen.getByText("時計・日付の見やすさ"));
     const clockAutoToggle = screen.getByLabelText("自動調整") as HTMLInputElement;
     fireEvent.click(clockAutoToggle);
-    expect(screen.getByRole("region", { name: "時計・日付の色" })).toBeTruthy();
     fireEvent.click(screen.getByRole("tab", { name: "タイマー" }));
-    expect(screen.getByRole("region", { name: "タイマーの色" })).toBeTruthy();
-    const timerAutoToggle = screen.getByLabelText("背景に合わせて自動調整") as HTMLInputElement;
-    fireEvent.click(timerAutoToggle);
     expect(screen.queryByRole("region", { name: "タイマーの色" })).toBeNull();
     fireEvent.click(screen.getByRole("tab", { name: "表示" }));
     fireEvent.click(screen.getByText("時計・日付の見やすさ"));
