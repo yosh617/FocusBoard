@@ -83,18 +83,6 @@ function ClockColorChoices({ value, onChange }: { value: string; onChange: (valu
     />
   </div>;
 }
-function AdaptiveAccentControls({ settings, accent, onChange }: { settings: AppSettings; accent: string; onChange: (patch: Partial<AppSettings>) => void }) {
-  return <Disclosure label="自動色の制限">
-    <div className="color-setting-group color-setting-group--disclosure">
-      <p>自動調整をオンにすると反映します。Cの上限を0.10〜1.00で調整できます。上限なしにもできます。</p>
-      <div className="adaptive-color-preview"><span aria-hidden="true" style={{ backgroundColor: accent }} /><span>現在の自動色 <output>{accent}</output></span></div>
-      <Toggle id="adaptive-accent-chroma-unlimited" label="鮮やかさの上限なし" checked={settings.adaptiveAccentChromaLimit === null} onChange={(unlimited) => onChange({ adaptiveAccentChromaLimit: unlimited ? null : 0.1 })} />
-      <Range id="adaptive-accent-chroma" label="鮮やかさの上限 C" value={settings.adaptiveAccentChromaLimit ?? 0.1} min={0.1} max={1} step={0.01} unit="" initial={defaultSettings.adaptiveAccentChromaLimit ?? 0.18} disabled={settings.adaptiveAccentChromaLimit === null} formatValue={(value) => settings.adaptiveAccentChromaLimit === null ? "なし" : value.toFixed(2)} onChange={(adaptiveAccentChromaLimit) => onChange({ adaptiveAccentChromaLimit })} />
-      <Range id="adaptive-accent-lightness-min" label="明るさの下限 L" value={Math.round(settings.adaptiveAccentLightnessMin * 100)} min={40} max={Math.round(settings.adaptiveAccentLightnessMax * 100)} step={1} unit="%" initial={Math.min(defaultSettings.adaptiveAccentLightnessMin * 100, settings.adaptiveAccentLightnessMax * 100)} onChange={(value) => onChange({ adaptiveAccentLightnessMin: value / 100 })} />
-      <Range id="adaptive-accent-lightness-max" label="明るさの上限 L" value={Math.round(settings.adaptiveAccentLightnessMax * 100)} min={Math.round(settings.adaptiveAccentLightnessMin * 100)} max={95} step={1} unit="%" initial={Math.max(defaultSettings.adaptiveAccentLightnessMax * 100, settings.adaptiveAccentLightnessMin * 100)} onChange={(value) => onChange({ adaptiveAccentLightnessMax: value / 100 })} />
-    </div>
-  </Disclosure>;
-}
 function ThemeColorChoices({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return <div className="theme-color-settings">
     <ColorPicker id="ui-accent-color" label="アプリのテーマ" value={value} themeColors={uiAccentSavedColors} onChange={onChange} />
@@ -333,7 +321,6 @@ export function SettingsPanel({ open, settings, orientation, saveState, onChange
     <nav className="settings-tabs" aria-label="設定カテゴリー" role="tablist" ref={tabsRef}>{categories.map((item) => <button id={`settings-tab-${item.id}`} type="button" role="tab" tabIndex={category === item.id ? 0 : -1} aria-selected={category === item.id} aria-controls="settings-category-panel" className={category === item.id ? "is-active" : ""} onClick={() => setCategory(item.id)} onKeyDown={handleCategoryKeyDown} key={item.id}><SettingsCategoryIcon category={item.id} /><span>{item.label}</span></button>)}</nav>
     <div className={`settings-content settings-content--${category}`} ref={contentRef}>
       <section id="settings-category-panel" className="settings-section" role="tabpanel" aria-labelledby={`settings-tab-${category}`} tabIndex={0} data-category={category}>
-      {category === "timer" && <AdaptiveAccentControls settings={settings} accent={adaptivePalette.accent} onChange={onChange} />}
       {category === "background" && <BackgroundSettings settings={settings} frame={backgroundFrame} customBackgrounds={customBackgrounds} frameOptions={frameOptions} frameTarget={frameTarget} onFrameTargetChange={(target) => { setFrameTarget(target); onChange({ backgroundChoice: target }); }} onStartBackgroundEditing={onStartBackgroundEditing} onChange={onChange} uploads={uploads} move={move} onRemoveBackground={onRemoveBackground} />}
       {category === "display" && <>
         <Toggle id="show-clock" label="時計を表示" checked={settings.showClock} onChange={(showClock) => onChange({ showClock })} />
