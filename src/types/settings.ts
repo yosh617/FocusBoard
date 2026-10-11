@@ -108,7 +108,7 @@ export type AppSettings = {
   matchBackgroundColors: boolean;
   /** UI-wide accent color, kept separate from clock and timer colors. */
   uiAccentColor: string;
-  adaptiveAccentChromaLimit: number;
+  adaptiveAccentChromaLimit: number | null;
   adaptiveAccentLightnessMin: number;
   adaptiveAccentLightnessMax: number;
   overlayOpacity: number;

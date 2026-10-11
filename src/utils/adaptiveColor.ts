@@ -9,7 +9,7 @@ export type AdaptivePalette = {
   accentStrong: string;
 };
 export type AdaptiveAccentOptions = {
-  maxChroma: number;
+  maxChroma: number | null;
   minLightness: number;
   maxLightness: number;
 };
@@ -113,7 +113,9 @@ function createAdaptiveAccent(source: Rgb, options: AdaptiveAccentOptions) {
   const isNeutral = sourceOklch.chroma < .008;
   const hue = isNeutral ? 220 : sourceOklch.hue;
   const lightness = clamp(sourceOklch.lightness, options.minLightness, options.maxLightness);
-  const chroma = Math.min(isNeutral ? .06 : sourceOklch.chroma, options.maxChroma);
+  const chroma = options.maxChroma === null
+    ? sourceOklch.chroma
+    : Math.min(isNeutral ? .06 : sourceOklch.chroma, options.maxChroma);
   return oklchToHex(lightness, chroma, hue);
 }
 
@@ -169,7 +171,7 @@ function capColorChroma(color: string, maxChroma: number) {
   return oklchToHex(oklch.lightness, Math.min(oklch.chroma, maxChroma), oklch.hue);
 }
 
-export function getStrongAccent(accent: string, maxChroma?: number) {
+export function getStrongAccent(accent: string, maxChroma?: number | null) {
   const source = hexToRgb(accent);
   if (!source) return "#315f98";
   const white: Rgb = { r: 255, g: 255, b: 255 };
@@ -181,11 +183,11 @@ export function getStrongAccent(accent: string, maxChroma?: number) {
       b: source.b * (1 - amount) + dark.b * amount
     };
     const candidate = rgbToHex(mixed);
-    const bounded = maxChroma === undefined ? candidate : capColorChroma(candidate, maxChroma);
+    const bounded = maxChroma == null ? candidate : capColorChroma(candidate, maxChroma);
     const boundedRgb = hexToRgb(bounded);
     if (boundedRgb && contrastRatio(boundedRgb, white) >= 4.5) return bounded;
   }
-  return maxChroma === undefined ? "#263e5d" : capColorChroma("#263e5d", maxChroma);
+  return maxChroma == null ? "#263e5d" : capColorChroma("#263e5d", maxChroma);
 }
 
 export function getAdaptivePalette(

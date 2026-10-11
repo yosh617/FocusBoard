@@ -128,7 +128,9 @@ export function migrateSettings(value: unknown): AppSettings {
     && parsedTimerPositions.landscape === defaultSettings.timerPositions.landscape
     ? { portrait: savedTimerPosition, landscape: savedTimerPosition }
     : parsedTimerPositions;
-  const adaptiveAccentChromaLimit = numberValue(value.adaptiveAccentChromaLimit, defaultSettings.adaptiveAccentChromaLimit, 0.04, 0.32);
+  const adaptiveAccentChromaLimit = value.adaptiveAccentChromaLimit === null
+    ? null
+    : numberValue(value.adaptiveAccentChromaLimit, defaultSettings.adaptiveAccentChromaLimit, 0.1, 1);
   const adaptiveAccentLightnessMin = numberValue(value.adaptiveAccentLightnessMin, defaultSettings.adaptiveAccentLightnessMin, 0.4, 0.9);
   const adaptiveAccentLightnessMax = Math.max(
     adaptiveAccentLightnessMin,

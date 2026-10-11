@@ -63,14 +63,14 @@ function Toggle({ id, label, checked, disabled = false, onChange }: { id: string
 function Disclosure({ label, children }: { label: string; children: ReactNode }) {
   return <details className="settings-disclosure" style={{ overflow: "visible" }}><summary><span>{label}</span><span className="settings-disclosure__chevron" aria-hidden="true" /></summary><div className="settings-disclosure__body">{children}</div></details>;
 }
-function Range({ id, label, value, min, max, step, unit, initial, formatValue, onChange }: { id: string; label: string; value: number; min: number; max: number; step: number; unit: string; initial: number; formatValue?: (value: number) => string; onChange: (value: number) => void }) {
+function Range({ id, label, value, min, max, step, unit, initial, formatValue, disabled = false, onChange }: { id: string; label: string; value: number; min: number; max: number; step: number; unit: string; initial: number; formatValue?: (value: number) => string; disabled?: boolean; onChange: (value: number) => void }) {
   const input = (next: string) => {
     const parsed = Number(next);
     if (Number.isFinite(parsed)) onChange(Math.min(max, Math.max(min, parsed)));
   };
   const progress = max === min ? 0 : ((value - min) / (max - min)) * 100;
   const rangeStyle = { "--range-progress": `${progress}%` } as CSSProperties;
-  return <div className="setting-control range-control"><label htmlFor={id}>{label}<output>{formatValue ? formatValue(value) : `${value}${unit}`}</output></label><div className="range-control__inputs"><input id={id} className="settings-range" type="range" min={min} max={max} step={step} value={value} style={rangeStyle} aria-valuemin={min} aria-valuemax={max} aria-valuenow={value} onChange={(event) => input(event.target.value)} /><input className="number-input" aria-label={`${label}の数値`} type="number" min={min} max={max} step={step} value={value} onChange={(event) => input(event.target.value)} />{unit && <span>{unit}</span>}<button type="button" className="reset-value" aria-label={`${label}を初期値に戻す`} onClick={() => onChange(initial)}>戻す</button></div></div>;
+  return <div className="setting-control range-control"><label htmlFor={id}>{label}<output>{formatValue ? formatValue(value) : `${value}${unit}`}</output></label><div className="range-control__inputs"><input id={id} className="settings-range" type="range" min={min} max={max} step={step} value={value} style={rangeStyle} aria-valuemin={min} aria-valuemax={max} aria-valuenow={value} disabled={disabled} onChange={(event) => input(event.target.value)} /><input className="number-input" aria-label={`${label}の数値`} type="number" min={min} max={max} step={step} value={value} disabled={disabled} onChange={(event) => input(event.target.value)} />{unit && <span>{unit}</span>}<button type="button" className="reset-value" aria-label={`${label}を初期値に戻す`} disabled={disabled} onClick={() => onChange(initial)}>戻す</button></div></div>;
 }
 function ClockColorChoices({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return <div className="clock-color-settings">
@@ -86,9 +86,10 @@ function ClockColorChoices({ value, onChange }: { value: string; onChange: (valu
 function AdaptiveAccentControls({ settings, accent, onChange }: { settings: AppSettings; accent: string; onChange: (patch: Partial<AppSettings>) => void }) {
   return <Disclosure label="自動色の制限">
     <div className="color-setting-group color-setting-group--disclosure">
-      <p>自動調整をオンにすると反映します。Cを上げると鮮やかになり、0.32でほぼ上限なしです。</p>
+      <p>自動調整をオンにすると反映します。Cの上限を0.10〜1.00で調整できます。上限なしにもできます。</p>
       <div className="adaptive-color-preview"><span aria-hidden="true" style={{ backgroundColor: accent }} /><span>現在の自動色 <output>{accent}</output></span></div>
-      <Range id="adaptive-accent-chroma" label="鮮やかさの上限 C" value={settings.adaptiveAccentChromaLimit} min={0.04} max={0.32} step={0.01} unit="" initial={defaultSettings.adaptiveAccentChromaLimit} formatValue={(value) => value.toFixed(2)} onChange={(adaptiveAccentChromaLimit) => onChange({ adaptiveAccentChromaLimit })} />
+      <Toggle id="adaptive-accent-chroma-unlimited" label="鮮やかさの上限なし" checked={settings.adaptiveAccentChromaLimit === null} onChange={(unlimited) => onChange({ adaptiveAccentChromaLimit: unlimited ? null : 0.1 })} />
+      <Range id="adaptive-accent-chroma" label="鮮やかさの上限 C" value={settings.adaptiveAccentChromaLimit ?? 0.1} min={0.1} max={1} step={0.01} unit="" initial={defaultSettings.adaptiveAccentChromaLimit ?? 0.18} disabled={settings.adaptiveAccentChromaLimit === null} formatValue={(value) => settings.adaptiveAccentChromaLimit === null ? "なし" : value.toFixed(2)} onChange={(adaptiveAccentChromaLimit) => onChange({ adaptiveAccentChromaLimit })} />
       <Range id="adaptive-accent-lightness-min" label="明るさの下限 L" value={Math.round(settings.adaptiveAccentLightnessMin * 100)} min={40} max={Math.round(settings.adaptiveAccentLightnessMax * 100)} step={1} unit="%" initial={Math.min(defaultSettings.adaptiveAccentLightnessMin * 100, settings.adaptiveAccentLightnessMax * 100)} onChange={(value) => onChange({ adaptiveAccentLightnessMin: value / 100 })} />
       <Range id="adaptive-accent-lightness-max" label="明るさの上限 L" value={Math.round(settings.adaptiveAccentLightnessMax * 100)} min={Math.round(settings.adaptiveAccentLightnessMin * 100)} max={95} step={1} unit="%" initial={Math.max(defaultSettings.adaptiveAccentLightnessMax * 100, settings.adaptiveAccentLightnessMin * 100)} onChange={(value) => onChange({ adaptiveAccentLightnessMax: value / 100 })} />
     </div>
