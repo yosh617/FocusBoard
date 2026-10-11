@@ -363,14 +363,14 @@ export function SettingsPanel({ open, settings, orientation, saveState, onChange
         <div className="data-cards">
           <section className="data-card" aria-labelledby="data-export-heading">
             <div className="data-card__body">
-              <div><h4 id="data-export-heading">設定をバックアップ</h4></div>
+              <div><h4 id="data-export-heading">設定をバックアップ</h4><p>表示・背景・タイマーの設定を書き出します。</p></div>
               <button className="data-row__action" type="button" aria-label="設定をエクスポート" onClick={exportSettings}>書き出す</button>
             </div>
           </section>
           <section className="data-card" aria-labelledby="data-version-heading">
             <div className="data-card__body">
               <div className="data-version"><h4 id="data-version-heading">アプリ情報</h4><output className="data-card__version">v{appVersion}</output></div>
-              <button className="data-row__action" type="button" aria-label="アプリを再読み込み" onClick={() => window.location.reload()}>再読み込み</button>
+              <button className="data-row__action data-row__action--secondary" type="button" aria-label="アプリを再読み込み" onClick={() => window.location.reload()}>再読み込み</button>
             </div>
           </section>
         </div>

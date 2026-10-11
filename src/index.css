@@ -4149,12 +4149,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   background: transparent;
 }
 
-.settings-content .data-cards { gap: 8px; }
+.settings-content .data-cards { gap: 0; margin-bottom: 24px; }
 .settings-content .data-card {
-  padding: 12px 14px;
+  padding: 16px 0;
   min-height: 72px;
-  border: 1px solid var(--color-hairline);
-  border-radius: var(--radius-m);
+  border: 0;
+  border-bottom: 1px solid var(--color-hairline);
+  border-radius: 0;
   background: var(--color-paper);
   box-shadow: none;
 }
@@ -4166,24 +4167,41 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 
 .settings-content .data-card__body { min-height: 44px; }
+.settings-content .data-row__action--secondary { color: var(--color-ink); border-color: var(--color-hairline); background: var(--color-canvas); }
+.settings-content .data-row__action--secondary:hover { border-color: var(--color-mid-gray); filter: none; }
+.settings-content .settings-section--danger > h3 { margin: 0 0 16px; font-size: 16px; }
+.settings-content .reset-actions__individual { grid-template-columns: minmax(0, 1fr); }
+.settings-content .reset-actions__destructive { gap: 8px; padding-top: 16px; }
+.settings-content .reset-actions__destructive h4 { margin-bottom: 4px; color: var(--color-ink); }
 
 .settings-content .settings-disclosure[open] > summary { border-bottom: 0; }
 
 .settings-content .reset-action {
-  min-height: 44px;
-  padding: 0 12px;
+  grid-template-columns: minmax(0, 1fr) 16px;
+  gap: 4px 12px;
+  min-height: 64px;
+  padding: 12px 14px;
   border-radius: var(--radius-control);
-  color: var(--ui-accent-contrast);
-  border-color: var(--ui-accent);
-  background: var(--ui-accent);
+  color: var(--color-ink);
+  border-color: var(--color-hairline);
+  background: var(--color-paper);
 }
 .settings-content .reset-action:hover:not(:disabled) {
-  color: var(--ui-accent-contrast);
-  border-color: color-mix(in srgb, var(--ui-accent) 78%, #000);
-  background: color-mix(in srgb, var(--ui-accent) 86%, #000);
+  color: var(--color-ink);
+  border-color: var(--color-mid-gray);
+  background: var(--color-canvas);
 }
 .settings-content .reset-action:disabled { color: var(--color-mid-gray); border-color: var(--color-hairline); background: var(--color-canvas); opacity: 1; }
-.settings-content .reset-action strong { font-size: 12px; }
+.settings-content .reset-action strong { grid-column: 1; font-size: 13px; }
+.settings-content .reset-action span { grid-column: 1; color: var(--color-mid-gray); font-size: 11px; line-height: 1.5; }
+.settings-content .reset-action svg { grid-column: 2; grid-row: 1 / span 2; align-self: center; width: 16px; height: 16px; color: var(--color-mid-gray); fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.settings-content .reset-actions__guide { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 44px; padding: 10px 14px; border: 1px solid var(--color-hairline); border-radius: var(--radius-control); background: var(--color-canvas); font-size: 12px; }
+.settings-content .reset-actions__guide:hover { border-color: var(--color-mid-gray); text-decoration: none; }
+.settings-content .reset-actions__guide svg { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+@media (max-width: 360px) {
+  .settings-content .data-card__body { gap: 12px; grid-template-columns: minmax(0, 1fr); }
+  .settings-content .data-row__action { justify-self: start; }
+}
 
 .project-settings-screen__section {
   padding: 14px 0;

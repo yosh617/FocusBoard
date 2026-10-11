@@ -42,26 +42,35 @@ export function ResetPanel({ onResetSettings, onClearTimer, onMessage }: Props) 
         <div className="reset-actions__individual" role="group" aria-label="個別にリセット">
           <button type="button" className="reset-action" onClick={() => setPendingAction("settings")}>
             <strong>設定を初期化</strong>
+            <span>表示・背景・タイマーの設定</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
           </button>
           <button type="button" className="reset-action" onClick={() => setPendingAction("timer")}>
             <strong>タイマー状態を削除</strong>
+            <span>進行中・一時停止中のタイマー</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
           </button>
         </div>
         <div className="reset-actions__destructive" role="group" aria-labelledby="reset-data-heading">
           <h4 id="reset-data-heading">データを削除</h4>
           <button type="button" className="reset-action" onClick={() => setPendingAction("everything")} disabled={busy}>
             <strong>アプリ内データをすべて削除</strong>
+            <span>設定・背景画像・タスク・集中履歴など</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
           </button>
           <button type="button" className="reset-action" onClick={() => setPendingAction("pwa")} disabled={busy} aria-busy={busy}>
             <strong>{busy ? "削除しています…" : "オフライン用データを削除"}</strong>
+            <span>オフライン起動用のキャッシュ</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
           </button>
         </div>
-        <button type="button" className="reset-actions__guide" onClick={() => setShowDeleteGuide((shown) => !shown)} aria-expanded={showDeleteGuide}>
+        <button type="button" className="reset-actions__guide" onClick={() => setShowDeleteGuide((shown) => !shown)} aria-expanded={showDeleteGuide} aria-controls="app-delete-guide">
           {showDeleteGuide ? "アプリの削除手順を隠す" : "アプリの削除手順を表示"}
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d={showDeleteGuide ? "m5 15 7-7 7 7" : "m5 9 7 7 7-7"} /></svg>
         </button>
       </div>
       {showDeleteGuide && (
-        <div className="delete-guide" role="note">
+        <div id="app-delete-guide" className="delete-guide" role="note">
           <h4>iPadのホーム画面から削除する方法</h4>
           <ol>
             <li>ホーム画面でFocusBoardのアイコンを長押しします。</li>
