@@ -130,7 +130,7 @@ export function migrateSettings(value: unknown): AppSettings {
     : parsedTimerPositions;
   const adaptiveAccentChromaLimit = value.adaptiveAccentChromaLimit === null
     ? null
-    : numberValue(value.adaptiveAccentChromaLimit, defaultSettings.adaptiveAccentChromaLimit, 0.1, 1);
+    : numberValue(value.adaptiveAccentChromaLimit, defaultSettings.adaptiveAccentChromaLimit ?? 0.18, 0.1, 1);
   const adaptiveAccentLightnessMin = numberValue(value.adaptiveAccentLightnessMin, defaultSettings.adaptiveAccentLightnessMin, 0.4, 0.9);
   const adaptiveAccentLightnessMax = Math.max(
     adaptiveAccentLightnessMin,
