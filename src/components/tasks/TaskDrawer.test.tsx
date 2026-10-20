@@ -209,27 +209,14 @@ describe("TaskDrawer", () => {
     expect(screen.getByLabelText("新しいタスク").getAttribute("placeholder")).toBe("タスクを追加");
   });
 
-  it("adds projects with the shared color picker and saved presets", async () => {
+  it("adds projects with the default color", async () => {
     const props = renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: "新規" }));
-
-    const palette = screen.getByRole("group", { name: "プロジェクトの色を選択" });
-    const picker = within(palette).getByRole("region", { name: "プロジェクトの色" });
-    expect(within(picker).getByText("プロジェクトの色")).toBeTruthy();
-    expect(within(picker).getByRole("button", { name: "推奨テーマ ブルー #0A84FF" })).toBeTruthy();
-    expect(within(picker).getByRole("button", { name: "推奨テーマ シアン #00AEEF" })).toBeTruthy();
-
-    const cyan = within(picker).getByRole("button", { name: "推奨テーマ シアン #00AEEF" });
-    expect(cyan.getAttribute("aria-pressed")).toBe("false");
-    fireEvent.click(cyan);
-    expect(cyan.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.queryByRole("group", { name: "プロジェクトの色を選択" })).toBeNull();
 
     fireEvent.change(screen.getByLabelText("新しいプロジェクト名"), { target: { value: "読書" } });
     fireEvent.click(screen.getByRole("button", { name: "プロジェクトを追加" }));
-    await waitFor(() => expect(props.onAddProject).toHaveBeenCalledWith("読書", "#00AEEF"));
-
-    fireEvent.click(screen.getByRole("button", { name: "新規" }));
-    expect(within(screen.getByRole("group", { name: "プロジェクトの色を選択" })).getByRole("button", { name: "推奨テーマ ブルー #0A84FF" }).getAttribute("aria-pressed")).toBe("true");
+    await waitFor(() => expect(props.onAddProject).toHaveBeenCalledWith("読書", "#0A84FF"));
   });
 
   it("edits the color from the selected project settings", async () => {

@@ -698,7 +698,6 @@ export function TaskDrawer({
   const [projectSettingsOpen, setProjectSettingsOpen] = useState(false);
   const [navigationCollapsed, setNavigationCollapsed] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
-  const [newProjectColor, setNewProjectColor] = useState<string>(projectColorOptions[0].value);
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [projectToArchive, setProjectToArchive] = useState<ProjectRecord | null>(null);
   const [projectToDelete, setProjectToDelete] = useState<ProjectRecord | null>(null);
@@ -942,9 +941,8 @@ export function TaskDrawer({
 
   const addProject = async (event: FormEvent) => {
     event.preventDefault();
-    if (await onAddProject(newProjectName, newProjectColor)) {
+    if (await onAddProject(newProjectName, projectColorOptions[0].value)) {
       setNewProjectName("");
-      setNewProjectColor(projectColorOptions[0].value);
       setShowProjectForm(false);
     }
   };
@@ -1233,16 +1231,6 @@ export function TaskDrawer({
                 {showProjectForm && <form className="project-add" onSubmit={addProject}>
                   <input aria-label="新しいプロジェクト名" placeholder="プロジェクトを追加" maxLength={80} value={newProjectName} onChange={(event) => setNewProjectName(event.target.value)} disabled={!storageAvailable} />
                   <button className="project-add__submit" type="submit" aria-label="プロジェクトを追加" disabled={!storageAvailable || !newProjectName.trim()}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg></button>
-                  <div className="project-add__palette" role="group" aria-label="プロジェクトの色を選択">
-                    <ColorPickerDisclosure
-                      value={newProjectColor}
-                      label="プロジェクトの色"
-                      modes={["grid", "spectrum", "sliders"]}
-                      themeColors={projectColorOptions.map(({ name, value }) => ({ label: name, color: value }))}
-                      onChange={(color) => setNewProjectColor(projectColorOptions.find((option) => option.value.toLowerCase() === color.toLowerCase())?.value ?? color)}
-                      disabled={!storageAvailable}
-                    />
-                  </div>
                 </form>}
               </div>
             </div>}
@@ -1335,13 +1323,13 @@ export function TaskDrawer({
               {!storageAvailable && <div className="task-callout" role="status"><strong>タスク保存を利用できません</strong><span>時計とタイマーはそのまま使えます。ブラウザのサイトデータ設定を確認してください。</span></div>}
             </div>
 
-            {loading ? <p className="task-empty">読み込み中...</p> : scopedTasks.length === 0 && (projectId || view !== "today")
-              ? <div className="task-empty"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14v14H5zM8 3.5h8M8 10h8M8 14h5" /></svg><strong>タスクはありません</strong></div>
-              : <div className={`task-list${view === "today" && !projectId ? " task-list--today" : ""}`} aria-label="タスク一覧">
-                {view === "today" && !projectId && scopedTasks.length === 0 && <div className="task-empty task-empty--today">
+            {loading ? <p className="task-empty">読み込み中...</p> : scopedTasks.length === 0 && (projectId || view !== "today" || todayCompletedTasks.length === 0)
+              ? <div className="task-empty task-empty--today">
                   <div className="task-empty__art" aria-hidden="true"><svg viewBox="0 0 180 160"><circle className="task-empty__halo" cx="95" cy="81" r="58" /><circle className="task-empty__dot" cx="37" cy="105" r="7" /><path className="task-empty__spark" d="M145 29v13m-6.5-6.5h13" /><rect className="task-empty__paper" x="38" y="39" width="96" height="86" rx="13" transform="rotate(-4 86 82)" /><rect className="task-empty__input" x="55" y="56" width="13" height="13" rx="4" /><path className="task-empty__line" d="M77 62h39M55 83h12m10 0h39M55 101h12m10 0h28" /><circle className="task-empty__clock" cx="130" cy="111" r="17" /><path className="task-empty__clock-hand" d="M130 101v10l7 4" /></svg></div>
-                  <strong>タスクなし</strong><span>上の入力欄から追加できます。期限なしのタスクも、この一覧に表示されます。</span>
-                </div>}
+                  <strong>{view === "completed" ? "完了したタスクはありません" : view === "archived" ? "保管済みタスクはありません" : "タスクなし"}</strong>
+                  <span>{view === "completed" ? "タスクを完了すると、ここに表示されます。" : view === "archived" ? "保管したタスクは、ここに表示されます。" : currentProject ? "上の入力欄から追加すると、このプロジェクトに表示されます。" : "上の入力欄から追加できます。期限なしのタスクも、この一覧に表示されます。"}</span>
+                </div>
+              : <div className={`task-list${view === "today" && !projectId ? " task-list--today" : ""}`} aria-label="タスク一覧">
                 {taskSections.map((section) => (
                   <section className={`task-list__section${view === "completed" ? " task-list__section--day" : ""}`} aria-labelledby={view === "today" && !projectId && taskSections.length === 1 && section.key.startsWith("today-") ? undefined : `task-section-${section.key}`} aria-label={view === "today" && !projectId && taskSections.length === 1 && section.key.startsWith("today-") ? section.label : undefined} key={section.key}>
                     {(taskSections.length > 1 || section.key.startsWith("today-") || view === "completed") && !(view === "today" && !projectId && taskSections.length === 1 && section.key.startsWith("today-")) && (
