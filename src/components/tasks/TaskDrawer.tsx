@@ -692,6 +692,7 @@ export function TaskDrawer({
   const [quickProjectId, setQuickProjectId] = useState<string | null>(null);
   const [quickPanel, setQuickPanel] = useState<"date" | "priority" | "tag" | "project" | "estimate" | null>(null);
   const [quickSettingsOpen, setQuickSettingsOpen] = useState(true);
+  const [quickAddPending, setQuickAddPending] = useState(false);
   const [returnFocusToQuickAdd, setReturnFocusToQuickAdd] = useState(false);
   const [workspaceMode, setWorkspaceMode] = useState<"tasks" | "report" | "backup">("tasks");
   const [projectSettingsOpen, setProjectSettingsOpen] = useState(false);
@@ -710,6 +711,8 @@ export function TaskDrawer({
   const navigationHeadingRef = useRef<HTMLButtonElement>(null);
   const workspaceRef = useRef<HTMLElement>(null);
   const quickAddInputRef = useRef<HTMLInputElement>(null);
+  const quickAddInFlightRef = useRef(false);
+  const quickAddComposingRef = useRef(false);
   const taskRowRefs = useRef(new Map<string, HTMLDivElement>());
   const taskContentButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const pendingTaskFocusIdRef = useRef<string | null>(null);
@@ -904,27 +907,36 @@ export function TaskDrawer({
 
   const addTask = async (event?: FormEvent) => {
     event?.preventDefault();
-    if (!title.trim()) return;
+    if (quickAddComposingRef.current || quickAddInFlightRef.current || !title.trim()) return;
     const defaultDueDate = view === "today" ? today : view === "tomorrow" ? tomorrow : null;
-    const addedTaskId = await onAddTask({
-      title: title.trim(),
-      dueDate: dueDate || defaultDueDate,
-      projectId: quickProjectId === null ? projectId : quickProjectId || null,
-      bucket: view === "someday" ? "someday" : "inbox",
-      estimatedPomodoros: quickEstimatedPomodoros,
-      priority: quickPriority,
-      tags: quickTags
-    });
-    if (addedTaskId) {
-      setTitle("");
-      setDueDate("");
-      setQuickEstimatedPomodoros(0);
-      setQuickPriority("none");
-      setQuickTags([]);
-      setQuickProjectId(null);
-      setQuickPanel(null);
-      setQuickSettingsOpen(true);
-      setReturnFocusToQuickAdd(true);
+    quickAddInFlightRef.current = true;
+    setQuickAddPending(true);
+    try {
+      const addedTaskId = await onAddTask({
+        title: title.trim(),
+        dueDate: dueDate || defaultDueDate,
+        projectId: quickProjectId === null ? projectId : quickProjectId || null,
+        bucket: view === "someday" ? "someday" : "inbox",
+        estimatedPomodoros: quickEstimatedPomodoros,
+        priority: quickPriority,
+        tags: quickTags
+      });
+      if (addedTaskId) {
+        setTitle("");
+        setDueDate("");
+        setQuickEstimatedPomodoros(0);
+        setQuickPriority("none");
+        setQuickTags([]);
+        setQuickProjectId(null);
+        setQuickPanel(null);
+        setQuickSettingsOpen(true);
+        setReturnFocusToQuickAdd(true);
+      }
+    } catch {
+      // Keep the draft in the form so the user can retry.
+    } finally {
+      quickAddInFlightRef.current = false;
+      setQuickAddPending(false);
     }
   };
 
@@ -1275,17 +1287,20 @@ export function TaskDrawer({
                 <div><span>集中時間</span><strong>{formatDurationClock(todayFocusedMinutes)}</strong></div>
                 <div><span>完了タスク</span><strong>{todayCompletedTasks.length}</strong></div>
               </section>}
-              {view !== "completed" && view !== "archived" && <form className="task-quick-add task-capture" id="task-quick-add-form" onSubmit={addTask}>
+              {view !== "completed" && view !== "archived" && <form className="task-quick-add task-capture" id="task-quick-add-form" onSubmit={addTask} aria-busy={quickAddPending}>
                 <div className="task-capture__title">
                   <label className="visually-hidden" htmlFor="task-title">新しいタスク</label>
-                  <button className="task-capture__add" type="submit" aria-label="タスクを追加" disabled={!storageAvailable || !title.trim()}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg></button>
-                  <input id="task-title" ref={quickAddInputRef} placeholder="タスクを追加" maxLength={200} value={title} onChange={(event) => setTitle(event.target.value)} disabled={!storageAvailable} />
+                  <input id="task-title" ref={quickAddInputRef} placeholder="タスクを追加" maxLength={200} enterKeyHint="send" value={title} onKeyDown={(event) => {
+                    if (event.key === "Enter" && (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229 || quickAddComposingRef.current)) event.preventDefault();
+                  }} onCompositionStart={() => { quickAddComposingRef.current = true; }} onCompositionEnd={() => { quickAddComposingRef.current = false; }} onChange={(event) => setTitle(event.target.value)} disabled={!storageAvailable || quickAddPending} />
+                  <button className="task-capture__add" type="submit" aria-label={quickAddPending ? "タスクを追加中" : "タスクを追加"} disabled={!storageAvailable || !title.trim() || quickAddPending}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg><span>{quickAddPending ? "追加中" : "追加"}</span></button>
                 </div>
                 <button
                   className="task-capture__details-toggle"
                   type="button"
                   aria-expanded={quickSettingsOpen}
                   aria-controls="task-quick-add-details"
+                  disabled={quickAddPending}
                   onClick={() => { setQuickSettingsOpen((open) => !open); setQuickPanel(null); }}
                 >
                   <span>{quickSettingsOpen ? "詳細を閉じる" : "詳細を追加"}</span>
@@ -1362,7 +1377,7 @@ export function TaskDrawer({
               </div>}
             </div>
             {view !== "completed" && view !== "archived" && quickSettingsOpen && (
-              <section className="task-capture__settings" id="task-quick-add-details" aria-labelledby="task-capture-settings-heading">
+              <fieldset className="task-capture__settings" id="task-quick-add-details" aria-labelledby="task-capture-settings-heading" role="region" disabled={quickAddPending}>
                 <h4 id="task-capture-settings-heading" className="task-capture__settings-heading">設定</h4>
                 <div className="task-capture__estimate">
                   <span className="task-capture__estimate-label"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="7" /><path d="M9 3h6M12 6v7l3 2" /></svg><strong>予定ポモドーロ</strong></span>
@@ -1383,7 +1398,7 @@ export function TaskDrawer({
                 {quickPanel === "priority" && <section className="quick-add-popover quick-add-priority" role="dialog" aria-label="優先度を設定"><div className="quick-add-popover__header"><strong>優先度</strong><button type="button" aria-label="優先度設定を閉じる" onClick={() => setQuickPanel(null)}>×</button></div><div>{priorityOptions.map((option) => <button className={quickPriority === option.value ? "is-selected" : ""} type="button" aria-pressed={quickPriority === option.value} onClick={() => { setQuickPriority(option.value); setQuickPanel(null); }} key={option.value}><span style={{ color: option.color }}><QuickAddIcon type="priority" /></span><strong>{option.label}</strong></button>)}</div></section>}
                 {quickPanel === "tag" && <section className="quick-add-popover quick-add-tags" role="dialog" aria-label="タグを設定"><div className="quick-add-popover__header"><strong>タグ</strong><button type="button" aria-label="タグ設定を閉じる" onClick={() => setQuickPanel(null)}>×</button></div><TagPicker selected={quickTags} suggestions={availableTags} onChange={setQuickTags} /></section>}
                 {quickPanel === "project" && <section className="quick-add-popover quick-add-project" role="dialog" aria-label="プロジェクトを設定"><div className="quick-add-popover__header"><strong>プロジェクト</strong><button type="button" aria-label="プロジェクト設定を閉じる" onClick={() => setQuickPanel(null)}>×</button></div><div role="group" aria-label="タスクのプロジェクト"><button className={!quickAddProjectId ? "is-selected" : ""} type="button" aria-pressed={!quickAddProjectId} onClick={() => { setQuickProjectId(""); setQuickPanel(null); }}><i /><span>プロジェクトなし</span></button>{activeProjects.map((item) => <button className={quickAddProjectId === item.id ? "is-selected" : ""} type="button" aria-pressed={quickAddProjectId === item.id} onClick={() => { setQuickProjectId(item.id); setQuickPanel(null); }} key={item.id}><i style={{ background: item.color }} /><span>{item.name}</span></button>)}</div></section>}
-              </section>
+              </fieldset>
             )}
             </>}
           </section>

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { createEvent, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { FocusSessionRecord } from "../../types/focusSession";
 import type { ProjectRecord } from "../../types/project";
@@ -393,11 +393,63 @@ describe("TaskDrawer", () => {
     const props = renderDrawer();
     const titleInput = screen.getByLabelText("新しいタスク");
     const addButton = screen.getByRole("button", { name: "タスクを追加" });
-    expect(titleInput.previousElementSibling).toBe(addButton);
+    expect(titleInput.nextElementSibling).toBe(addButton);
     expect(addButton.querySelector("svg")).toBeTruthy();
     fireEvent.change(titleInput, { target: { value: "英単語を覚える" } });
     fireEvent.click(addButton);
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "英単語を覚える", dueDate: today })));
+  });
+
+  it("submits the quick-add form with Enter and keeps composition confirmation from submitting", async () => {
+    const props = renderDrawer();
+    const input = screen.getByLabelText("新しいタスク");
+    const form = input.closest("form") as HTMLFormElement;
+    expect(input.getAttribute("enterkeyhint")).toBe("send");
+
+    fireEvent.change(input, { target: { value: "英単語を覚える" } });
+    fireEvent.compositionStart(input);
+    fireEvent.submit(form);
+    expect(props.onAddTask).not.toHaveBeenCalled();
+
+    fireEvent.compositionEnd(input);
+    const compositionEnter = createEvent.keyDown(input, { key: "Enter", keyCode: 229 });
+    fireEvent(input, compositionEnter);
+    expect(compositionEnter.defaultPrevented).toBe(true);
+    fireEvent.submit(form);
+    await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "英単語を覚える" })));
+  });
+
+  it("ignores whitespace-only task names", async () => {
+    const props = renderDrawer();
+    const input = screen.getByLabelText("新しいタスク");
+    fireEvent.change(input, { target: { value: "   " } });
+    fireEvent.submit(input.closest("form") as HTMLFormElement);
+    await Promise.resolve();
+    expect(props.onAddTask).not.toHaveBeenCalled();
+  });
+
+  it("prevents duplicate quick-add saves and preserves the draft when saving fails", async () => {
+    let resolveFirst: (id: string | null) => void = () => undefined;
+    const firstSave = new Promise<string | null>((resolve) => { resolveFirst = resolve; });
+    const onAddTask = vi.fn().mockReturnValueOnce(firstSave).mockResolvedValueOnce("task-retried");
+    renderDrawer({ onAddTask });
+    const input = screen.getByLabelText("新しいタスク");
+    const form = input.closest("form") as HTMLFormElement;
+    fireEvent.change(input, { target: { value: "保存を再試行する" } });
+
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    expect(onAddTask).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "タスクを追加中" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "タグを設定" }).matches(":disabled")).toBe(true);
+
+    resolveFirst(null);
+    await waitFor(() => expect((screen.getByLabelText("新しいタスク") as HTMLInputElement).value).toBe("保存を再試行する"));
+    expect(screen.getByRole("button", { name: "タスクを追加" }).hasAttribute("disabled")).toBe(false);
+
+    fireEvent.submit(form);
+    await waitFor(() => expect(onAddTask).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect((screen.getByLabelText("新しいタスク") as HTMLInputElement).value).toBe(""));
   });
 
   it("omits quick capture from the completed view while keeping it in regular views", () => {
