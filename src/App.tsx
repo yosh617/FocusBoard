@@ -121,6 +121,7 @@ export default function App() {
   const [adaptivePalette, setAdaptivePalette] = useState<AdaptivePalette>(() => getAdaptivePalette(fallbackBackgroundRgb, settings.overlayOpacity));
   const taskDetailCardTimeoutRef = useRef<number | null>(null);
   const taskDetailCardFadeTimeoutRef = useRef<number | null>(null);
+  const settingsReturnToTasksRef = useRef(false);
   const previousTimerModeRef = useRef(timer.mode);
   const taskLauncherRef = useRef<HTMLButtonElement>(null);
   const homeTasksRef = useRef<HTMLButtonElement>(null);
@@ -321,16 +322,26 @@ export default function App() {
   }, [backgroundEditing, settingsOpen, tasksOpen]);
   const closeSettings = useCallback(() => {
     setSettingsOpen(false);
+    if (settingsReturnToTasksRef.current) {
+      settingsReturnToTasksRef.current = false;
+      setTasksOpen(true);
+      return;
+    }
     revealTaskDetailCard(true);
     restoreOverlayFocus();
   }, [restoreOverlayFocus, revealTaskDetailCard]);
-  const openSettings = useCallback((returnTarget: HTMLElement | null = homeTasksRef.current) => {
+  const openSettings = useCallback((returnTarget: HTMLElement | null = homeTasksRef.current, returnToTasks = false) => {
+    settingsReturnToTasksRef.current = returnToTasks;
     overlayReturnTargetRef.current = returnTarget;
     hideTaskDetailCard();
     setTasksOpen(false);
     setSettingsOpen(true);
   }, [hideTaskDetailCard]);
+  const openSettingsFromTasks = useCallback(() => {
+    openSettings(homeTasksRef.current, true);
+  }, [openSettings]);
   const openTasks = useCallback((returnTarget: HTMLElement | null = homeTasksRef.current) => {
+    settingsReturnToTasksRef.current = false;
     overlayReturnTargetRef.current = returnTarget;
     setSettingsOpen(false);
     setTasksOpen(true);
@@ -347,6 +358,7 @@ export default function App() {
     restoreOverlayFocus();
   }, [restoreOverlayFocus, revealTaskDetailCard]);
   const startBackgroundEditing = useCallback(() => {
+    settingsReturnToTasksRef.current = false;
     hideTaskDetailCard();
     setSettingsOpen(false);
     setBackgroundEditing(true);
@@ -738,7 +750,7 @@ export default function App() {
         storageAvailable={taskStorageAvailable}
         canUndo={canUndoTask}
         onClose={closeTasks}
-        onOpenSettings={openSettings}
+        onOpenSettings={openSettingsFromTasks}
         onAddTask={addTask}
         onUpdateTask={updateTask}
         onUpdateSession={updateSession}

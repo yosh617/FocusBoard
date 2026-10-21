@@ -177,15 +177,66 @@ function reminderLabel(timestamp: number | null, referenceDate: Date) {
   return `通知 ${day} ${time}`;
 }
 
-function getViewForTask(task: TaskRecord, today: string, tomorrow: string): TaskView {
-  if (task.status === "archived") return "archived";
-  if (task.status === "completed") return "completed";
-  if (task.dueDate && task.dueDate < today) return "today";
-  if (task.dueDate === today) return "today";
-  if (task.dueDate === tomorrow) return "tomorrow";
-  if (task.dueDate && task.dueDate > tomorrow) return "upcoming";
-  if (task.bucket === "someday") return "someday";
-  return "today";
+type TaskEditorDraft = {
+  title: string;
+  projectId: string;
+  dueDate: string;
+  bucket: TaskRecord["bucket"];
+  estimatedPomodoros: number;
+  priority: TaskPriority;
+  tags: string[];
+  note: string;
+  reminder: string;
+  repeatRule: RepeatRule | null;
+};
+
+type TaskEditorPatch = Partial<Omit<TaskRecord, "id" | "version" | "createdAt" | "updatedAt" | "status" | "completedAt" | "order" | "parentTaskId" | "repeatSeriesId" | "repeatSkipDates">>;
+
+function draftFromTask(task: TaskRecord): TaskEditorDraft {
+  const savedInterval = task.repeatRule && "interval" in task.repeatRule ? task.repeatRule.interval : 1;
+  const repeatType = task.repeatRule === null
+    ? "none"
+    : task.repeatRule.type === "weekdays" || savedInterval === 1 ? task.repeatRule.type : "custom";
+  const customUnit = task.repeatRule?.type === "weekly" || task.repeatRule?.type === "monthly" ? task.repeatRule.type : "daily";
+  return {
+    title: task.title,
+    projectId: task.projectId ?? "",
+    dueDate: task.dueDate ?? "",
+    bucket: task.bucket,
+    estimatedPomodoros: task.estimatedPomodoros,
+    priority: task.priority ?? "none",
+    tags: task.tags ?? [],
+    note: task.note,
+    reminder: toDateTimeLocal(task.reminderAt),
+    repeatRule: task.repeatRule === null ? null : buildRepeatRule(repeatType, task.dueDate ?? "", savedInterval, customUnit)
+  };
+}
+
+function taskEditorPatch(draft: TaskEditorDraft, baseline: TaskEditorDraft): TaskEditorPatch {
+  const patch: TaskEditorPatch = {};
+  if (draft.title.trim() !== baseline.title) patch.title = draft.title.trim();
+  if (draft.projectId !== baseline.projectId) patch.projectId = draft.projectId || null;
+  if (draft.dueDate !== baseline.dueDate) patch.dueDate = draft.dueDate || null;
+  if (draft.bucket !== baseline.bucket) patch.bucket = draft.bucket;
+  if (draft.estimatedPomodoros !== baseline.estimatedPomodoros) patch.estimatedPomodoros = draft.estimatedPomodoros;
+  if (draft.priority !== baseline.priority) patch.priority = draft.priority;
+  if (draft.tags.join("\u0000") !== baseline.tags.join("\u0000")) patch.tags = draft.tags;
+  if (draft.note !== baseline.note) patch.note = draft.note;
+  if (draft.reminder !== baseline.reminder) patch.reminderAt = draft.reminder ? new Date(draft.reminder).getTime() : null;
+  if (JSON.stringify(draft.repeatRule) !== JSON.stringify(baseline.repeatRule)) patch.repeatRule = draft.repeatRule;
+  return patch;
+}
+
+function conflictingTaskEditorFields(draft: TaskEditorDraft, baseline: TaskEditorDraft, latest: TaskEditorDraft) {
+  const localPatch = taskEditorPatch(draft, baseline);
+  const remotePatch = taskEditorPatch(latest, baseline);
+  return Object.keys(localPatch).some((key) => key in remotePatch
+    && JSON.stringify(localPatch[key as keyof TaskEditorPatch]) !== JSON.stringify(remotePatch[key as keyof TaskEditorPatch]));
+}
+
+function changedTaskEditorDraftKeys(draft: TaskEditorDraft, baseline: TaskEditorDraft): (keyof TaskEditorDraft)[] {
+  return (Object.keys(draft) as (keyof TaskEditorDraft)[])
+    .filter((key) => JSON.stringify(draft[key]) !== JSON.stringify(baseline[key]));
 }
 
 function estimatedFocusTimeLabel(tasks: TaskRecord[], workMinutes: number) {
@@ -327,10 +378,10 @@ function UnsavedChangesDialog({ open, onCancel, onDiscard }: { open: boolean; on
           <span className="unsaved-changes-dialog__icon" aria-hidden="true">!</span>
           <div>
             <span className="eyebrow">タスク詳細</span>
-            <h2 id="unsaved-changes-title">保存していない変更があります</h2>
+            <h2 id="unsaved-changes-title">変更が保存されていません</h2>
           </div>
         </div>
-        <p>このまま戻ると、入力した内容は破棄されます。</p>
+        <p>保存できなかった変更を破棄して移動しますか？</p>
         <div className="unsaved-changes-dialog__actions">
           <button className="secondary-button" type="button" onClick={onCancel} ref={cancelRef}>編集を続ける</button>
           <button className="danger-button" type="button" onClick={onDiscard}>変更を破棄</button>
@@ -340,7 +391,7 @@ function UnsavedChangesDialog({ open, onCancel, onDiscard }: { open: boolean; on
   );
 }
 
-function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerStatus, activeTaskId, nextTask, nextTaskDetail, onStartTask, onOpenNextTask, onReturnToTimer, onSave, onArchive, onDelete, onDeleteRecurring, onToggleStatus, onCompleteAndStartNextTask, onAddSubtask, onToggleSubtask, canMoveUp, canMoveDown, onMove, onClose }: {
+function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerStatus, activeTaskId, nextTask, nextTaskDetail, onStartTask, onOpenNextTask, onReturnToTimer, onSave, onArchive, onDelete, onDeleteRecurring, onToggleStatus, onCompleteAndStartNextTask, onAddSubtask, onToggleSubtask, canMoveUp, canMoveDown, onMove, onClose, onRegisterExit }: {
   task: TaskRecord;
   projects: ProjectRecord[];
   availableTags: string[];
@@ -353,7 +404,7 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
   onStartTask: (id: string) => void;
   onOpenNextTask?: () => void;
   onReturnToTimer: () => void;
-  onSave: (patch: Partial<TaskRecord>) => Promise<boolean>;
+  onSave: (patch: TaskEditorPatch, expectedUpdatedAt: number) => Promise<boolean | "conflict">;
   onArchive: () => Promise<boolean>;
   onDelete: () => Promise<boolean>;
   onDeleteRecurring: (id: string) => Promise<boolean>;
@@ -365,6 +416,7 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
   canMoveDown: boolean;
   onMove: (direction: -1 | 1) => Promise<boolean>;
   onClose?: () => void;
+  onRegisterExit: (handler: ((action: () => void) => void) | null) => void;
 }) {
   const [title, setTitle] = useState(task.title);
   const [projectId, setProjectId] = useState(task.projectId ?? "");
@@ -386,6 +438,8 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
   const [repeatRuleEdited, setRepeatRuleEdited] = useState(false);
   const [subtaskTitle, setSubtaskTitle] = useState("");
   const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"saved" | "unsaved" | "saving" | "error" | "conflict" | "invalid">("saved");
+  const [isComposing, setIsComposing] = useState(false);
   const [togglingStatus, setTogglingStatus] = useState(false);
   const [startingNextTask, setStartingNextTask] = useState(false);
   const [scheduleExpanded, setScheduleExpanded] = useState(task.reminderAt !== null || task.repeatRule !== null);
@@ -393,31 +447,191 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
   const [subtasksExpanded, setSubtasksExpanded] = useState(subtasks.length > 0);
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<"archive" | "delete" | "delete-recurring" | null>(null);
+  const baselineRef = useRef<TaskEditorDraft>(draftFromTask(task));
+  const expectedUpdatedAtRef = useRef(task.updatedAt);
+  const taskRef = useRef(task);
+  taskRef.current = task;
+  const draftRef = useRef<TaskEditorDraft>(baselineRef.current);
+  const savePromiseRef = useRef<Promise<boolean> | null>(null);
+  const failedDraftRef = useRef<string | null>(null);
+  const acknowledgedDraftRef = useRef<TaskEditorDraft | null>(null);
+  const pendingExitRef = useRef<(() => void) | null>(null);
+  const exitHandlerRef = useRef<(action: () => void) => void>(() => undefined);
   const isActiveTask = activeTaskId === task.id && timerStatus !== "idle";
   const canStartTask = isActiveTask || (timerStatus === "idle" && task.status === "open");
   const canCompleteAndStartNext = task.status === "open" && timerStatus === "idle" && nextTask !== null && onCompleteAndStartNextTask !== undefined;
   const now = new Date();
   const today = toLocalDateKey(now);
+  const dueDateSummary = dueDate
+    ? dueDate === today
+      ? "今日"
+      : dueDate === addLocalDays(today, 1)
+        ? "明日"
+        : new Date(`${dueDate}T00:00:00`).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })
+    : bucket === "someday" ? "いつか" : "未設定";
   const reminderSummary = reminder ? reminderLabel(new Date(reminder).getTime(), now) : "通知なし";
   const repeatRule = dueDate
     ? repeatRuleEdited
       ? buildRepeatRule(repeatType, dueDate, customRepeatInterval, customRepeatUnit)
       : task.repeatRule
     : null;
+  const currentDraft: TaskEditorDraft = { title, projectId, dueDate, bucket, estimatedPomodoros, priority, tags, note, reminder, repeatRule };
+  const currentDraftSignature = JSON.stringify(currentDraft);
+  draftRef.current = currentDraft;
   const taskSessions = sessions.filter((session) => session.taskId === task.id && session.mode === "work");
   const taskFocusedMs = taskSessions.reduce((total, session) => total + getFocusedDurationMs(session), 0);
   const taskCompletedSessions = taskSessions.filter((session) => session.result === "completed").length;
   const taskCancelledSessions = taskSessions.filter((session) => session.result === "cancelled").length;
-  const isDirty = title !== task.title
-    || projectId !== (task.projectId ?? "")
-    || dueDate !== (task.dueDate ?? "")
-    || bucket !== task.bucket
-    || estimatedPomodoros !== task.estimatedPomodoros
-    || priority !== (task.priority ?? "none")
-    || tags.join("\u0000") !== (task.tags ?? []).join("\u0000")
-    || note !== task.note
-    || reminder !== toDateTimeLocal(task.reminderAt)
-    || JSON.stringify(repeatRule) !== JSON.stringify(task.repeatRule);
+  const isDirty = Object.keys(taskEditorPatch(currentDraft, baselineRef.current)).length > 0;
+  const applyDraft = (draft: TaskEditorDraft) => {
+    setTitle(draft.title);
+    setProjectId(draft.projectId);
+    setDueDate(draft.dueDate);
+    setBucket(draft.bucket);
+    setEstimatedPomodoros(draft.estimatedPomodoros);
+    setPriority(draft.priority);
+    setTags(draft.tags);
+    setNote(draft.note);
+    setReminder(draft.reminder);
+    const rule = draft.repeatRule;
+    const interval = rule && "interval" in rule ? rule.interval : 1;
+    setCustomRepeatInterval(interval);
+    setCustomRepeatUnit(rule?.type === "weekly" || rule?.type === "monthly" ? rule.type : "daily");
+    setRepeatType(rule === null ? "none" : rule.type === "weekdays" || interval === 1 ? rule.type : "custom");
+    setRepeatRuleEdited(false);
+  };
+  const saveChanges = async (allowConflictOverwrite = false): Promise<boolean> => {
+    const inFlight = savePromiseRef.current;
+    if (inFlight) {
+      if (!await inFlight) return false;
+      if (Object.keys(taskEditorPatch(draftRef.current, baselineRef.current)).length === 0) return true;
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+      return saveChanges(allowConflictOverwrite);
+    }
+
+    const rawSnapshot = { ...draftRef.current, tags: [...draftRef.current.tags] };
+    const snapshot = { ...rawSnapshot, title: rawSnapshot.title.trim() };
+    const patch = taskEditorPatch(snapshot, baselineRef.current);
+    if (Object.keys(patch).length === 0) {
+      setSaveStatus("saved");
+      failedDraftRef.current = null;
+      return true;
+    }
+    if (!snapshot.title) {
+      setSaveStatus("invalid");
+      return false;
+    }
+    if (!allowConflictOverwrite
+      && taskRef.current.updatedAt !== expectedUpdatedAtRef.current
+      && conflictingTaskEditorFields(snapshot, baselineRef.current, draftFromTask(taskRef.current))) {
+      setSaveStatus("conflict");
+      failedDraftRef.current = JSON.stringify(rawSnapshot);
+      return false;
+    }
+
+    const expectedUpdatedAt = allowConflictOverwrite ? taskRef.current.updatedAt : expectedUpdatedAtRef.current;
+    setSaving(true);
+    setSaveStatus("saving");
+    acknowledgedDraftRef.current = snapshot;
+    const request = (async () => {
+      let result: boolean | "conflict";
+      try {
+        result = await onSave(patch, expectedUpdatedAt);
+      } catch {
+        result = false;
+      }
+      if (result === "conflict") {
+        setSaveStatus("conflict");
+        failedDraftRef.current = JSON.stringify(rawSnapshot);
+        acknowledgedDraftRef.current = null;
+        return false;
+      }
+      if (!result) {
+        setSaveStatus("error");
+        failedDraftRef.current = JSON.stringify(rawSnapshot);
+        acknowledgedDraftRef.current = null;
+        return false;
+      }
+      baselineRef.current = snapshot;
+      expectedUpdatedAtRef.current = taskRef.current.updatedAt;
+      setSaveStatus("saved");
+      failedDraftRef.current = null;
+      return true;
+    })();
+    savePromiseRef.current = request;
+    const saved = await request;
+    if (savePromiseRef.current === request) savePromiseRef.current = null;
+    setSaving(false);
+    if (!saved) return false;
+    if (Object.keys(taskEditorPatch(draftRef.current, baselineRef.current)).length > 0) {
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+      return saveChanges(allowConflictOverwrite);
+    }
+    return true;
+  };
+  const saveChangesRef = useRef(saveChanges);
+  saveChangesRef.current = saveChanges;
+
+  const flushChanges = async () => {
+    if (!isDirty) return true;
+    return saveChanges();
+  };
+  const performExit = (action: () => void) => {
+    if (!isDirty && !savePromiseRef.current) {
+      pendingExitRef.current = null;
+      action();
+      return;
+    }
+    pendingExitRef.current = action;
+    void flushChanges().then((saved) => {
+      if (pendingExitRef.current !== action) return;
+      if (saved) {
+        pendingExitRef.current = null;
+        action();
+      } else setDiscardDialogOpen(true);
+    });
+  };
+  exitHandlerRef.current = performExit;
+  useEffect(() => {
+    const handler = (action: () => void) => exitHandlerRef.current(action);
+    onRegisterExit(handler);
+    return () => onRegisterExit(null);
+  }, [onRegisterExit]);
+  useEffect(() => {
+    const latestDraft = draftFromTask(task);
+    if (task.updatedAt === expectedUpdatedAtRef.current) return;
+    if (acknowledgedDraftRef.current && JSON.stringify(latestDraft) === JSON.stringify(acknowledgedDraftRef.current)) {
+      baselineRef.current = latestDraft;
+      expectedUpdatedAtRef.current = task.updatedAt;
+      acknowledgedDraftRef.current = null;
+      return;
+    }
+    const localPatch = taskEditorPatch(draftRef.current, baselineRef.current);
+    if (conflictingTaskEditorFields(draftRef.current, baselineRef.current, latestDraft)) {
+      setSaveStatus("conflict");
+      failedDraftRef.current = JSON.stringify(draftRef.current);
+      return;
+    }
+    const mergedDraft = { ...latestDraft };
+    for (const key of changedTaskEditorDraftKeys(draftRef.current, baselineRef.current)) mergedDraft[key] = draftRef.current[key] as never;
+    baselineRef.current = latestDraft;
+    expectedUpdatedAtRef.current = task.updatedAt;
+    acknowledgedDraftRef.current = null;
+    applyDraft(mergedDraft);
+    if (Object.keys(localPatch).length > 0) setSaveStatus("unsaved");
+  }, [task, task.updatedAt]);
+  useEffect(() => {
+    if (!isDirty || isComposing) return;
+    const signature = currentDraftSignature;
+    if ((saveStatus === "error" || saveStatus === "conflict") && signature === failedDraftRef.current) return;
+    if (!title.trim()) {
+      setSaveStatus("invalid");
+      return;
+    }
+    setSaveStatus("unsaved");
+    const timer = window.setTimeout(() => void saveChangesRef.current(), 500);
+    return () => window.clearTimeout(timer);
+  }, [isDirty, currentDraftSignature, title, projectId, dueDate, bucket, estimatedPomodoros, priority, tags, note, reminder, repeatRule, saveStatus, isComposing]);
   const applyDuePreset = (preset: "today" | "tomorrow" | "week" | "someday") => {
     if (preset === "someday") {
       setDueDate("");
@@ -427,25 +641,8 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
     setDueDate(addLocalDays(today, preset === "today" ? 0 : preset === "tomorrow" ? 1 : 7));
     setBucket("inbox");
   };
-  const saveChanges = async () => {
-    if (!title.trim()) return false;
-    setSaving(true);
-    const saved = await onSave({
-      title,
-      projectId: projectId || null,
-      dueDate: dueDate || null,
-      bucket,
-      estimatedPomodoros,
-      priority,
-      tags,
-      note,
-      reminderAt: reminder ? new Date(reminder).getTime() : null,
-      repeatRule
-    });
-    setSaving(false);
-    return saved;
-  };
   const confirmDestructiveAction = async () => {
+    if ((isDirty || savePromiseRef.current) && !(await flushChanges())) return;
     const action = pendingAction;
     setPendingAction(null);
     if (action === "archive") await onArchive();
@@ -454,19 +651,17 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
   };
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    await saveChanges();
+    await flushChanges();
   };
   const closeEditor = () => {
-    if (isDirty) {
-      setDiscardDialogOpen(true);
-      return;
-    }
-    onClose?.();
+    if (onClose) performExit(onClose);
   };
 
   const discardChanges = () => {
     setDiscardDialogOpen(false);
-    onClose?.();
+    const action = pendingExitRef.current;
+    pendingExitRef.current = null;
+    action?.();
   };
 
   return (
@@ -483,15 +678,18 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
           <h3>タスク詳細</h3>
         </div>
         <div className="task-editor__heading-actions">
-          <button className="task-editor__save primary-button" type="submit" disabled={saving || !isDirty || !title.trim()} aria-label="変更を保存">{saving ? "保存中" : "保存"}</button>
+          <div className="task-editor__save-status" role="status" aria-live="polite">
+            <span>{saveStatus === "saving" || saving ? "保存中" : saveStatus === "saved" ? "保存済み" : saveStatus === "invalid" ? "タスク名を入力すると保存します" : saveStatus === "conflict" ? "別の場所で変更されています" : saveStatus === "error" ? "保存できませんでした" : "未保存"}</span>
+            {(saveStatus === "error" || saveStatus === "conflict") && <button className="secondary-button" type="button" onClick={() => void saveChanges(saveStatus === "conflict")}>再試行</button>}
+          </div>
           {task.status === "open" && (
             <button
               className="primary-button"
               type="button"
-              disabled={!canStartTask || saving || !title.trim()}
+              disabled={!canStartTask || saving || !title.trim() || saveStatus === "conflict"}
               aria-label={isActiveTask ? `${task.title}の詳細からタイマーへ戻る` : `${task.title}を詳細から開始`}
               onClick={async () => {
-                if (isDirty && !(await saveChanges())) return;
+                if ((isDirty || savePromiseRef.current) && !(await flushChanges())) return;
                 if (isActiveTask) {
                   onReturnToTimer();
                   return;
@@ -505,20 +703,17 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
         </div>
       </div>
       <section className="task-editor__summary" aria-label="タスクの要点">
-        <label className="task-editor__title-field">タスク名{task.status === "completed" && <span>完了済み</span>}<input aria-label="タスク名" value={title} maxLength={200} required onChange={(event) => setTitle(event.target.value)} /></label>
-      </section>
-      <section className="task-editor__record-summary" aria-label="タスクの実績">
-        <div><span>実働時間</span><strong>{formatFocusedTime(taskFocusedMs)}</strong></div>
-        <div><span>完了セッション</span><strong>{taskCompletedSessions}回</strong></div>
-        <div><span>中断セッション</span><strong>{taskCancelledSessions}回</strong></div>
+        <label className="task-editor__title-field">タスク名{task.status === "completed" && <span>完了済み</span>}<input aria-label="タスク名" value={title} maxLength={200} required onCompositionStart={() => setIsComposing(true)} onCompositionEnd={() => setIsComposing(false)} onChange={(event) => setTitle(event.target.value)} /></label>
       </section>
       <section className="task-editor__quick-actions" aria-label="よく使う設定">
         <div className="task-editor__quick-group">
+          <span>期限 <strong>{dueDateSummary}</strong></span>
           <div role="group" aria-label="タスクの期限をすばやく設定">
             {([ ["today", "今日"], ["tomorrow", "明日"], ["week", "7日後"], ["someday", "いつか"] ] as const).map(([preset, label]) => <button type="button" aria-pressed={preset === "someday" ? bucket === "someday" && !dueDate : dueDate === addLocalDays(today, preset === "today" ? 0 : preset === "tomorrow" ? 1 : 7) && bucket === "inbox"} className={(preset === "someday" ? bucket === "someday" && !dueDate : dueDate === addLocalDays(today, preset === "today" ? 0 : preset === "tomorrow" ? 1 : 7) && bucket === "inbox") ? "is-active" : ""} onClick={() => applyDuePreset(preset)} key={preset}>{label}</button>)}
           </div>
         </div>
         <div className="task-editor__quick-group">
+          <span>予定回数 <strong>{estimatedPomodoros === 0 ? "なし" : `${estimatedPomodoros}回`}</strong></span>
           <div role="group" aria-label="集中回数をすばやく設定">
             {[0, ...quickEstimateOptions].map((value) => <button type="button" aria-pressed={estimatedPomodoros === value} className={estimatedPomodoros === value ? "is-active" : ""} onClick={() => setEstimatedPomodoros(value)} key={value}>{value === 0 ? "なし" : value}</button>)}
           </div>
@@ -532,6 +727,11 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
           options={[{ value: "", label: "なし" }, ...projects.map((project) => ({ value: project.id, label: project.name }))]}
           onChange={setProjectId}
         />
+      </section>
+      <section className="task-editor__record-summary" aria-label="タスクの実績">
+        <div><span>実働時間</span><strong>{formatFocusedTime(taskFocusedMs)}</strong></div>
+        <div><span>完了セッション</span><strong>{taskCompletedSessions}回</strong></div>
+        <div><span>中断セッション</span><strong>{taskCancelledSessions}回</strong></div>
       </section>
       <details className="task-editor__details task-editor__advanced">
         <summary>
@@ -573,7 +773,7 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
           </details>
           <details className="task-editor__details" open={noteExpanded} onToggle={(event) => setNoteExpanded((event.currentTarget as HTMLDetailsElement).open)}>
             <summary><span>メモ</span>{note.trim() && <strong>{`${Math.min(note.trim().length, 40)}文字のメモ`}</strong>}</summary>
-            <div className="task-editor__details-body"><label>メモ<textarea value={note} maxLength={10_000} rows={4} onChange={(event) => setNote(event.target.value)} /></label></div>
+            <div className="task-editor__details-body"><label>メモ<textarea value={note} maxLength={10_000} rows={4} onCompositionStart={() => setIsComposing(true)} onCompositionEnd={() => setIsComposing(false)} onChange={(event) => setNote(event.target.value)} /></label></div>
           </details>
           <details className="task-editor__details subtask-editor" open={subtasksExpanded} onToggle={(event) => setSubtasksExpanded((event.currentTarget as HTMLDetailsElement).open)}>
             <summary><span>サブタスク</span>{subtasks.length > 0 && <strong>{`${subtasks.length}件`}</strong>}</summary>
@@ -719,6 +919,15 @@ export function TaskDrawer({
   const swipeMovedTaskIdRef = useRef<string | null>(null);
   const appliedResumeTaskIdRef = useRef<string | null>(null);
   const selectedTaskScrollModeRef = useRef<"nearest" | "start">("nearest");
+  const editorExitRef = useRef<((action: () => void) => void) | null>(null);
+  const registerEditorExit = useCallback((handler: ((action: () => void) => void) | null) => {
+    editorExitRef.current = handler;
+  }, []);
+  const requestEditorExit = useCallback((action: () => void) => {
+    const handler = editorExitRef.current;
+    if (handler) handler(action);
+    else action();
+  }, []);
   const now = new Date();
   const today = toLocalDateKey(now);
   const tomorrow = addLocalDays(today, 1);
@@ -838,7 +1047,7 @@ export function TaskDrawer({
     const previous = document.activeElement as HTMLElement | null;
     closeRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") requestEditorExit(onClose);
       if (event.key !== "Tab" || !drawerRef.current) return;
       const focusable = [...drawerRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')];
       const first = focusable[0];
@@ -856,7 +1065,7 @@ export function TaskDrawer({
       document.removeEventListener("keydown", onKeyDown);
       previous?.focus();
     };
-  }, [onClose, open]);
+  }, [onClose, open, requestEditorExit]);
 
   useEffect(() => {
     if (selectedTaskId && !tasks.some((task) => task.id === selectedTaskId && task.status !== "archived")) setSelectedTaskId(null);
@@ -872,26 +1081,10 @@ export function TaskDrawer({
   }, [open, workspaceMode]);
 
   useEffect(() => {
-    if (!open) return;
-    setProjectId(null);
-    setView("today");
-    setSelectedTaskId(null);
-    setWorkspaceMode("tasks");
-  }, [open]);
-
-  useEffect(() => {
     if (!returnFocusToQuickAdd) return;
     quickAddInputRef.current?.focus();
     setReturnFocusToQuickAdd(false);
   }, [returnFocusToQuickAdd]);
-
-  useEffect(() => {
-    if (!selectedTaskId) return;
-    if (!scopedTasks.some((task) => task.id === selectedTaskId)) {
-      setSelectedTaskId(null);
-      return;
-    }
-  }, [scopedTasks, selectedTaskId]);
 
   useEffect(() => {
     const taskId = pendingTaskFocusIdRef.current;
@@ -968,25 +1161,23 @@ export function TaskDrawer({
   }, []);
 
   const openTaskNavigation = () => {
-    setSelectedTaskId(null);
-    setQuickPanel(null);
-    setNavigationCollapsed(false);
-    window.setTimeout(() => navigationHeadingRef.current?.focus(), 0);
+    requestEditorExit(() => {
+      setSelectedTaskId(null);
+      setQuickPanel(null);
+      setNavigationCollapsed(false);
+      window.setTimeout(() => navigationHeadingRef.current?.focus(), 0);
+    });
   };
 
   const quickAddProjectId = quickProjectId === null ? projectId : quickProjectId || null;
   const openTaskDetails = useCallback((task: TaskRecord, options?: { revealInList?: boolean }) => {
-    selectedTaskScrollModeRef.current = options?.revealInList ? "start" : "nearest";
-    setWorkspaceMode("tasks");
-    collapseNavigationIfCompact();
-    setSelectedTaskId(task.id);
-    if (task.projectId && activeProjects.some((project) => project.id === task.projectId)) {
-      setProjectId(task.projectId);
-      return;
-    }
-    setProjectId(null);
-    setView(getViewForTask(task, today, tomorrow));
-  }, [activeProjects, collapseNavigationIfCompact, today, tomorrow]);
+    requestEditorExit(() => {
+      selectedTaskScrollModeRef.current = options?.revealInList ? "start" : "nearest";
+      setWorkspaceMode("tasks");
+      collapseNavigationIfCompact();
+      setSelectedTaskId(task.id);
+    });
+  }, [collapseNavigationIfCompact, requestEditorExit]);
   const closeTaskDetails = (taskId: string) => {
     pendingTaskFocusIdRef.current = taskId;
     setSelectedTaskId(null);
@@ -1183,7 +1374,7 @@ export function TaskDrawer({
   if (!open) return null;
 
   return (
-    <div className="task-backdrop" onPointerDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className="task-backdrop" onPointerDown={(event) => { if (event.target === event.currentTarget) requestEditorExit(onClose); }}>
       <aside className="task-drawer" role="dialog" aria-modal="true" aria-labelledby="task-drawer-title" ref={drawerRef}>
         <a className="task-skip-link" href="#task-workspace-main">現在の一覧へ移動</a>
         <div className="task-drawer__sheet-handle" aria-hidden="true" />
@@ -1196,19 +1387,19 @@ export function TaskDrawer({
               className={`task-header-action${workspaceMode === "backup" ? " is-active" : ""}`}
               type="button"
               aria-current={workspaceMode === "backup" ? "page" : undefined}
-              onClick={() => setWorkspaceMode((current) => current === "backup" ? "tasks" : "backup")}
+              onClick={() => requestEditorExit(() => setWorkspaceMode((current) => current === "backup" ? "tasks" : "backup"))}
             >
               <WorkspaceIcon type="backup" />
               <span>データ管理</span>
             </button>
-            <button className="panel-switch-button" type="button" onClick={() => onOpenSettings()} aria-label="設定を開く"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.3a3.3 3.3 0 1 0 0-6.6 3.3 3.3 0 0 0 0 6.6Z" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" /></svg><span>設定</span></button>
-            <button className="icon-button" type="button" onClick={onClose} ref={closeRef} aria-label="タスクを閉じる"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg></button>
+            <button className="panel-switch-button" type="button" onClick={() => requestEditorExit(onOpenSettings)} aria-label="設定を開く"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.3a3.3 3.3 0 1 0 0-6.6 3.3 3.3 0 0 0 0 6.6Z" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" /></svg><span>設定</span></button>
+            <button className="icon-button" type="button" onClick={() => requestEditorExit(onClose)} ref={closeRef} aria-label="タスクを閉じる"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg></button>
           </div>
         </header>
 
         <nav className="task-mode-tabs" aria-label="作業ビュー">
-          <button type="button" className={workspaceMode === "tasks" ? "is-active" : ""} aria-current={workspaceMode === "tasks" ? "page" : undefined} onClick={() => setWorkspaceMode("tasks")}><WorkspaceIcon type="tasks" /><span>タスク</span></button>
-          <button type="button" className={workspaceMode === "report" ? "is-active" : ""} aria-current={workspaceMode === "report" ? "page" : undefined} onClick={() => setWorkspaceMode("report")}><WorkspaceIcon type="report" /><span>レポート</span></button>
+          <button type="button" className={workspaceMode === "tasks" ? "is-active" : ""} aria-current={workspaceMode === "tasks" ? "page" : undefined} onClick={() => requestEditorExit(() => setWorkspaceMode("tasks"))}><WorkspaceIcon type="tasks" /><span>タスク</span></button>
+          <button type="button" className={workspaceMode === "report" ? "is-active" : ""} aria-current={workspaceMode === "report" ? "page" : undefined} onClick={() => requestEditorExit(() => setWorkspaceMode("report"))}><WorkspaceIcon type="report" /><span>レポート</span></button>
         </nav>
 
         <div className={`task-drawer__body task-drawer__body--${workspaceMode}${workspaceMode === "tasks" && !navigationCollapsed ? " is-navigation-open" : ""}`}>
@@ -1217,15 +1408,15 @@ export function TaskDrawer({
               <div className="task-navigation__views">
                 {views.map((item, index) => {
                   const estimatedTime = estimatedFocusTimeLabel(getTasksForView(tasks, item.value, today), workMinutes);
-                  return <button ref={index === 0 ? navigationHeadingRef : undefined} type="button" className={!projectId && view === item.value ? "is-active" : ""} aria-current={!projectId && view === item.value ? "page" : undefined} onClick={() => { setProjectSettingsOpen(false); setProjectId(null); setView(item.value); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); }} key={item.value}><span>{item.label}</span><strong>{estimatedTime}</strong></button>;
+                  return <button ref={index === 0 ? navigationHeadingRef : undefined} type="button" className={!projectId && view === item.value ? "is-active" : ""} aria-current={!projectId && view === item.value ? "page" : undefined} onClick={() => requestEditorExit(() => { setProjectSettingsOpen(false); setProjectId(null); setView(item.value); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); })} key={item.value}><span>{item.label}</span><strong>{estimatedTime}</strong></button>;
                 })}
-                {archivedTasks.length > 0 && <button type="button" className={!projectId && view === "archived" ? "is-active" : ""} aria-current={!projectId && view === "archived" ? "page" : undefined} onClick={() => { setProjectSettingsOpen(false); setProjectId(null); setView("archived"); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); }}><span>保管済み</span><strong>{estimatedFocusTimeLabel(archivedTasks, workMinutes)}</strong></button>}
+                {archivedTasks.length > 0 && <button type="button" className={!projectId && view === "archived" ? "is-active" : ""} aria-current={!projectId && view === "archived" ? "page" : undefined} onClick={() => requestEditorExit(() => { setProjectSettingsOpen(false); setProjectId(null); setView("archived"); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); })}><span>保管済み</span><strong>{estimatedFocusTimeLabel(archivedTasks, workMinutes)}</strong></button>}
               </div>
               <div className="task-navigation__projects">
                 <div className="task-navigation__projects-heading"><h3>プロジェクト</h3><button type="button" aria-expanded={showProjectForm} onClick={() => setShowProjectForm((current) => !current)}>{showProjectForm ? "閉じる" : "新規"}</button></div>
                 {activeProjects.map((project) => (
                   <div className={projectId === project.id ? "project-link is-active" : "project-link"} key={project.id}>
-                    <button className="project-link__select" type="button" aria-current={projectId === project.id ? "page" : undefined} onClick={() => { setProjectSettingsOpen(false); setProjectId(project.id); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); }}><i style={{ background: project.color }} /><span>{project.name}</span><strong>{estimatedFocusTimeLabel(getTasksForProject(tasks, project.id), workMinutes)}</strong></button>
+                    <button className="project-link__select" type="button" aria-current={projectId === project.id ? "page" : undefined} onClick={() => requestEditorExit(() => { setProjectSettingsOpen(false); setProjectId(project.id); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); })}><i style={{ background: project.color }} /><span>{project.name}</span><strong>{estimatedFocusTimeLabel(getTasksForProject(tasks, project.id), workMinutes)}</strong></button>
                   </div>
                 ))}
                 {showProjectForm && <form className="project-add" onSubmit={addProject}>
@@ -1262,7 +1453,40 @@ export function TaskDrawer({
                   <button className="danger-button" type="button" onClick={() => setProjectToDelete(currentProject)}>プロジェクトを削除</button>
                 </div>
               </section>
-            </section> : selectedTask && selectedTask.status !== "archived" ? <div className="task-editor-screen"><TaskEditor key={`${selectedTask.id}-${selectedTask.updatedAt}`} task={selectedTask} projects={activeProjects} availableTags={availableTags} subtasks={tasks.filter((item) => item.parentTaskId === selectedTask.id && item.status !== "archived").sort((a, b) => a.order - b.order)} sessions={sessions} timerStatus={timerStatus} activeTaskId={activeTaskId} nextTask={selectedTaskNextCandidate} nextTaskDetail={selectedTaskNextCandidateDetail} onStartTask={onStartTask} onOpenNextTask={selectedTaskNextCandidate ? () => openTaskDetails(selectedTaskNextCandidate, { revealInList: true }) : undefined} onReturnToTimer={() => { setSelectedTaskId(null); onClose(); }} onSave={(patch) => onUpdateTask(selectedTask.id, patch)} onArchive={async () => { const archived = await onArchiveTask(selectedTask.id); if (archived) setSelectedTaskId(null); return archived; }} onDelete={async () => { const deleted = await onDeleteTask(selectedTask.id); if (deleted) setSelectedTaskId(null); return deleted; }} onDeleteRecurring={async (taskId) => onDeleteRecurring?.(taskId) ?? false} onToggleStatus={async () => { const toggled = await onToggleTask(selectedTask.id); if (toggled) closeTaskDetails(selectedTask.id); return toggled; }} onCompleteAndStartNextTask={selectedTaskNextCandidate ? async () => { const toggled = await onToggleTask(selectedTask.id); if (!toggled) return false; onStartTask(selectedTaskNextCandidate.id); return true; } : undefined} onAddSubtask={async (subtaskTitle) => (await onAddTask({ title: subtaskTitle, parentTaskId: selectedTask.id, projectId: selectedTask.projectId, bucket: selectedTask.bucket })) !== null} onToggleSubtask={onToggleTask} canMoveUp={selectedTaskVisibleIndex > 0} canMoveDown={selectedTaskVisibleIndex >= 0 && selectedTaskVisibleIndex < selectedTaskVisibleIds.length - 1} onMove={(direction) => onMoveTask(selectedTask.id, selectedTaskVisibleIds, direction)} onClose={() => closeTaskDetails(selectedTask.id)} /></div> : <>
+            </section> : selectedTask && selectedTask.status !== "archived" ? <div className="task-editor-screen">
+              <TaskEditor
+                key={selectedTask.id}
+                task={selectedTask}
+                projects={activeProjects}
+                availableTags={availableTags}
+                subtasks={tasks.filter((item) => item.parentTaskId === selectedTask.id && item.status !== "archived").sort((a, b) => a.order - b.order)}
+                sessions={sessions}
+                timerStatus={timerStatus}
+                activeTaskId={activeTaskId}
+                nextTask={selectedTaskNextCandidate}
+                nextTaskDetail={selectedTaskNextCandidateDetail}
+                onStartTask={onStartTask}
+                onOpenNextTask={selectedTaskNextCandidate ? () => openTaskDetails(selectedTaskNextCandidate, { revealInList: true }) : undefined}
+                onReturnToTimer={() => { setSelectedTaskId(null); onClose(); }}
+                onSave={async (patch, expectedUpdatedAt) => {
+                  const latest = tasks.find((item) => item.id === selectedTask.id);
+                  if (!latest || latest.updatedAt !== expectedUpdatedAt) return "conflict";
+                  return onUpdateTask(selectedTask.id, patch);
+                }}
+                onRegisterExit={registerEditorExit}
+                onArchive={async () => { const archived = await onArchiveTask(selectedTask.id); if (archived) setSelectedTaskId(null); return archived; }}
+                onDelete={async () => { const deleted = await onDeleteTask(selectedTask.id); if (deleted) setSelectedTaskId(null); return deleted; }}
+                onDeleteRecurring={async (taskId) => onDeleteRecurring?.(taskId) ?? false}
+                onToggleStatus={async () => { const toggled = await onToggleTask(selectedTask.id); if (toggled) closeTaskDetails(selectedTask.id); return toggled; }}
+                onCompleteAndStartNextTask={selectedTaskNextCandidate ? async () => { const toggled = await onToggleTask(selectedTask.id); if (!toggled) return false; onStartTask(selectedTaskNextCandidate.id); return true; } : undefined}
+                onAddSubtask={async (subtaskTitle) => (await onAddTask({ title: subtaskTitle, parentTaskId: selectedTask.id, projectId: selectedTask.projectId, bucket: selectedTask.bucket })) !== null}
+                onToggleSubtask={onToggleTask}
+                canMoveUp={selectedTaskVisibleIndex > 0}
+                canMoveDown={selectedTaskVisibleIndex >= 0 && selectedTaskVisibleIndex < selectedTaskVisibleIds.length - 1}
+                onMove={(direction) => onMoveTask(selectedTask.id, selectedTaskVisibleIds, direction)}
+                onClose={() => closeTaskDetails(selectedTask.id)}
+              />
+            </div> : <>
             <div className="task-workspace__scroll">
             <div className="task-workspace__toolbar">
               <div className="task-workspace__heading">

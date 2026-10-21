@@ -218,7 +218,24 @@ describe("App", () => {
     fireEvent.click(within(homeDock).getByRole("button", { name: "タスク" }));
     fireEvent.click(screen.getByRole("button", { name: "設定を開く" }));
     fireEvent.click(screen.getByRole("button", { name: "設定を閉じる" }));
-    await waitFor(() => expect(document.activeElement).toBe(within(homeDock).getByRole("button", { name: "タスク" })));
+    await waitFor(() => expect(screen.getByRole("dialog", { name: "タスク" })).toBeTruthy());
+  });
+
+  it("returns to the selected task after closing settings opened from its details", async () => {
+    mockTasksState.tasks = [focusTask];
+    mockTasksState.projects = [focusProject];
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "タスクを開く。今日の未完了は1件" }));
+    fireEvent.click(screen.getByRole("button", { name: /^数学の復習 集中回数/ }));
+    expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "設定を開く" }));
+    expect(screen.getByRole("dialog", { name: "設定" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "設定を閉じる" }));
+
+    await waitFor(() => expect(screen.getByRole("dialog", { name: "タスク" })).toBeTruthy());
+    expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy();
   });
 
   it("returns focus to the trigger that remains available after closing or switching panels", async () => {
@@ -239,11 +256,8 @@ describe("App", () => {
     fireEvent.click(homeTasks);
     fireEvent.click(screen.getByRole("button", { name: "設定を開く" }));
     fireEvent.click(screen.getByRole("button", { name: "設定を閉じる" }));
-    await waitFor(() => expect(document.activeElement).toBe(homeTasks));
-
-    fireEvent.click(homeTasks);
-    fireEvent.click(screen.getByRole("button", { name: "設定を開く" }));
-    fireEvent.click(screen.getByRole("button", { name: "設定を閉じる" }));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "タスクを閉じる" })));
+    fireEvent.click(screen.getByRole("button", { name: "タスクを閉じる" }));
     await waitFor(() => expect(document.activeElement).toBe(homeTasks));
 
     fireEvent.click(homeTasks);
