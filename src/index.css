@@ -104,6 +104,9 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .date { display: block; font-weight: 720; line-height: 1.25; letter-spacing: .035em; text-shadow: 0 3px 16px rgba(23,52,95,.18); }
 
 .clock-widget { position: absolute; z-index: 3; width: min(86vw, 900px); }
+@media (max-width: 600px) {
+  .clock-widget { width: 100vw; }
+}
 .clock-widget--left { text-align: left; transform: translate(0, -50%); }.clock-widget--center { text-align: center; transform: translate(-50%, -50%); }.clock-widget--right { text-align: right; transform: translate(-100%, -50%); }
 .clock-position-guides { position: fixed; z-index: 2; inset: 0; pointer-events: none; }
 .clock-position-guides__vertical, .clock-position-guides__horizontal { position: absolute; display: block; background: rgba(255,255,255,.86); box-shadow: 0 0 0 1px rgba(23,52,95,.24), 0 0 14px rgba(255,255,255,.9); animation: clock-position-guide-in .16s ease-out both; }
@@ -113,6 +116,7 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 @media (prefers-reduced-motion: reduce) { .clock-position-guides__vertical, .clock-position-guides__horizontal { animation: none; } }
 .clock-widget__display { display: flex; flex-direction: column; align-items: inherit; width: fit-content; max-width: 100%; padding: 12px 16px; color: inherit; text-align: inherit; border: 1px solid transparent; border-radius: 24px; background: transparent; cursor: grab; touch-action: none; transition: border-color .2s, background-color .2s, box-shadow .2s; }
 .clock-widget__display:active { cursor: grabbing; }.clock-widget__display:hover, .clock-widget--editing .clock-widget__display { border-color: rgba(255,255,255,.64); background: rgba(248,252,255,.17); box-shadow: 0 10px 32px rgba(23,52,95,.08); }
+.clock-widget__display:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent, #235aa6) 72%, #fff); outline-offset: 3px; }
 .clock-widget--left .clock-widget__display { align-items: flex-start; }.clock-widget--center .clock-widget__display { align-items: center; margin-inline: auto; }.clock-widget--right .clock-widget__display { align-items: flex-end; margin-left: auto; }
 .clock-widget__hint { position: absolute; top: -31px; padding: 5px 9px; color: inherit; border: 1px solid rgba(255,255,255,.55); border-radius: 999px; background: rgba(248,252,255,.22); box-shadow: 0 3px 12px rgba(23,52,95,.09); font-size: 11px; font-weight: 750; letter-spacing: .02em; opacity: 0; pointer-events: none; transition: opacity .2s; }.clock-widget--hint-visible .clock-widget__hint { opacity: 1; }
 .clock-editor { position: fixed; z-index: 8; width: min(360px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 16px; overflow-y: auto; color: var(--ink); text-align: left; border: 1px solid rgba(255,255,255,.9); border-radius: 20px; background: rgba(247,251,255,.95); box-shadow: 0 18px 48px rgba(31,63,103,.24); backdrop-filter: blur(20px); overscroll-behavior: contain; }
@@ -244,8 +248,8 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .floating-timer__controls button { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; color: #e8f2fb; border: 1px solid rgba(255,255,255,.24); border-radius: 50%; background: rgba(255,255,255,.08); transition: color .2s, background-color .2s, border-color .2s; }
 .floating-timer__controls .floating-timer__primary { width: 48px; height: 48px; color: #fff; border-color: rgba(255,255,255,.72); background: rgba(255,255,255,.08); }
 .floating-timer__controls .floating-timer__end { color: #ffdce3; border-color: rgba(228, 128, 151, .72); background: rgba(184, 75, 100, .2); }
-.floating-timer__controls button:hover { border-color: rgba(81,194,255,.75); background: rgba(34,183,255,.2); }
 .floating-timer__controls button:hover { border-color: color-mix(in srgb, var(--timer-accent, #51c2ff) 75%, white); background: color-mix(in srgb, var(--timer-accent, #22b7ff) 20%, transparent); }
+.floating-timer__controls button:focus-visible { outline: 3px solid color-mix(in srgb, var(--timer-accent, #51c2ff) 72%, white); outline-offset: 3px; }
 .floating-timer__controls svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .floating-timer__done { padding: 0 6px; color: #7ce2ca; font-size: 12px; font-weight: 850; }
 .floating-timer--compact .floating-timer__drag { width: 88px; height: 88px; border-radius: 50%; }
@@ -4374,10 +4378,34 @@ body { font-family: var(--font-body); }
   background: var(--color-paper);
 }
 
+.app-shell--clock-collision-top .clock-widget:not(.clock-widget--calendar) { top: 18% !important; }
+.app-shell--clock-collision-bottom .clock-widget:not(.clock-widget--calendar) { top: 82% !important; }
+.app-shell--clock-collision-left .clock-widget:not(.clock-widget--calendar) {
+  top: 50% !important;
+  right: auto !important;
+  left: 16px !important;
+  width: max-content !important;
+  text-align: left !important;
+  transform: translateY(-50%) !important;
+}
+.app-shell--clock-collision-left .clock-widget:not(.clock-widget--calendar) .clock-widget__display {
+  align-items: flex-start !important;
+  margin-inline: 0 !important;
+}
+.app-shell--clock-collision-right .clock-widget:not(.clock-widget--calendar) {
+  top: 50% !important;
+  right: max(16px, env(safe-area-inset-right)) !important;
+  left: auto !important;
+  width: max-content !important;
+  text-align: right !important;
+  transform: translateY(-50%) !important;
+}
+.app-shell--clock-collision-right .clock-widget:not(.clock-widget--calendar) .clock-widget__display {
+  align-items: flex-end !important;
+  margin-inline: 0 !important;
+}
+
 @media (max-width: 600px) and (orientation: portrait) {
-  .app-shell--launcher-clock-collision .clock-widget:not(.clock-widget--calendar) {
-    top: min(38%, max(96px, calc(100dvh - 260px))) !important;
-  }
   .app-shell--launcher-timer-collision-bottom .clock-widget:not(.clock-widget--calendar) { top: 18% !important; }
 
   .task-launcher {
