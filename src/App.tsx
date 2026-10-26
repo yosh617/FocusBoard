@@ -466,14 +466,14 @@ export default function App() {
         onSetDuration={setCustomDurationMinutes}
         onCollapse={() => { setTimerSetupVisible(false); updateSettings({ timerSetupCollapsed: true }); }}
         onShowFloating={showFloatingTimer}
-        taskSelectionEnabled={timerAcceptsTask}
+        taskSelectionEnabled={true}
         selectedTaskTitle={selectedTimerTask?.title ?? null}
         onOpenTaskPicker={() => setTimerTaskPickerIntent("select")}
         key="timer"
       />
     );
     return slots;
-  }, [orientation, settings, timer, timerSetupVisible, startTimer, resetTimer, endTimer, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, showFloatingTimer, timerAcceptsTask, selectedTimerTask?.title, updateSettings]);
+  }, [orientation, settings, timer, timerSetupVisible, startTimer, resetTimer, endTimer, selectMode, selectProgram, selectCategory, setCustomDurationMinutes, showFloatingTimer, selectedTimerTask?.title, updateSettings]);
 
   const liveMessage = reminderMessage || taskMessage || backgroundMessage || announcement || storageMessage;
   const activeOverlay = completedSession !== null && completedTask !== null

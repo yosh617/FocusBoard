@@ -137,16 +137,18 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
   return (
     <div className={`productivity-report${focusHeatmap.totalFocusedMs === 0 ? " productivity-report--no-activity" : ""}`}>
       <div className="report-heading">
-        <h3>集中レポート</h3>
+        <h3>レポート</h3>
         <div className="report-period" role="group" aria-label="集計期間">
           {periods.map((item) => <button type="button" aria-pressed={period === item.value} onClick={() => { setPeriod(item.value); setPeriodOffset(0); setEditingSessionId(null); }} key={item.value}>{item.label}</button>)}
         </div>
-      </div>
-      <div className="report-period-navigation" role="group" aria-label="レポート期間の移動">
-        <button type="button" aria-label={`前の${periodLabel}`} onClick={() => { setPeriodOffset((current) => current - 1); setEditingSessionId(null); }}>‹</button>
-        <span aria-live="polite">{report.periodLabel}</span>
-        <button type="button" aria-label={`次の${periodLabel}`} disabled={periodOffset >= 0} onClick={() => { setPeriodOffset((current) => Math.min(0, current + 1)); setEditingSessionId(null); }}>›</button>
-        <button className="report-period-navigation__current" type="button" disabled={periodOffset >= 0} onClick={() => { setPeriodOffset(0); setEditingSessionId(null); }}>現在</button>
+        <div className="report-heading__controls">
+          <div className="report-period-navigation" role="group" aria-label="レポート期間の移動">
+            <button type="button" aria-label={`前の${periodLabel}`} onClick={() => { setPeriodOffset((current) => current - 1); setEditingSessionId(null); }}>‹</button>
+            <span aria-live="polite">{report.periodLabel}</span>
+            <button type="button" aria-label={`次の${periodLabel}`} disabled={periodOffset >= 0} onClick={() => { setPeriodOffset((current) => Math.min(0, current + 1)); setEditingSessionId(null); }}>›</button>
+            <button className="report-period-navigation__current" type="button" disabled={periodOffset >= 0} onClick={() => { setPeriodOffset(0); setEditingSessionId(null); }}>現在</button>
+          </div>
+        </div>
       </div>
 
       <section className="report-activity" aria-labelledby="report-activity-title">

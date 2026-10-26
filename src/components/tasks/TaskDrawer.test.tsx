@@ -94,8 +94,7 @@ function renderDrawer(overrides: Partial<React.ComponentProps<typeof TaskDrawer>
 }
 
 function openQuickAddSettings() {
-  const toggle = screen.getByRole("button", { name: /詳細を(追加|閉じる)/ });
-  if (toggle.getAttribute("aria-expanded") !== "true") fireEvent.click(toggle);
+  expect(screen.getByRole("region", { name: "設定" })).toBeTruthy();
 }
 
 function chooseSelect(container: ReturnType<typeof within>, label: string, option: string) {
@@ -120,7 +119,6 @@ describe("TaskDrawer", () => {
     expect(screen.queryByRole("region", { name: "今日の記録" })).toBeNull();
     expect(screen.getByLabelText("新しいタスク")).toBeTruthy();
     expect(screen.getByRole("region", { name: "設定" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "詳細を閉じる" }).getAttribute("aria-expanded")).toBe("true");
   });
 
   it("calculates today's estimate, focus time, and completed task count", () => {
@@ -213,7 +211,7 @@ describe("TaskDrawer", () => {
 
   it("adds projects with the default color", async () => {
     const props = renderDrawer();
-    fireEvent.click(screen.getByRole("button", { name: "新規" }));
+    fireEvent.click(screen.getByRole("button", { name: "プロジェクトを追加" }));
     expect(screen.queryByRole("group", { name: "プロジェクトの色を選択" })).toBeNull();
 
     fireEvent.change(screen.getByLabelText("新しいプロジェクト名"), { target: { value: "読書" } });
@@ -828,7 +826,7 @@ describe("TaskDrawer", () => {
     fireEvent.click(screen.getByRole("button", { name: "再試行" }));
     await waitFor(() => expect(onUpdateTask).toHaveBeenCalledTimes(2));
     expect(onUpdateTask).toHaveBeenLastCalledWith(task.id, expect.objectContaining({ title: "再試行する変更" }));
-    expect(screen.getByText("保存済み")).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toBe("");
     expect(props.onUpdateTask).toBe(onUpdateTask);
   });
 
@@ -870,7 +868,7 @@ describe("TaskDrawer", () => {
     await new Promise((resolve) => window.setTimeout(resolve, 600));
 
     expect(props.onUpdateTask).not.toHaveBeenCalled();
-    expect(screen.getByText("保存済み")).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toBe("");
   });
 
   it("waits for title IME composition to finish before autosaving", async () => {
@@ -885,7 +883,7 @@ describe("TaskDrawer", () => {
     fireEvent.compositionEnd(titleInput);
     await act(async () => new Promise((resolve) => window.setTimeout(resolve, 600)));
     await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({ title: "数学の" })));
-    await waitFor(() => expect(screen.getByText("保存済み")).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("status").textContent).toBe(""));
   });
 
   it("returns focus to the task row after returning from the dedicated editor", async () => {
@@ -1100,7 +1098,7 @@ describe("TaskDrawer", () => {
   it("opens the local productivity report", () => {
     renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: "レポート" }));
-    expect(screen.getByRole("heading", { name: "集中レポート" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "レポート" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "この期間の集中記録はありません" })).toBeTruthy();
     expect(screen.queryByRole("navigation", { name: "タスク一覧" })).toBeNull();
   });

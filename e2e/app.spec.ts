@@ -150,7 +150,7 @@ test("task completion can be undone and task details open from the list", async 
 test("projects can be created, selected, and persist with their tasks", async ({ page }) => {
   const tasks = await openTasks(page);
   const navigation = tasks.getByRole("navigation", { name: "タスク一覧" });
-  await navigation.getByRole("button", { name: "新規" }).click();
+  await navigation.getByRole("button", { name: "プロジェクトを追加" }).click();
   await navigation.getByRole("textbox", { name: "新しいプロジェクト名" }).fill("E2E プロジェクト");
   await navigation.getByRole("button", { name: "プロジェクトを追加" }).click();
   const projectButton = navigation.getByRole("button", { name: "E2E プロジェクト" });

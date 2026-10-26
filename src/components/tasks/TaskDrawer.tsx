@@ -679,7 +679,7 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
         </div>
         <div className="task-editor__heading-actions">
           <div className="task-editor__save-status" role="status" aria-live="polite">
-            <span>{saveStatus === "saving" || saving ? "保存中" : saveStatus === "saved" ? "保存済み" : saveStatus === "invalid" ? "タスク名を入力すると保存します" : saveStatus === "conflict" ? "別の場所で変更されています" : saveStatus === "error" ? "保存できませんでした" : "未保存"}</span>
+            <span>{saveStatus === "saving" || saving ? "保存中" : saveStatus === "saved" ? "" : saveStatus === "invalid" ? "タスク名を入力すると保存します" : saveStatus === "conflict" ? "別の場所で変更されています" : saveStatus === "error" ? "保存できませんでした" : "未保存"}</span>
             {(saveStatus === "error" || saveStatus === "conflict") && <button className="secondary-button" type="button" onClick={() => void saveChanges(saveStatus === "conflict")}>再試行</button>}
           </div>
           {task.status === "open" && (
@@ -708,7 +708,7 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
       <section className="task-editor__quick-actions" aria-label="よく使う設定">
         <div className="task-editor__quick-group">
           <span>期限 <strong>{dueDateSummary}</strong></span>
-          <div role="group" aria-label="タスクの期限をすばやく設定">
+          <div className="task-editor__due-presets" role="group" aria-label="タスクの期限をすばやく設定">
             {([ ["today", "今日"], ["tomorrow", "明日"], ["week", "7日後"], ["someday", "いつか"] ] as const).map(([preset, label]) => <button type="button" aria-pressed={preset === "someday" ? bucket === "someday" && !dueDate : dueDate === addLocalDays(today, preset === "today" ? 0 : preset === "tomorrow" ? 1 : 7) && bucket === "inbox"} className={(preset === "someday" ? bucket === "someday" && !dueDate : dueDate === addLocalDays(today, preset === "today" ? 0 : preset === "tomorrow" ? 1 : 7) && bucket === "inbox") ? "is-active" : ""} onClick={() => applyDuePreset(preset)} key={preset}>{label}</button>)}
           </div>
         </div>
@@ -891,7 +891,6 @@ export function TaskDrawer({
   const [quickTags, setQuickTags] = useState<string[]>([]);
   const [quickProjectId, setQuickProjectId] = useState<string | null>(null);
   const [quickPanel, setQuickPanel] = useState<"date" | "priority" | "tag" | "project" | "estimate" | null>(null);
-  const [quickSettingsOpen, setQuickSettingsOpen] = useState(true);
   const [quickAddPending, setQuickAddPending] = useState(false);
   const [returnFocusToQuickAdd, setReturnFocusToQuickAdd] = useState(false);
   const [workspaceMode, setWorkspaceMode] = useState<"tasks" | "report" | "backup">("tasks");
@@ -1121,7 +1120,6 @@ export function TaskDrawer({
         setQuickTags([]);
         setQuickProjectId(null);
         setQuickPanel(null);
-        setQuickSettingsOpen(true);
         setReturnFocusToQuickAdd(true);
       }
     } catch {
@@ -1413,7 +1411,7 @@ export function TaskDrawer({
                 {archivedTasks.length > 0 && <button type="button" className={!projectId && view === "archived" ? "is-active" : ""} aria-current={!projectId && view === "archived" ? "page" : undefined} onClick={() => requestEditorExit(() => { setProjectSettingsOpen(false); setProjectId(null); setView("archived"); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); })}><span>保管済み</span><strong>{estimatedFocusTimeLabel(archivedTasks, workMinutes)}</strong></button>}
               </div>
               <div className="task-navigation__projects">
-                <div className="task-navigation__projects-heading"><h3>プロジェクト</h3><button type="button" aria-expanded={showProjectForm} onClick={() => setShowProjectForm((current) => !current)}>{showProjectForm ? "閉じる" : "新規"}</button></div>
+                <div className="task-navigation__projects-heading"><h3>プロジェクト</h3><button type="button" aria-label={showProjectForm ? "プロジェクト追加を閉じる" : "プロジェクトを追加"} title={showProjectForm ? "プロジェクト追加を閉じる" : "プロジェクトを追加"} aria-expanded={showProjectForm} onClick={() => setShowProjectForm((current) => !current)}>{showProjectForm ? "閉じる" : <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>}</button></div>
                 {activeProjects.map((project) => (
                   <div className={projectId === project.id ? "project-link is-active" : "project-link"} key={project.id}>
                     <button className="project-link__select" type="button" aria-current={projectId === project.id ? "page" : undefined} onClick={() => requestEditorExit(() => { setProjectSettingsOpen(false); setProjectId(project.id); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); })}><i style={{ background: project.color }} /><span>{project.name}</span><strong>{estimatedFocusTimeLabel(getTasksForProject(tasks, project.id), workMinutes)}</strong></button>
@@ -1507,17 +1505,6 @@ export function TaskDrawer({
                   }} onCompositionStart={() => { quickAddComposingRef.current = true; }} onCompositionEnd={() => { quickAddComposingRef.current = false; }} onChange={(event) => setTitle(event.target.value)} disabled={!storageAvailable || quickAddPending} />
                   <button className="task-capture__add" type="submit" aria-label={quickAddPending ? "タスクを追加中" : "タスクを追加"} disabled={!storageAvailable || !title.trim() || quickAddPending}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg><span>{quickAddPending ? "追加中" : "追加"}</span></button>
                 </div>
-                <button
-                  className="task-capture__details-toggle"
-                  type="button"
-                  aria-expanded={quickSettingsOpen}
-                  aria-controls="task-quick-add-details"
-                  disabled={quickAddPending}
-                  onClick={() => { setQuickSettingsOpen((open) => !open); setQuickPanel(null); }}
-                >
-                  <span>{quickSettingsOpen ? "詳細を閉じる" : "詳細を追加"}</span>
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d={quickSettingsOpen ? "m6 15 6-6 6 6" : "m6 9 6 6 6-6"} /></svg>
-                </button>
               </form>}
               {!projectId && view === "completed" && <ManualSessionForm tasks={tasks} projects={activeProjects} disabled={!storageAvailable} onAdd={onAddManualSession} />}
               {showResumeBanner && toolbarContext && (
@@ -1588,7 +1575,7 @@ export function TaskDrawer({
               </section>}
               </div>}
             </div>
-            {view !== "completed" && view !== "archived" && quickSettingsOpen && (
+            {view !== "completed" && view !== "archived" && (
               <fieldset className="task-capture__settings" id="task-quick-add-details" aria-labelledby="task-capture-settings-heading" role="region" disabled={quickAddPending}>
                 <h4 id="task-capture-settings-heading" className="task-capture__settings-heading">設定</h4>
                 <div className="task-capture__estimate">

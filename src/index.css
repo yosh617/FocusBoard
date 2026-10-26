@@ -4247,6 +4247,30 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .productivity-report > section:not(.report-summary):not(.report-empty-state):not(.report-activity) { order: 5; }
 .report-activity__heading h4 { margin-bottom: 0 !important; }
 
+/* Keep the report controls together and compact beside their heading. */
+.report-heading { align-items: center; flex-wrap: wrap; }
+.report-heading__controls { display: flex; align-items: center; }
+.report-period-navigation { justify-content: flex-start; gap: 4px; padding: 0; }
+.report-period-navigation > span { min-width: 116px; }
+.report-period-navigation button { min-width: 34px; min-height: 34px; padding: 0 7px; border-radius: 7px; font-size: 16px; }
+.report-period-navigation button.report-period-navigation__current { min-width: 42px; font-size: 11px; }
+
+/* Counts read as supporting text instead of a badge. */
+.background-settings-count { padding: 0; color: var(--color-mid-gray); border: 0; border-radius: 0; background: transparent; font-size: 11px; font-weight: 500; }
+
+/* Keep quick-add text aligned with task titles and reduce list row height. */
+.task-drawer .task-capture__title { grid-template-columns: minmax(0, 1fr) 84px; padding-inline: 12px 6px; }
+.task-workspace--today .task-capture__title { grid-template-columns: minmax(0, 1fr) 84px; }
+.task-list .task-row { min-height: 46px; }
+.task-list .task-row__check, .task-list .task-row__content, .task-list .task-row__start { min-height: 46px; }
+.task-list__section-items { gap: 0; }
+.task-list .task-row + .task-row { border-top: 1px solid var(--color-hairline); }
+.task-list__section-stats .task-pomodoro-meter { display: none; }
+.task-list__section-items > .task-list__item + .task-list__item { border-top: 1px solid var(--color-hairline); }
+.task-drawer .task-navigation__projects-heading button { min-width: 36px; width: 36px; padding: 0; }
+.task-drawer .task-navigation__projects-heading button svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.settings-content--data .settings-disclosure { margin-bottom: 12px; }
+
 /* Settings actions use the same quiet row language as the rest of the panel. */
 .settings-drawer .background-upload {
   min-height: 48px;
@@ -4567,13 +4591,12 @@ body { font-family: var(--font-body); }
   opacity: 1;
 }
 .task-editor-screen .task-editor__heading-actions > .primary-button:not(.task-editor__save) {
-  color: var(--color-ink);
-  border: 1px solid var(--color-hairline);
-  background: var(--color-paper);
+  color: var(--task-primary-contrast, var(--accent-contrast));
+  border: 1px solid var(--task-primary);
+  background: var(--task-primary);
 }
 .task-editor-screen .task-editor__heading-actions > .primary-button:not(.task-editor__save):hover:not(:disabled) {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+  filter: brightness(.94);
 }
 .task-editor-screen .task-editor__summary {
   padding: 0;
@@ -4641,6 +4664,17 @@ body { font-family: var(--font-body); }
   background: var(--task-primary-soft);
   box-shadow: none;
 }
+.task-editor__due-presets {
+  --due-today: #e1f2e7;
+  --due-tomorrow: #fff0df;
+  --due-week: #e2f2fa;
+  --due-someday: #ededee;
+}
+.task-editor-screen .task-editor__quick-group .task-editor__due-presets button:nth-child(1) { background: var(--due-today) !important; }
+.task-editor-screen .task-editor__quick-group .task-editor__due-presets button:nth-child(2) { background: var(--due-tomorrow) !important; }
+.task-editor-screen .task-editor__quick-group .task-editor__due-presets button:nth-child(3) { background: var(--due-week) !important; }
+.task-editor-screen .task-editor__quick-group .task-editor__due-presets button:nth-child(4) { background: var(--due-someday) !important; }
+.task-editor-screen .task-editor__due-presets button.is-active { border-color: var(--task-primary-text); box-shadow: inset 0 0 0 1px var(--task-primary-text); }
 .task-editor-screen .task-editor__section {
   padding: 0;
   border: 0;

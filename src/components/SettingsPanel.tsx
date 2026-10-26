@@ -360,21 +360,25 @@ export function SettingsPanel({ open, settings, orientation, saveState, onChange
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5h16v11H4zM7 7.5V5h10v2.5M8 12h8M8 15h5" /></svg>
           <span>この端末に保存</span>
         </div>
-        <div className="data-cards">
+        <Disclosure label="設定のバックアップ">
           <section className="data-card" aria-labelledby="data-export-heading">
             <div className="data-card__body">
               <div><h4 id="data-export-heading">設定をバックアップ</h4><p>表示・背景・タイマーの設定を書き出します。</p></div>
               <button className="data-row__action" type="button" aria-label="設定をエクスポート" onClick={exportSettings}>書き出す</button>
             </div>
           </section>
+        </Disclosure>
+        <Disclosure label="アプリ情報">
           <section className="data-card" aria-labelledby="data-version-heading">
             <div className="data-card__body">
               <div className="data-version"><h4 id="data-version-heading">アプリ情報</h4><output className="data-card__version">v{appVersion}</output></div>
               <button className="data-row__action data-row__action--secondary" type="button" aria-label="アプリを再読み込み" onClick={() => window.location.reload()}>再読み込み</button>
             </div>
           </section>
-        </div>
-        <ResetPanel onResetSettings={onResetSettings} onClearTimer={onClearTimer} onMessage={onMessage} />
+        </Disclosure>
+        <Disclosure label="リセットと削除">
+          <ResetPanel onResetSettings={onResetSettings} onClearTimer={onClearTimer} onMessage={onMessage} />
+        </Disclosure>
       </>}
         {category !== "data" && <div className="settings-section__footer"><button className="text-button" type="button" aria-label={`${categories.find((item) => item.id === category)?.label ?? "設定"}を初期値に戻す`} onClick={() => resetSection(category)}>このカテゴリを初期値に戻す</button></div>}
       </section>
