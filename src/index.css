@@ -4252,8 +4252,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .report-heading__controls { display: flex; align-items: center; }
 .report-period-navigation { justify-content: flex-start; gap: 4px; padding: 0; }
 .report-period-navigation > span { min-width: 116px; }
-.report-period-navigation button { min-width: 34px; min-height: 34px; padding: 0 7px; border-radius: 7px; font-size: 16px; }
-.report-period-navigation button.report-period-navigation__current { min-width: 42px; font-size: 11px; }
+.report-period-navigation button { min-width: 44px; min-height: 44px; padding: 0 7px; border-radius: var(--radius-control); font-size: 16px; }
+.report-period-navigation button.report-period-navigation__current { min-width: 44px; font-size: 11px; }
 
 /* Counts read as supporting text instead of a badge. */
 .background-settings-count { padding: 0; color: var(--color-mid-gray); border: 0; border-radius: 0; background: transparent; font-size: 11px; font-weight: 500; }
@@ -4267,8 +4267,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .task-list .task-row + .task-row { border-top: 1px solid var(--color-hairline); }
 .task-list__section-stats .task-pomodoro-meter { display: none; }
 .task-list__section-items > .task-list__item + .task-list__item { border-top: 1px solid var(--color-hairline); }
-.task-drawer .task-navigation__projects-heading button { min-width: 36px; width: 36px; padding: 0; }
-.task-drawer .task-navigation__projects-heading button svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.task-drawer .task-navigation__projects-heading button { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; width: 44px; height: 44px; padding: 0; color: var(--color-mid-gray); border: 1px solid transparent; border-radius: var(--radius-control); background: transparent; box-shadow: none; }
+.task-drawer .task-navigation__projects-heading button:hover,
+.task-drawer .task-navigation__projects-heading button[aria-expanded="true"] { color: var(--color-ink); border-color: var(--color-hairline); background: var(--color-surface-alt); }
+.task-drawer .task-navigation__projects-heading button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
 .settings-content--data .settings-disclosure { margin-bottom: 12px; }
 
 /* Settings actions use the same quiet row language as the rest of the panel. */
@@ -4591,12 +4593,15 @@ body { font-family: var(--font-body); }
   opacity: 1;
 }
 .task-editor-screen .task-editor__heading-actions > .primary-button:not(.task-editor__save) {
-  color: var(--task-primary-contrast, var(--accent-contrast));
-  border: 1px solid var(--task-primary);
-  background: var(--task-primary);
+  position: relative;
+  color: var(--color-ink);
+  border: 1px solid var(--color-hairline);
+  background: var(--color-paper);
 }
+.task-editor-screen .task-editor__heading-actions > .primary-button:not(.task-editor__save)::after { content: ""; position: absolute; inset-inline: 14px; bottom: 5px; height: 3px; border-radius: var(--radius-pill); background: var(--task-primary); }
 .task-editor-screen .task-editor__heading-actions > .primary-button:not(.task-editor__save):hover:not(:disabled) {
-  filter: brightness(.94);
+  border-color: var(--task-primary-text);
+  background: var(--color-surface-alt);
 }
 .task-editor-screen .task-editor__summary {
   padding: 0;
@@ -4659,22 +4664,25 @@ body { font-family: var(--font-body); }
   font-weight: 500;
 }
 .task-editor-screen .task-editor__quick-group button.is-active {
-  color: var(--task-primary-text);
-  border-color: var(--task-primary-border);
-  background: var(--task-primary-soft);
-  box-shadow: none;
+  color: var(--color-ink) !important;
+  border-color: var(--color-mid-gray) !important;
+  background: var(--color-paper) !important;
+  box-shadow: none !important;
+  font-weight: 700;
 }
 .task-editor__due-presets {
-  --due-today: #e1f2e7;
-  --due-tomorrow: #fff0df;
-  --due-week: #e2f2fa;
-  --due-someday: #ededee;
+  --due-today: #78aa8b;
+  --due-tomorrow: #d6a06b;
+  --due-week: #7eafc7;
+  --due-someday: #a0a4aa;
 }
-.task-editor-screen .task-editor__quick-group .task-editor__due-presets button:nth-child(1) { background: var(--due-today) !important; }
-.task-editor-screen .task-editor__quick-group .task-editor__due-presets button:nth-child(2) { background: var(--due-tomorrow) !important; }
-.task-editor-screen .task-editor__quick-group .task-editor__due-presets button:nth-child(3) { background: var(--due-week) !important; }
-.task-editor-screen .task-editor__quick-group .task-editor__due-presets button:nth-child(4) { background: var(--due-someday) !important; }
-.task-editor-screen .task-editor__due-presets button.is-active { border-color: var(--task-primary-text); box-shadow: inset 0 0 0 1px var(--task-primary-text); }
+.task-editor-screen .task-editor__due-presets button { position: relative; padding-bottom: 8px; }
+.task-editor__due-presets button:nth-child(1) { --due-accent: var(--due-today); }
+.task-editor__due-presets button:nth-child(2) { --due-accent: var(--due-tomorrow); }
+.task-editor__due-presets button:nth-child(3) { --due-accent: var(--due-week); }
+.task-editor__due-presets button:nth-child(4) { --due-accent: var(--due-someday); }
+.task-editor__due-presets button::after { content: ""; position: absolute; inset-inline: 14px; bottom: 5px; height: 3px; border-radius: var(--radius-pill); background: var(--due-accent); }
+.task-editor-screen .task-editor__quick-group button:hover:not(:disabled) { background: var(--color-surface-alt) !important; }
 .task-editor-screen .task-editor__section {
   padding: 0;
   border: 0;
