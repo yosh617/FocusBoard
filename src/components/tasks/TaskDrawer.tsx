@@ -962,8 +962,19 @@ export function TaskDrawer({
     ))
     .sort((left, right) => (right.completedAt ?? 0) - (left.completedAt ?? 0)), [tasks, today]);
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null;
+  const projectCompletedTasks = useMemo(() => projectId ? tasks
+    .filter((task) => task.parentTaskId === null && task.status === "completed" && task.projectId === projectId)
+    .sort((left, right) => (right.completedAt ?? 0) - (left.completedAt ?? 0)) : [], [projectId, tasks]);
+  const visibleCompletedTasks = projectId ? projectCompletedTasks : view === "today" ? todayCompletedTasks : [];
   const todayOpenTasks = view === "today" && !projectId ? scopedTasks.filter((task) => task.status === "open" && task.dueDate !== null) : [];
-  const todayEstimatedMinutes = todayOpenTasks.reduce((total, task) => total + task.estimatedPomodoros * workMinutes, 0);
+  const focusedMsByTask = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const session of sessions) {
+      if (session.taskId && session.mode === "work") totals.set(session.taskId, (totals.get(session.taskId) ?? 0) + getFocusedDurationMs(session));
+    }
+    return totals;
+  }, [sessions]);
+  const todayRemainingMinutes = todayOpenTasks.reduce((total, task) => total + Math.max(0, task.estimatedPomodoros * workMinutes - (focusedMsByTask.get(task.id) ?? 0) / 60_000), 0);
   const todayFocusedMinutes = sessions
     .filter((session) => session.mode === "work" && toLocalDateKey(new Date(session.endedAt)) === today)
     .reduce((total, session) => total + getFocusedDurationMs(session), 0) / 60_000;
@@ -1488,16 +1499,16 @@ export function TaskDrawer({
             <div className="task-workspace__scroll">
             <div className="task-workspace__toolbar">
               <div className="task-workspace__heading">
-                <div className="task-workspace__heading-main"><button className="task-workspace__destination-button" type="button" aria-label="一覧を開く" onClick={openTaskNavigation}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5-7 7 7 7" /></svg></button>{currentProject && <i className="task-workspace__project-color" style={{ background: currentProject.color }} aria-hidden="true" />}<h3>{currentListLabel}</h3><span>{scopedTasks.length + (!projectId && view === "today" ? todayCompletedTasks.length : 0)}件のタスク</span></div>
+                <div className="task-workspace__heading-main"><button className="task-workspace__destination-button" type="button" aria-label="一覧を開く" onClick={openTaskNavigation}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5-7 7 7 7" /></svg></button>{currentProject && <i className="task-workspace__project-color" style={{ background: currentProject.color }} aria-hidden="true" />}<h3>{currentListLabel}</h3><span>{scopedTasks.length + visibleCompletedTasks.length}件のタスク</span></div>
                 {currentProject && <button className="secondary-button task-workspace__project-settings-button" type="button" onClick={() => setProjectSettingsOpen(true)}>プロジェクト設定</button>}
               </div>
               {!projectId && view === "today" && <section className="today-overview" aria-label="今日の進捗">
-                <div><span>見積もり時間</span><strong>{formatDurationClock(todayEstimatedMinutes)}</strong></div>
+                <div><span>残り時間</span><strong>{formatDurationClock(todayRemainingMinutes)}</strong></div>
                 <div><span>未完了タスク</span><strong>{todayOpenTasks.length}</strong></div>
                 <div><span>集中時間</span><strong>{formatDurationClock(todayFocusedMinutes)}</strong></div>
                 <div><span>完了タスク</span><strong>{todayCompletedTasks.length}</strong></div>
               </section>}
-              {view !== "completed" && view !== "archived" && <form className="task-quick-add task-capture" id="task-quick-add-form" onSubmit={addTask} aria-busy={quickAddPending}>
+              {(projectId || (view !== "completed" && view !== "archived")) && <form className="task-quick-add task-capture" id="task-quick-add-form" onSubmit={addTask} aria-busy={quickAddPending}>
                 <div className="task-capture__title">
                   <label className="visually-hidden" htmlFor="task-title">新しいタスク</label>
                   <input id="task-title" ref={quickAddInputRef} placeholder="タスクを追加" maxLength={200} enterKeyHint="send" value={title} onKeyDown={(event) => {
@@ -1534,7 +1545,7 @@ export function TaskDrawer({
               {!storageAvailable && <div className="task-callout" role="status"><strong>タスク保存を利用できません</strong><span>時計とタイマーはそのまま使えます。ブラウザのサイトデータ設定を確認してください。</span></div>}
             </div>
 
-            {loading ? <p className="task-empty">読み込み中...</p> : scopedTasks.length === 0 && (projectId || view !== "today" || todayCompletedTasks.length === 0)
+            {loading ? <p className="task-empty">読み込み中...</p> : scopedTasks.length === 0 && visibleCompletedTasks.length === 0
               ? <div className="task-empty task-empty--today">
                   <div className="task-empty__art" aria-hidden="true"><svg viewBox="0 0 180 160"><circle className="task-empty__halo" cx="95" cy="81" r="58" /><circle className="task-empty__dot" cx="37" cy="105" r="7" /><path className="task-empty__spark" d="M145 29v13m-6.5-6.5h13" /><rect className="task-empty__paper" x="38" y="39" width="96" height="86" rx="13" transform="rotate(-4 86 82)" /><rect className="task-empty__input" x="55" y="56" width="13" height="13" rx="4" /><path className="task-empty__line" d="M77 62h39M55 83h12m10 0h39M55 101h12m10 0h28" /><circle className="task-empty__clock" cx="130" cy="111" r="17" /><path className="task-empty__clock-hand" d="M130 101v10l7 4" /></svg></div>
                   <strong>{view === "completed" ? "完了したタスクはありません" : view === "archived" ? "保管済みタスクはありません" : "タスクなし"}</strong>
@@ -1565,17 +1576,17 @@ export function TaskDrawer({
                     </div>
                   </section>
                 ))}
-                {!projectId && view === "today" && todayCompletedTasks.length > 0 && <section className="task-list__completed" aria-label="今日の完了済みタスク">
-                <button className="task-list__completed-toggle" type="button" aria-label={`今日の完了済みタスク ${todayCompletedTasks.length}件`} aria-expanded={showTodayCompleted} onClick={() => setShowTodayCompleted((current) => !current)}>
+                {visibleCompletedTasks.length > 0 && <section className="task-list__completed" aria-label={projectId ? "プロジェクトの完了済みタスク" : "今日の完了済みタスク"}>
+                <button className="task-list__completed-toggle" type="button" aria-label={`${projectId ? "プロジェクトの" : "今日の"}完了済みタスク ${visibleCompletedTasks.length}件`} aria-expanded={showTodayCompleted} onClick={() => setShowTodayCompleted((current) => !current)}>
                   <span>完了済みタスクを{showTodayCompleted ? "非表示" : "表示"}</span>
-                  <strong>{todayCompletedTasks.length}</strong>
+                  <strong>{visibleCompletedTasks.length}</strong>
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4" /></svg>
                 </button>
-                {showTodayCompleted && <div className="task-list__section-items">{todayCompletedTasks.map(renderTaskRow)}</div>}
+                {showTodayCompleted && <div className="task-list__section-items">{visibleCompletedTasks.map(renderTaskRow)}</div>}
               </section>}
               </div>}
             </div>
-            {view !== "completed" && view !== "archived" && (
+            {(projectId || (view !== "completed" && view !== "archived")) && (
               <fieldset className="task-capture__settings" id="task-quick-add-details" aria-labelledby="task-capture-settings-heading" role="region" disabled={quickAddPending}>
                 <h4 id="task-capture-settings-heading" className="task-capture__settings-heading">設定</h4>
                 <div className="task-capture__estimate">

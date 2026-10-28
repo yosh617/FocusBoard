@@ -128,11 +128,7 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
     return () => window.cancelAnimationFrame(frame);
   }, [focusHeatmap.weeks.length]);
   const periodLabel = period === "day" ? "日" : period === "week" ? "週" : "月";
-  const todayTaskCount = report.todayRemainingTasks + report.todayCompletedTasks;
-  const todayCompletionRate = todayTaskCount === 0 ? 0 : Math.round((report.todayCompletedTasks / todayTaskCount) * 100);
-  const todayFocusedMs = sessions
-    .filter((session) => session.mode === "work" && toLocalDateKey(new Date(session.endedAt)) === todayKey)
-    .reduce((total, session) => total + getFocusedDurationMs(session), 0);
+  const completedTaskCount = tasks.filter((task) => task.parentTaskId === null && task.status === "completed" && task.completedAt !== null && task.completedAt >= report.startAt && task.completedAt < report.endAt).length;
 
   return (
     <div className={`productivity-report${focusHeatmap.totalFocusedMs === 0 ? " productivity-report--no-activity" : ""}`}>
@@ -154,10 +150,9 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
       <section className="report-activity" aria-labelledby="report-activity-title">
         <div className="report-activity__heading">
           <div>
-            <h4 id="report-activity-title">今日の集中時間</h4>
-            <p>直近1年の記録</p>
+            <h4 id="report-activity-title">直近1年の集中記録</h4>
           </div>
-          <strong>{formatFocusedTime(todayFocusedMs)}</strong>
+          <strong>{formatFocusedTime(focusHeatmap.totalFocusedMs)}</strong>
         </div>
         <div className="report-activity__calendar" aria-label="直近1年の集中時間ヒートマップ">
           <div className="report-activity__weekdays" aria-hidden="true">
@@ -207,9 +202,8 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
           <div><span>集中時間</span><strong>{formatFocusedTime(report.focusedMs)}</strong></div>
           <div><span>完了セッション</span><strong>{report.completedSessions}回</strong></div>
           <div><span>中断</span><strong>{report.cancelledSessions}回</strong></div>
-          <div><span>今日のタスク</span><strong>{todayTaskCount === 0 ? "—" : `${report.todayCompletedTasks} / ${todayTaskCount}`}</strong></div>
+          <div><span>完了タスク</span><strong>{completedTaskCount}件</strong></div>
         </div>
-        {todayTaskCount > 0 && <progress max={100} value={todayCompletionRate} aria-label={`今日のタスク進捗 ${todayCompletionRate}%`} />}
       </section>
 
       {report.focusedMs === 0 ? <section className="report-empty-state" aria-labelledby="report-empty-title">

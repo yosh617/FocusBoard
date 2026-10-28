@@ -12,6 +12,7 @@ type Props = {
   settings: AppSettings;
   textColor: string;
   onChange: (patch: Partial<AppSettings>) => void;
+  onPositionEdit?: () => void;
   onMessage: (message: string) => void;
   orientation: Orientation;
 };
@@ -36,7 +37,7 @@ type CenterGuides = {
 
 const centerSnapThreshold = 24;
 
-export function ClockWidget({ now, settings, textColor, onChange, onMessage, orientation }: Props) {
+export function ClockWidget({ now, settings, textColor, onChange, onPositionEdit, onMessage, orientation }: Props) {
   const [open, setOpen] = useState(false);
   const [hintVisible, setHintVisible] = useState(false);
   const [centerGuides, setCenterGuides] = useState<CenterGuides>({ vertical: false, horizontal: false });
@@ -183,6 +184,7 @@ export function ClockWidget({ now, settings, textColor, onChange, onMessage, ori
     const dy = event.clientY - start.y;
     if (Math.abs(dx) > 4 || Math.abs(dy) > 4) moved.current = true;
     if (!moved.current) return;
+    onPositionEdit?.();
     const snap = getSnapPosition(
       start.position.x + dx / window.innerWidth,
       start.position.y + dy / window.innerHeight,
@@ -208,7 +210,12 @@ export function ClockWidget({ now, settings, textColor, onChange, onMessage, ori
         aria-expanded={open}
         onPointerDown={(event) => {
           if (event.currentTarget.setPointerCapture) event.currentTarget.setPointerCapture(event.pointerId);
-          pointerStart.current = { x: event.clientX, y: event.clientY, position, displayCenter: getDisplayCenter(position) };
+          const rect = displayRef.current?.getBoundingClientRect();
+          const visiblePosition = rect && rect.width && rect.height ? {
+            x: (settings.clockDateAlignment === "left" ? rect.left : settings.clockDateAlignment === "right" ? rect.right : rect.left + rect.width / 2) / window.innerWidth,
+            y: (rect.top + rect.height / 2) / window.innerHeight
+          } : position;
+          pointerStart.current = { x: event.clientX, y: event.clientY, position: visiblePosition, displayCenter: getDisplayCenter(position) };
           setCenterGuides({ vertical: false, horizontal: false });
           moved.current = false;
         }}
@@ -229,6 +236,7 @@ export function ClockWidget({ now, settings, textColor, onChange, onMessage, ori
         }}
         onKeyDown={(event) => {
           const step = event.shiftKey ? .05 : .015;
+          if (event.key.startsWith("Arrow")) onPositionEdit?.();
           if (event.key === "ArrowLeft") { event.preventDefault(); moveBy(position.x - step, position.y); }
           if (event.key === "ArrowRight") { event.preventDefault(); moveBy(position.x + step, position.y); }
           if (event.key === "ArrowUp") { event.preventDefault(); moveBy(position.x, position.y - step); }

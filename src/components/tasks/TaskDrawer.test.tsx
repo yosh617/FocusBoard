@@ -110,7 +110,7 @@ describe("TaskDrawer", () => {
   it("shows today's totals and task-empty guidance without duplicating session history", () => {
     renderDrawer({ tasks: [], sessions: [] });
     const overview = within(screen.getByRole("region", { name: "今日の進捗" }));
-    expect(overview.getByText("見積もり時間")).toBeTruthy();
+    expect(overview.getByText("残り時間")).toBeTruthy();
     expect(overview.getByText("未完了タスク")).toBeTruthy();
     expect(overview.getAllByText("00:00")).toHaveLength(2);
     expect(overview.getAllByText("0")).toHaveLength(2);
@@ -121,13 +121,13 @@ describe("TaskDrawer", () => {
     expect(screen.getByRole("region", { name: "設定" })).toBeTruthy();
   });
 
-  it("calculates today's estimate, focus time, and completed task count", () => {
+  it("calculates today's remaining time, focus time, and completed task count", () => {
     const completedTask: TaskRecord = { ...task, id: "task-completed", title: "今日の完了", status: "completed", completedAt: Date.now() };
     const todaySession: FocusSessionRecord = { ...session, startedAt: Date.now() - 25 * 60_000, endedAt: Date.now() };
     renderDrawer({ tasks: [task, completedTask], sessions: [todaySession] });
     const overview = within(screen.getByRole("region", { name: "今日の進捗" }));
-    expect(overview.getByText("00:50")).toBeTruthy();
-    expect(overview.getByText("00:25")).toBeTruthy();
+    expect(overview.getByText("残り時間").nextElementSibling?.textContent).toBe("00:25");
+    expect(overview.getByText("集中時間").nextElementSibling?.textContent).toBe("00:25");
     expect(overview.getByText("完了タスク").nextElementSibling?.textContent).toBe("1");
     expect(screen.queryByRole("region", { name: "今日の記録" })).toBeNull();
   });
@@ -207,6 +207,16 @@ describe("TaskDrawer", () => {
     fireEvent.click(screen.getByRole("button", { name: /^勉強 / }));
     expect(screen.getByRole("heading", { name: "勉強" })).toBeTruthy();
     expect(screen.getByLabelText("新しいタスク").getAttribute("placeholder")).toBe("タスクを追加");
+  });
+
+  it("shows completed project tasks even when there are no open tasks", () => {
+    const completedTask: TaskRecord = { ...task, status: "completed", completedAt: Date.now() };
+    renderDrawer({ tasks: [completedTask] });
+    fireEvent.click(screen.getByRole("button", { name: /^勉強 / }));
+    expect(screen.queryByText("タスクなし")).toBeNull();
+    const toggle = screen.getByRole("button", { name: "プロジェクトの完了済みタスク 1件" });
+    fireEvent.click(toggle);
+    expect(screen.getByRole("button", { name: "数学の復習を未完了に戻す" })).toBeTruthy();
   });
 
   it("adds projects with the default color", async () => {

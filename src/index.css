@@ -100,8 +100,8 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .slot--bottom-left { bottom: max(32px, env(safe-area-inset-bottom)); left: max(32px, env(safe-area-inset-left)); align-items: flex-start; gap: 3px; text-align: left; width: min(55vw, 720px); }
 .slot--bottom-right { right: max(32px, env(safe-area-inset-right)); bottom: max(32px, env(safe-area-inset-bottom)); align-items: flex-end; text-align: right; width: min(55vw, 720px); }
 
-.clock { display: block; font-weight: 520; line-height: .88; letter-spacing: -.055em; white-space: nowrap; font-variant-numeric: tabular-nums; text-shadow: 0 5px 24px rgba(23,52,95,.2); }
-.date { display: block; font-weight: 720; line-height: 1.25; letter-spacing: .035em; text-shadow: 0 3px 16px rgba(23,52,95,.18); }
+.clock { display: block; font-weight: 520; line-height: .88; letter-spacing: -.055em; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.date { display: block; font-weight: 720; line-height: 1.25; letter-spacing: .035em; }
 
 .clock-widget { position: absolute; z-index: 3; width: min(86vw, 900px); }
 @media (max-width: 600px) {
@@ -3927,8 +3927,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     max-height: min(180px, calc(100dvh - 32px));
     overflow: hidden;
   }
-  .app-shell--task-launcher-visible .clock-widget { top: 48% !important; }
-  .app-shell--task-launcher-visible .clock-widget--calendar { top: 12% !important; }
+  .app-shell:not(.app-shell--clock-position-custom).app-shell--task-launcher-visible .clock-widget { top: 48% !important; }
+  .app-shell:not(.app-shell--clock-position-custom).app-shell--task-launcher-visible .clock-widget--calendar { top: 12% !important; }
 }
 
 .task-row, .task-row:hover, .task-row.is-selected { border-radius: 10px; }
@@ -4255,6 +4255,27 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .report-period-navigation button { min-width: 44px; min-height: 44px; padding: 0 7px; border-radius: var(--radius-control); font-size: 16px; }
 .report-period-navigation button.report-period-navigation__current { min-width: 44px; font-size: 11px; }
 
+/* Keep period selection and navigation readable as a single control area. */
+.report-heading { column-gap: 16px; row-gap: 10px; }
+.report-heading__controls { margin-left: auto; }
+.report-period-navigation > span { min-width: 125px; text-align: center; color: #354d65; font-size: 13px; font-weight: 700; }
+.focus-timeline__segment { min-width: 5px; border-radius: 3px; background: var(--accent); box-shadow: none; }
+.focus-timeline__segment.is-cancelled { background: color-mix(in srgb, var(--accent) 80%, #344a5f); }
+.session-history li.is-editing { border: 1px solid color-mix(in srgb, var(--accent) 35%, #d7dce1); }
+.session-history__editor { gap: 14px; padding: 16px; background: #f7f9fb; }
+.session-history__fields { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
+.session-history__fields label { min-width: 0; color: #4b5562; font-size: 12px; }
+.session-history__fields input, .session-history__fields select, .session-history__computed-time { min-width: 0; min-height: 44px; }
+.session-history__computed-time { background: #fff; }
+@media (max-width: 600px) {
+  .report-heading h3 { flex-basis: 100%; }
+  .report-heading__controls { margin-left: 0; }
+  .report-period-navigation > span { min-width: 105px; }
+}
+@media (max-width: 420px) {
+  .session-history__fields { grid-template-columns: 1fr; }
+}
+
 /* Counts read as supporting text instead of a badge. */
 .background-settings-count { padding: 0; color: var(--color-mid-gray); border: 0; border-radius: 0; background: transparent; font-size: 11px; font-weight: 500; }
 
@@ -4404,9 +4425,9 @@ body { font-family: var(--font-body); }
   background: var(--color-paper);
 }
 
-.app-shell--clock-collision-top .clock-widget:not(.clock-widget--calendar) { top: 18% !important; }
-.app-shell--clock-collision-bottom .clock-widget:not(.clock-widget--calendar) { top: 82% !important; }
-.app-shell--clock-collision-left .clock-widget:not(.clock-widget--calendar) {
+.app-shell:not(.app-shell--clock-position-custom).app-shell--clock-collision-top .clock-widget:not(.clock-widget--calendar) { top: 18% !important; }
+.app-shell:not(.app-shell--clock-position-custom).app-shell--clock-collision-bottom .clock-widget:not(.clock-widget--calendar) { top: 82% !important; }
+.app-shell:not(.app-shell--clock-position-custom).app-shell--clock-collision-left .clock-widget:not(.clock-widget--calendar) {
   top: 50% !important;
   right: auto !important;
   left: 16px !important;
@@ -4414,11 +4435,11 @@ body { font-family: var(--font-body); }
   text-align: left !important;
   transform: translateY(-50%) !important;
 }
-.app-shell--clock-collision-left .clock-widget:not(.clock-widget--calendar) .clock-widget__display {
+.app-shell:not(.app-shell--clock-position-custom).app-shell--clock-collision-left .clock-widget:not(.clock-widget--calendar) .clock-widget__display {
   align-items: flex-start !important;
   margin-inline: 0 !important;
 }
-.app-shell--clock-collision-right .clock-widget:not(.clock-widget--calendar) {
+.app-shell:not(.app-shell--clock-position-custom).app-shell--clock-collision-right .clock-widget:not(.clock-widget--calendar) {
   top: 50% !important;
   right: max(16px, env(safe-area-inset-right)) !important;
   left: auto !important;
@@ -4426,13 +4447,13 @@ body { font-family: var(--font-body); }
   text-align: right !important;
   transform: translateY(-50%) !important;
 }
-.app-shell--clock-collision-right .clock-widget:not(.clock-widget--calendar) .clock-widget__display {
+.app-shell:not(.app-shell--clock-position-custom).app-shell--clock-collision-right .clock-widget:not(.clock-widget--calendar) .clock-widget__display {
   align-items: flex-end !important;
   margin-inline: 0 !important;
 }
 
 @media (max-width: 600px) and (orientation: portrait) {
-  .app-shell--launcher-timer-collision-bottom .clock-widget:not(.clock-widget--calendar) { top: 18% !important; }
+  .app-shell:not(.app-shell--clock-position-custom).app-shell--launcher-timer-collision-bottom .clock-widget:not(.clock-widget--calendar) { top: 18% !important; }
 
   .task-launcher {
     max-width: min(420px, calc(100vw - 32px));

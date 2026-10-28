@@ -42,6 +42,7 @@ const withoutOverlayHistoryState = (state: unknown): Record<string, unknown> | n
 export default function App() {
   const { settings, updateSettings, resetSettings, storageMessage, setStorageMessage, saveState } = useLocalStorageSettings();
   const [clockCollisionPlacement, setClockCollisionPlacement] = useState<"top" | "bottom" | "left" | "right" | null>(null);
+  const [clockPositionEdited, setClockPositionEdited] = useState(false);
   const orientation = useOrientation();
   const {
     tasks,
@@ -517,6 +518,7 @@ export default function App() {
   } as CSSProperties;
   const taskLauncherVisible = (settings.taskLauncherVisibility === "always" && !(settings.dateDisplayStyle === "calendar" && timer.status === "idle" && !settings.timerSetupCollapsed)) || taskDetailCardVisible;
   const clockDatePosition = activeClockSetting.positions[orientation];
+  const clockPositionCustom = clockPositionEdited || clockDatePosition.x !== defaultSettings.clockDatePosition.x || clockDatePosition.y !== defaultSettings.clockDatePosition.y;
   const floatingTimerVisible = settings.showTimer && (timer.status !== "idle" || settings.timerSetupCollapsed) && !timerSetupVisible;
   useEffect(() => {
     if (settings.dateDisplayStyle === "calendar") {
@@ -667,7 +669,7 @@ export default function App() {
 
   return (
     <main
-      className={`app-shell${backgroundEditing ? " app-shell--background-editing" : ""}${taskLauncherVisible ? " app-shell--task-launcher-visible" : ""}${clockCollisionPlacement ? ` app-shell--clock-collision app-shell--clock-collision-${clockCollisionPlacement}` : ""}${launcherTimerCollision ? ` app-shell--launcher-timer-collision app-shell--launcher-timer-collision-${launcherTimerCollisionPlacement}` : ""}`}
+      className={`app-shell${backgroundEditing ? " app-shell--background-editing" : ""}${taskLauncherVisible ? " app-shell--task-launcher-visible" : ""}${clockPositionCustom ? " app-shell--clock-position-custom" : ""}${clockCollisionPlacement ? ` app-shell--clock-collision app-shell--clock-collision-${clockCollisionPlacement}` : ""}${launcherTimerCollision ? ` app-shell--launcher-timer-collision app-shell--launcher-timer-collision-${launcherTimerCollisionPlacement}` : ""}`}
       style={appStyle}
       onPointerUp={revealTaskDetailCardOnBackgroundTap}
     >
@@ -706,7 +708,7 @@ export default function App() {
           <div className={`slot slot--${position}`} key={position}>{slotContent[position]}</div>
         ))}
       </div>
-      {(settings.showClock || settings.showDate) && <ClockWidget now={now} settings={clockDisplaySettings} textColor={clockColor} onChange={updateClockSettings} onMessage={showMessage} orientation={orientation} />}
+      {(settings.showClock || settings.showDate) && <ClockWidget now={now} settings={clockDisplaySettings} textColor={clockColor} onChange={updateClockSettings} onPositionEdit={() => setClockPositionEdited(true)} onMessage={showMessage} orientation={orientation} />}
 
       {settings.showTimer && (timer.status !== "idle" || settings.timerSetupCollapsed) && !timerSetupVisible && (
         <FloatingTimer

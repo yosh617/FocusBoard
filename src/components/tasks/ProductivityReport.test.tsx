@@ -34,19 +34,17 @@ describe("ProductivityReport", () => {
   it("shows period-aware heatmap totals and expandable report sections", () => {
     render(<ProductivityReport tasks={[completedTask]} sessions={[todaySession, previousDaySession]} workMinutes={25} now={now} onUpdateSession={vi.fn().mockResolvedValue(true)} />);
     expect(screen.getAllByText("50分").length).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { name: "今日の集中時間" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "直近1年の集中記録" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "実施時間帯" })).toBeTruthy();
-    const activity = screen.getByRole("heading", { name: "今日の集中時間" }).closest("section") as HTMLElement;
-    expect(activity.textContent).toContain("25分");
-    expect(within(activity).getByText("直近1年の記録")).toBeTruthy();
+    const activity = screen.getByRole("heading", { name: "直近1年の集中記録" }).closest("section") as HTMLElement;
+    expect(activity.textContent).toContain("50分");
     expect(screen.getByLabelText("直近1年の集中時間ヒートマップ").querySelectorAll("[role=\"img\"]")).toHaveLength(371);
     expect(document.querySelector(".report-activity__weekdays")?.closest(".report-activity__scroll")).toBeNull();
     expect(screen.getByRole("img", { name: /2026年7月18日 25分/ })).toBeTruthy();
     expect(screen.getAllByText("集中時間").length).toBeGreaterThan(0);
     expect(screen.getByText("完了セッション")).toBeTruthy();
     expect(screen.getByText("中断")).toBeTruthy();
-    expect(screen.getByText("1 / 1")).toBeTruthy();
-    expect(screen.getByRole("progressbar", { name: "今日のタスク進捗 100%" })).toBeTruthy();
+    expect(screen.getByLabelText(/のサマリー/).textContent).toContain("完了タスク1件");
     expect(screen.queryByText("実施記録を時刻で確認")).toBeNull();
     expect(screen.getByText("タスク別 見積もり対実績")).toBeTruthy();
     expect(screen.getByText("セッション履歴")).toBeTruthy();
@@ -64,13 +62,14 @@ describe("ProductivityReport", () => {
     fireEvent.click(screen.getByRole("button", { name: "日" }));
     expect(screen.getByRole("button", { name: "日" }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByLabelText(/のサマリー/).textContent).toContain("25分");
+    fireEvent.click(screen.getByRole("button", { name: "前の日" }));
+    expect(screen.getByLabelText(/のサマリー/).textContent).toContain("完了タスク0件");
     expect(screen.queryByText("直近1年の集中記録・右端が今日")).toBeNull();
   }, 15_000);
 
   it("shows empty-state guidance when there is no task progress yet", () => {
     render(<ProductivityReport tasks={[]} sessions={[]} workMinutes={25} now={now} onUpdateSession={vi.fn().mockResolvedValue(true)} />);
-    expect(screen.getByText("今日のタスク")).toBeTruthy();
-    expect(screen.getByText("—")).toBeTruthy();
+    expect(screen.getByText("完了タスク")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "この期間の集中記録はありません" })).toBeTruthy();
     expect(screen.getByLabelText("直近1年の集中時間ヒートマップ")).toBeTruthy();
   });
