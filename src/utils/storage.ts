@@ -79,7 +79,7 @@ const readClockBackgroundSettings = (
     if (id === "slideshow" || !isBackgroundChoice(id) || !isRecord(setting)) return [];
     const legacyPosition = isRecord(setting.position) ? setting.position : undefined;
     return [[id, {
-      positions: readOrientationPositions(setting.positions ?? legacyPosition, fallback.positions, .06, .94, .08, .92),
+      positions: readOrientationPositions(setting.positions ?? legacyPosition, fallback.positions, 0, 1, 0, 1),
       color: colorValue(setting.color, fallback.color),
       matchColors: booleanValue(setting.matchColors, fallback.matchColors)
     }]];
@@ -100,8 +100,8 @@ export function migrateSettings(value: unknown): AppSettings {
   const legacyAutoColors = booleanValue(value.matchBackgroundColors, defaultSettings.matchBackgroundColors);
   const savedClockAutoColors = booleanValue(value.matchClockBackgroundColors, legacyAutoColors);
   const legacyClockPosition = {
-    x: numberValue(savedClockDatePosition.x, defaultSettings.clockDatePosition.x, .06, .94),
-    y: numberValue(savedClockDatePosition.y, defaultSettings.clockDatePosition.y, .08, .92)
+    x: numberValue(savedClockDatePosition.x, defaultSettings.clockDatePosition.x, 0, 1),
+    y: numberValue(savedClockDatePosition.y, defaultSettings.clockDatePosition.y, 0, 1)
   };
   const legacyClockPositions: OrientationPositions = { portrait: legacyClockPosition, landscape: legacyClockPosition };
   const legacyClockBackgroundSettings: ClockBackgroundSettings = {};

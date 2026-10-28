@@ -12,7 +12,6 @@ type Props = {
   settings: AppSettings;
   textColor: string;
   onChange: (patch: Partial<AppSettings>) => void;
-  onPositionEdit?: () => void;
   onMessage: (message: string) => void;
   orientation: Orientation;
 };
@@ -37,7 +36,7 @@ type CenterGuides = {
 
 const centerSnapThreshold = 24;
 
-export function ClockWidget({ now, settings, textColor, onChange, onPositionEdit, onMessage, orientation }: Props) {
+export function ClockWidget({ now, settings, textColor, onChange, onMessage, orientation }: Props) {
   const [open, setOpen] = useState(false);
   const [hintVisible, setHintVisible] = useState(false);
   const [centerGuides, setCenterGuides] = useState<CenterGuides>({ vertical: false, horizontal: false });
@@ -61,6 +60,17 @@ export function ClockWidget({ now, settings, textColor, onChange, onPositionEdit
       ? (displayWidth / 2 + edgeGap) / window.innerWidth
       : displayWidth / window.innerWidth + edgeGap / window.innerWidth;
     const yMargin = (displayHeight / 2 + edgeGap) / window.innerHeight;
+    // If the display is larger than the available area, keep it centered
+    // instead of passing reversed bounds to clamp.
+    if (displayWidth + edgeGap * 2 >= window.innerWidth || displayHeight + edgeGap * 2 >= window.innerHeight) {
+      const x = settings.clockDateAlignment === "left" ? 0 : settings.clockDateAlignment === "right" ? 1 : .5;
+      const xBounds = displayWidth + edgeGap * 2 >= window.innerWidth ? { minX: x, maxX: x } : settings.clockDateAlignment === "left"
+        ? { minX: edgeGap / window.innerWidth, maxX: 1 - xMargin }
+        : settings.clockDateAlignment === "right"
+          ? { minX: xMargin, maxX: 1 - edgeGap / window.innerWidth }
+          : { minX: xMargin, maxX: 1 - xMargin };
+      return { ...xBounds, minY: yMargin >= .5 ? .5 : yMargin, maxY: yMargin >= .5 ? .5 : 1 - yMargin };
+    }
     return settings.clockDateAlignment === "left"
       ? { minX: edgeGap / window.innerWidth, maxX: 1 - xMargin, minY: yMargin, maxY: 1 - yMargin }
       : settings.clockDateAlignment === "right"
@@ -87,10 +97,7 @@ export function ClockWidget({ now, settings, textColor, onChange, onPositionEdit
     const vertical = Math.abs(displayCenter.x - window.innerWidth / 2) <= centerSnapThreshold;
     const horizontal = Math.abs(displayCenter.y - window.innerHeight / 2) <= centerSnapThreshold;
     return {
-      position: clampPosition(
-        vertical ? next.x + (window.innerWidth / 2 - displayCenter.x) / window.innerWidth : next.x,
-        horizontal ? next.y + (window.innerHeight / 2 - displayCenter.y) / window.innerHeight : next.y
-      ),
+      position: next,
       guides: { vertical, horizontal }
     };
   }, [clampPosition]);
@@ -184,7 +191,6 @@ export function ClockWidget({ now, settings, textColor, onChange, onPositionEdit
     const dy = event.clientY - start.y;
     if (Math.abs(dx) > 4 || Math.abs(dy) > 4) moved.current = true;
     if (!moved.current) return;
-    onPositionEdit?.();
     const snap = getSnapPosition(
       start.position.x + dx / window.innerWidth,
       start.position.y + dy / window.innerHeight,
@@ -236,7 +242,6 @@ export function ClockWidget({ now, settings, textColor, onChange, onPositionEdit
         }}
         onKeyDown={(event) => {
           const step = event.shiftKey ? .05 : .015;
-          if (event.key.startsWith("Arrow")) onPositionEdit?.();
           if (event.key === "ArrowLeft") { event.preventDefault(); moveBy(position.x - step, position.y); }
           if (event.key === "ArrowRight") { event.preventDefault(); moveBy(position.x + step, position.y); }
           if (event.key === "ArrowUp") { event.preventDefault(); moveBy(position.x, position.y - step); }

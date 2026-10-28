@@ -3927,8 +3927,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     max-height: min(180px, calc(100dvh - 32px));
     overflow: hidden;
   }
-  .app-shell:not(.app-shell--clock-position-custom).app-shell--task-launcher-visible .clock-widget { top: 48% !important; }
-  .app-shell:not(.app-shell--clock-position-custom).app-shell--task-launcher-visible .clock-widget--calendar { top: 12% !important; }
 }
 
 .task-row, .task-row:hover, .task-row.is-selected { border-radius: 10px; }
@@ -4425,36 +4423,7 @@ body { font-family: var(--font-body); }
   background: var(--color-paper);
 }
 
-.app-shell:not(.app-shell--clock-position-custom).app-shell--clock-collision-top .clock-widget:not(.clock-widget--calendar) { top: 18% !important; }
-.app-shell:not(.app-shell--clock-position-custom).app-shell--clock-collision-bottom .clock-widget:not(.clock-widget--calendar) { top: 82% !important; }
-.app-shell:not(.app-shell--clock-position-custom).app-shell--clock-collision-left .clock-widget:not(.clock-widget--calendar) {
-  top: 50% !important;
-  right: auto !important;
-  left: 16px !important;
-  width: max-content !important;
-  text-align: left !important;
-  transform: translateY(-50%) !important;
-}
-.app-shell:not(.app-shell--clock-position-custom).app-shell--clock-collision-left .clock-widget:not(.clock-widget--calendar) .clock-widget__display {
-  align-items: flex-start !important;
-  margin-inline: 0 !important;
-}
-.app-shell:not(.app-shell--clock-position-custom).app-shell--clock-collision-right .clock-widget:not(.clock-widget--calendar) {
-  top: 50% !important;
-  right: max(16px, env(safe-area-inset-right)) !important;
-  left: auto !important;
-  width: max-content !important;
-  text-align: right !important;
-  transform: translateY(-50%) !important;
-}
-.app-shell:not(.app-shell--clock-position-custom).app-shell--clock-collision-right .clock-widget:not(.clock-widget--calendar) .clock-widget__display {
-  align-items: flex-end !important;
-  margin-inline: 0 !important;
-}
-
 @media (max-width: 600px) and (orientation: portrait) {
-  .app-shell:not(.app-shell--clock-position-custom).app-shell--launcher-timer-collision-bottom .clock-widget:not(.clock-widget--calendar) { top: 18% !important; }
-
   .task-launcher {
     max-width: min(420px, calc(100vw - 32px));
     min-width: 0;

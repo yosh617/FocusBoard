@@ -19,7 +19,7 @@ function firePointer(target: Element, type: string, values: { pointerId: number;
 }
 
 describe("ClockWidget", () => {
-  it("shows center guides and snaps the display to the viewport center while dragging", () => {
+  it("shows center guides without forcing the display to the viewport center", () => {
     const onChange = vi.fn();
     render(<ClockWidget
       now={new Date("2026-09-09T12:34:00+09:00")}
@@ -34,17 +34,18 @@ describe("ClockWidget", () => {
     Object.defineProperty(display, "getBoundingClientRect", { configurable: true, value: () => getRect(309.6, 247.2, 200, 120) });
     onChange.mockClear();
     firePointer(display, "pointerdown", { pointerId: 1, clientX: 400, clientY: 300 });
-    firePointer(display, "pointermove", { pointerId: 1, clientX: 502.4, clientY: 376.8 });
+    firePointer(display, "pointermove", { pointerId: 1, clientX: 492.4, clientY: 366.8 });
 
     expect(document.querySelector(".clock-position-guides__vertical")).not.toBeNull();
     expect(document.querySelector(".clock-position-guides__horizontal")).not.toBeNull();
-    expect(onChange).toHaveBeenLastCalledWith({ clockDatePosition: { x: .5, y: .5 } });
+    expect(onChange.mock.calls.at(-1)?.[0].clockDatePosition.x).toBeCloseTo(.490234375);
+    expect(onChange.mock.calls.at(-1)?.[0].clockDatePosition.y).toBeCloseTo(.486979167);
 
     firePointer(display, "pointerup", { pointerId: 1, clientX: 502.4, clientY: 376.8 });
     expect(document.querySelector(".clock-position-guides")).toBeNull();
   });
 
-  it("snaps the visible clock center even when its alignment is left", () => {
+  it("shows the center guide for a left-aligned clock without snapping", () => {
     const onChange = vi.fn();
     render(<ClockWidget
       now={new Date("2026-09-09T12:34:00+09:00")}
@@ -63,6 +64,16 @@ describe("ClockWidget", () => {
 
     expect(document.querySelector(".clock-position-guides__vertical")).not.toBeNull();
     expect(document.querySelector(".clock-position-guides__horizontal")).toBeNull();
-    expect(onChange.mock.calls.at(-1)?.[0]).toMatchObject({ clockDatePosition: { x: expect.closeTo(.40234375, 5) } });
+    expect(onChange.mock.calls.at(-1)?.[0]).toMatchObject({ clockDatePosition: { x: expect.closeTo(.3984375, 5) } });
+  });
+
+  it("keeps oversized displays within valid coordinates", () => {
+    const onChange = vi.fn();
+    render(<ClockWidget now={new Date()} settings={{ ...defaultSettings, clockDateAlignment: "center" }} textColor="#17345f" onChange={onChange} onMessage={vi.fn()} orientation="landscape" />);
+    const display = screen.getByRole("button", { name: "時計とカレンダーの表示設定を開く" });
+    Object.defineProperty(display, "getBoundingClientRect", { configurable: true, value: () => getRect(0, 0, 1200, 900) });
+    onChange.mockClear();
+    fireEvent.keyDown(display, { key: "ArrowRight" });
+    expect(onChange).toHaveBeenLastCalledWith({ clockDatePosition: { x: .5, y: .5 } });
   });
 });

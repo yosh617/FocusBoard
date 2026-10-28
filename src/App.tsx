@@ -41,8 +41,6 @@ const withoutOverlayHistoryState = (state: unknown): Record<string, unknown> | n
 
 export default function App() {
   const { settings, updateSettings, resetSettings, storageMessage, setStorageMessage, saveState } = useLocalStorageSettings();
-  const [clockCollisionPlacement, setClockCollisionPlacement] = useState<"top" | "bottom" | "left" | "right" | null>(null);
-  const [clockPositionEdited, setClockPositionEdited] = useState(false);
   const orientation = useOrientation();
   const {
     tasks,
@@ -517,93 +515,7 @@ export default function App() {
     "--task-primary-shadow": `color-mix(in srgb, ${uiAccentColor} 32%, transparent)`
   } as CSSProperties;
   const taskLauncherVisible = (settings.taskLauncherVisibility === "always" && !(settings.dateDisplayStyle === "calendar" && timer.status === "idle" && !settings.timerSetupCollapsed)) || taskDetailCardVisible;
-  const clockDatePosition = activeClockSetting.positions[orientation];
-  const clockPositionCustom = clockPositionEdited || clockDatePosition.x !== defaultSettings.clockDatePosition.x || clockDatePosition.y !== defaultSettings.clockDatePosition.y;
   const floatingTimerVisible = settings.showTimer && (timer.status !== "idle" || settings.timerSetupCollapsed) && !timerSetupVisible;
-  useEffect(() => {
-    if (settings.dateDisplayStyle === "calendar") {
-      setClockCollisionPlacement(null);
-      return;
-    }
-
-    const measureClockClearance = () => {
-      const clockWidget = document.querySelector<HTMLElement>(".clock-widget:not(.clock-widget--calendar)");
-      const clockDisplay = clockWidget?.querySelector<HTMLElement>(".clock-widget__display");
-      if (!clockWidget || !clockDisplay) {
-        setClockCollisionPlacement(null);
-        return;
-      }
-
-      const clockRect = clockDisplay.getBoundingClientRect();
-      const blockers: DOMRect[] = [];
-      if (floatingTimerVisible) {
-        const timer = document.querySelector<HTMLElement>(".floating-timer__drag");
-        if (timer) blockers.push(timer.getBoundingClientRect());
-      }
-      if (taskLauncherVisible) {
-        const launcher = document.querySelector<HTMLElement>(".task-launcher");
-        if (launcher) blockers.push(launcher.getBoundingClientRect());
-      }
-      if (blockers.length === 0) {
-        setClockCollisionPlacement(null);
-        return;
-      }
-
-      const mobileLauncherCenterY = taskLauncherVisible && window.innerWidth <= 600 && window.innerHeight > window.innerWidth
-        ? window.innerHeight * .48
-        : window.innerHeight * clockDatePosition.y;
-      const overlapAt = (left: number, centerY: number) => {
-        const right = left + clockRect.width;
-        const top = centerY - clockRect.height / 2;
-        const bottom = centerY + clockRect.height / 2;
-        return blockers.reduce((total, blocker) => {
-          const width = Math.max(0, Math.min(right, blocker.right) - Math.max(left, blocker.left));
-          const height = Math.max(0, Math.min(bottom, blocker.bottom) - Math.max(top, blocker.top));
-          return total + width * height;
-        }, 0);
-      };
-
-      const naturalLeft = clockRect.left;
-      if (overlapAt(naturalLeft, mobileLauncherCenterY) === 0) {
-        setClockCollisionPlacement(null);
-        return;
-      }
-
-      const candidates = [
-        { placement: "top" as const, left: naturalLeft, centerY: window.innerHeight * .18 },
-        { placement: "bottom" as const, left: naturalLeft, centerY: window.innerHeight * .82 },
-        { placement: "left" as const, left: 16, centerY: window.innerHeight * .5 },
-        { placement: "right" as const, left: Math.max(16, window.innerWidth - clockRect.width - 16), centerY: window.innerHeight * .5 }
-      ];
-      const bestCandidate = candidates.reduce((best, candidate) =>
-        overlapAt(candidate.left, candidate.centerY) < overlapAt(best.left, best.centerY) ? candidate : best
-      );
-      setClockCollisionPlacement(bestCandidate.placement);
-    };
-
-    measureClockClearance();
-    window.addEventListener("resize", measureClockClearance);
-    const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measureClockClearance);
-    document.querySelectorAll<HTMLElement>(".clock-widget__display, .floating-timer__drag, .task-launcher").forEach((element) => resizeObserver?.observe(element));
-    return () => {
-      window.removeEventListener("resize", measureClockClearance);
-      resizeObserver?.disconnect();
-    };
-  }, [
-    clockDatePosition.x,
-    clockDatePosition.y,
-    floatingTimerVisible,
-    orientation,
-    settings.clockDateAlignment,
-    settings.clockFontSize,
-    settings.dateDisplayStyle,
-    settings.dateFontSize,
-    settings.taskLauncherPosition.x,
-    settings.taskLauncherPosition.y,
-    taskLauncherVisible,
-    timer.floatingPosition.x,
-    timer.floatingPosition.y
-  ]);
   const launcherTimerCollision = taskLauncherVisible
     && floatingTimerVisible
     && Math.abs(timer.floatingPosition.x - settings.taskLauncherPosition.x) < 0.24
@@ -669,7 +581,7 @@ export default function App() {
 
   return (
     <main
-      className={`app-shell${backgroundEditing ? " app-shell--background-editing" : ""}${taskLauncherVisible ? " app-shell--task-launcher-visible" : ""}${clockPositionCustom ? " app-shell--clock-position-custom" : ""}${clockCollisionPlacement ? ` app-shell--clock-collision app-shell--clock-collision-${clockCollisionPlacement}` : ""}${launcherTimerCollision ? ` app-shell--launcher-timer-collision app-shell--launcher-timer-collision-${launcherTimerCollisionPlacement}` : ""}`}
+      className={`app-shell${backgroundEditing ? " app-shell--background-editing" : ""}${taskLauncherVisible ? " app-shell--task-launcher-visible" : ""}${launcherTimerCollision ? ` app-shell--launcher-timer-collision app-shell--launcher-timer-collision-${launcherTimerCollisionPlacement}` : ""}`}
       style={appStyle}
       onPointerUp={revealTaskDetailCardOnBackgroundTap}
     >
@@ -708,7 +620,7 @@ export default function App() {
           <div className={`slot slot--${position}`} key={position}>{slotContent[position]}</div>
         ))}
       </div>
-      {(settings.showClock || settings.showDate) && <ClockWidget now={now} settings={clockDisplaySettings} textColor={clockColor} onChange={updateClockSettings} onPositionEdit={() => setClockPositionEdited(true)} onMessage={showMessage} orientation={orientation} />}
+      {(settings.showClock || settings.showDate) && <ClockWidget now={now} settings={clockDisplaySettings} textColor={clockColor} onChange={updateClockSettings} onMessage={showMessage} orientation={orientation} />}
 
       {settings.showTimer && (timer.status !== "idle" || settings.timerSetupCollapsed) && !timerSetupVisible && (
         <FloatingTimer

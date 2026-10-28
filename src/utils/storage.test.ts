@@ -23,6 +23,18 @@ describe("settings storage", () => {
     expect(result.timerBackgroundOpacity).toBe(.6);
   });
 
+  it("preserves clock positions near every screen edge across reloads", () => {
+    const positions = { portrait: { x: .02, y: .04 }, landscape: { x: .98, y: .96 } };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+      ...defaultSettings,
+      clockDatePosition: positions.portrait,
+      clockBackgroundSettings: { bg2: { positions, color: defaultSettings.clockColor, matchColors: false } }
+    }));
+    const loaded = loadSettings();
+    expect(loaded.clockDatePosition).toEqual(positions.portrait);
+    expect(loaded.clockBackgroundSettings.bg2.positions).toEqual(positions);
+  });
+
   it("validates hidden background ids while keeping legacy settings compatible", () => {
     const result = migrateSettings({ ...defaultSettings, hiddenBackgroundIds: ["custom-1", "custom-1", 42, "bad id"] });
     expect(result.hiddenBackgroundIds).toEqual(["custom-1"]);
@@ -193,7 +205,7 @@ describe("settings storage", () => {
       clockDatePosition: { x: 4, y: -2 },
       clockDateAlignment: "outside"
     });
-    expect(current.clockDatePosition).toEqual({ x: .94, y: .08 });
+    expect(current.clockDatePosition).toEqual({ x: 1, y: 0 });
     expect(current.clockDateAlignment).toBe(defaultSettings.clockDateAlignment);
   });
 
