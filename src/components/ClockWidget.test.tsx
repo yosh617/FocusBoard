@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ClockWidget } from "./ClockWidget";
 import { defaultSettings } from "../types/settings";
+import * as safeArea from "../utils/safeArea";
 
 const getRect = (left: number, top: number, width: number, height: number) => ({
   left,
@@ -19,6 +20,19 @@ function firePointer(target: Element, type: string, values: { pointerId: number;
 }
 
 describe("ClockWidget", () => {
+  it("keeps the clock below the top safe area", () => {
+    const inset = vi.spyOn(safeArea, "getSafeAreaTop").mockReturnValue(40);
+    const onChange = vi.fn();
+    render(<ClockWidget now={new Date()} settings={{ ...defaultSettings, clockDateAlignment: "center" }} textColor="#17345f" onChange={onChange} onMessage={vi.fn()} orientation="landscape" />);
+    const display = screen.getByRole("button", { name: "時計とカレンダーの表示設定を開く" });
+    Object.defineProperty(display, "getBoundingClientRect", { configurable: true, value: () => getRect(0, 0, 200, 120) });
+    fireEvent.keyDown(display, { key: "ArrowUp", shiftKey: true });
+    // Dragging well above the viewport must clamp to inset + gap + half height.
+    firePointer(display, "pointerdown", { pointerId: 1, clientX: 100, clientY: 60 });
+    firePointer(display, "pointermove", { pointerId: 1, clientX: 100, clientY: -1000 });
+    expect(onChange.mock.calls.at(-1)?.[0].clockDatePosition.y).toBeCloseTo((40 + 12 + 60) / window.innerHeight);
+    inset.mockRestore();
+  });
   it("shows center guides without forcing the display to the viewport center", () => {
     const onChange = vi.fn();
     render(<ClockWidget

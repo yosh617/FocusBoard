@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouse
 import type { FloatingPosition, TimerState } from "../types/timer";
 import type { Orientation } from "../types/settings";
 import { getOrientation } from "../hooks/useOrientation";
+import { getSafeAreaTop } from "../utils/safeArea";
 import { formatDuration, getCountupLap, getTimerElapsedMs, getTimerOvertimeMs, getTimerProgress, modeLabels } from "../utils/time";
 
 type Props = {
@@ -57,9 +58,13 @@ export function FloatingTimer({ timer, taskTitle, taskProgress, onStart, onPause
     const edgeGap = 8;
     const xMargin = (width / 2 + edgeGap) / window.innerWidth;
     const yMargin = (height / 2 + edgeGap) / window.innerHeight;
+    const minY = (height / 2 + edgeGap + getSafeAreaTop()) / window.innerHeight;
+    const maxY = 1 - yMargin;
+    const boundedMinY = minY > maxY ? (minY + maxY) / 2 : minY;
+    const boundedMaxY = minY > maxY ? boundedMinY : maxY;
     return {
       x: Math.max(Math.min(.5, xMargin), Math.min(1 - Math.min(.5, xMargin), x)),
-      y: Math.max(Math.min(.5, yMargin), Math.min(1 - Math.min(.5, yMargin), y))
+      y: Math.max(boundedMinY, Math.min(boundedMaxY, y))
     };
   }, [isCompact]);
 

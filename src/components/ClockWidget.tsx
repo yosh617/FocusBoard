@@ -6,6 +6,7 @@ import { ClockDisplay } from "./ClockDisplay";
 import { DateDisplay } from "./DateDisplay";
 import { ColorPickerDisclosure } from "./ui/ColorPicker";
 import { getReadableTextColorForHex } from "../utils/adaptiveColor";
+import { getSafeAreaTop } from "../utils/safeArea";
 
 type Props = {
   now: Date;
@@ -60,6 +61,9 @@ export function ClockWidget({ now, settings, textColor, onChange, onMessage, ori
       ? (displayWidth / 2 + edgeGap) / window.innerWidth
       : displayWidth / window.innerWidth + edgeGap / window.innerWidth;
     const yMargin = (displayHeight / 2 + edgeGap) / window.innerHeight;
+    const minY = (displayHeight / 2 + edgeGap + getSafeAreaTop()) / window.innerHeight;
+    const maxY = 1 - yMargin;
+    const yBounds = minY > maxY ? { minY: (minY + maxY) / 2, maxY: (minY + maxY) / 2 } : { minY, maxY };
     // If the display is larger than the available area, keep it centered
     // instead of passing reversed bounds to clamp.
     if (displayWidth + edgeGap * 2 >= window.innerWidth || displayHeight + edgeGap * 2 >= window.innerHeight) {
@@ -69,13 +73,13 @@ export function ClockWidget({ now, settings, textColor, onChange, onMessage, ori
         : settings.clockDateAlignment === "right"
           ? { minX: xMargin, maxX: 1 - edgeGap / window.innerWidth }
           : { minX: xMargin, maxX: 1 - xMargin };
-      return { ...xBounds, minY: yMargin >= .5 ? .5 : yMargin, maxY: yMargin >= .5 ? .5 : 1 - yMargin };
+      return { ...xBounds, ...yBounds };
     }
     return settings.clockDateAlignment === "left"
-      ? { minX: edgeGap / window.innerWidth, maxX: 1 - xMargin, minY: yMargin, maxY: 1 - yMargin }
+      ? { minX: edgeGap / window.innerWidth, maxX: 1 - xMargin, ...yBounds }
       : settings.clockDateAlignment === "right"
-        ? { minX: xMargin, maxX: 1 - edgeGap / window.innerWidth, minY: yMargin, maxY: 1 - yMargin }
-        : { minX: xMargin, maxX: 1 - xMargin, minY: yMargin, maxY: 1 - yMargin };
+        ? { minX: xMargin, maxX: 1 - edgeGap / window.innerWidth, ...yBounds }
+        : { minX: xMargin, maxX: 1 - xMargin, ...yBounds };
   }, [settings.clockDateAlignment]);
 
   const clampPosition = useCallback((x: number, y: number): FreePosition => {
