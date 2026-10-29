@@ -4478,6 +4478,7 @@ body { font-family: var(--font-body); }
     height: 72px;
     min-height: 72px;
     max-height: 72px;
+    overflow: visible;
     grid-template-columns: 1fr;
     gap: 0;
     padding: 8px;
