@@ -37,6 +37,11 @@
   .completed-session-add__fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .completed-session-add__fields > button { justify-self: end; }
 }
+@container (min-width: 421px) and (max-width: 760px) {
+  .completed-session-add__fields > label { grid-column: 1 / -1; }
+  .completed-session-add__duration { grid-column: 1; }
+  .completed-session-add__fields > button { grid-column: 2; }
+}
 
 /* Project actions share the compact, rectangular controls used in task details. */
 .task-drawer .task-workspace__project-settings-button,
