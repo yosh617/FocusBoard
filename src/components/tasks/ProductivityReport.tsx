@@ -4,6 +4,7 @@ import type { TaskRecord } from "../../types/task";
 import { calculateFocusedDurationMs, getFocusedDurationMs } from "../../utils/focusSession";
 import { createFocusHeatmap, createProductivityReport, formatFocusedTime, type ReportPeriod } from "../../utils/productivityReport";
 import { toLocalDateKey } from "../../utils/taskQueries";
+import "./ProductivityReport.css";
 
 const periods: { value: ReportPeriod; label: string }[] = [
   { value: "day", label: "日" },
@@ -48,6 +49,16 @@ function toDateTimeLocal(timestamp: number) {
 
 function getPausedDurationMs(session: FocusSessionRecord) {
   return (session.pauseIntervals ?? []).reduce((total, interval) => total + Math.max(0, interval.endedAt - interval.startedAt), 0);
+}
+
+function getScrollContainer(element: HTMLElement) {
+  let current: HTMLElement | null = element.parentElement;
+  while (current) {
+    const overflowY = window.getComputedStyle(current).overflowY;
+    if ((overflowY === "auto" || overflowY === "scroll") && current.scrollHeight > current.clientHeight) return current;
+    current = current.parentElement;
+  }
+  return document.scrollingElement as HTMLElement | null;
 }
 
 function SessionEditForm({ session, onCancel, onSave }: {
@@ -110,10 +121,34 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
   const [period, setPeriod] = useState<ReportPeriod>("week");
   const [periodOffset, setPeriodOffset] = useState(0);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [view, setView] = useState<"home" | "annual" | "timeline">("home");
+  const [selectedChartPoint, setSelectedChartPoint] = useState<string | null>(null);
+  const previousViewRef = useRef(view);
+  const reportRootRef = useRef<HTMLDivElement>(null);
+  const backButtonRef = useRef<HTMLButtonElement>(null);
+  const returnEntryRef = useRef<"annual" | "timeline">("annual");
+  const savedScrollRef = useRef<{ element: HTMLElement; top: number } | null>(null);
   const report = useMemo(
     () => createProductivityReport(tasks, sessions, period, now, workMinutes, periodOffset),
     [now, period, periodOffset, sessions, tasks, workMinutes]
   );
+  const comparisonSeries = useMemo(() => {
+    if (period !== "day") return report.dailyFocus.map((item) => ({ label: period === "week" ? new Date(`${item.date}T00:00:00`).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" }) : `${new Date(`${item.date}T00:00:00`).getDate()}日`, value: item.focusedMs }));
+    const sumHourly = (timeline: typeof report.timeline) => {
+      const hourly = Array.from({ length: 24 }, () => 0);
+      for (const day of timeline) for (const segment of day.segments) {
+        let cursor = segment.startAt;
+        while (cursor < segment.endAt) {
+          const end = Math.min(segment.endAt, new Date(new Date(cursor).setMinutes(0, 0, 0) + 60 * 60_000).getTime());
+          hourly[new Date(cursor).getHours()] += end - cursor;
+          cursor = end;
+        }
+      }
+      return hourly;
+    };
+    const current = sumHourly(report.timeline);
+    return current.map((value, hour) => ({ label: `${String(hour).padStart(2, "0")}時`, value }));
+  }, [period, report]);
   const focusHeatmap = useMemo(() => createFocusHeatmap(sessions, now), [now, sessions]);
   const activityScrollRef = useRef<HTMLDivElement>(null);
   const todayKey = toLocalDateKey(now);
@@ -126,28 +161,40 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
     alignToLatest();
     const frame = window.requestAnimationFrame(alignToLatest);
     return () => window.cancelAnimationFrame(frame);
-  }, [focusHeatmap.weeks.length]);
+  }, [focusHeatmap.weeks.length, view]);
+  useEffect(() => {
+    const previousView = previousViewRef.current;
+    previousViewRef.current = view;
+    if (previousView === view) return;
+    if (view === "home") {
+      if (savedScrollRef.current) savedScrollRef.current.element.scrollTop = savedScrollRef.current.top;
+      reportRootRef.current?.querySelector<HTMLButtonElement>(`[data-report-entry="${returnEntryRef.current}"]`)?.focus();
+    } else backButtonRef.current?.focus();
+  }, [view]);
   const periodLabel = period === "day" ? "日" : period === "week" ? "週" : "月";
   const completedTaskCount = tasks.filter((task) => task.parentTaskId === null && task.status === "completed" && task.completedAt !== null && task.completedAt >= report.startAt && task.completedAt < report.endAt).length;
 
   return (
-    <div className={`productivity-report${focusHeatmap.totalFocusedMs === 0 ? " productivity-report--no-activity" : ""}`}>
+    <div ref={reportRootRef} className={`productivity-report${focusHeatmap.totalFocusedMs === 0 ? " productivity-report--no-activity" : ""}`} data-report-view={view}>
+      {view !== "home" && <button ref={backButtonRef} className="report-back" type="button" onClick={() => setView("home")}>‹ レポートに戻る</button>}
       <div className="report-heading">
         <h3>レポート</h3>
-        <div className="report-period" role="group" aria-label="集計期間">
-          {periods.map((item) => <button type="button" aria-pressed={period === item.value} onClick={() => { setPeriod(item.value); setPeriodOffset(0); setEditingSessionId(null); }} key={item.value}>{item.label}</button>)}
+        <div className="report-period" role="group" aria-label="集計期間" hidden={view === "annual"}>
+          {periods.map((item) => <button type="button" aria-pressed={period === item.value} onClick={() => { setPeriod(item.value); setPeriodOffset(0); setEditingSessionId(null); setSelectedChartPoint(null); }} key={item.value}>{item.label}</button>)}
         </div>
-        <div className="report-heading__controls">
+        <div className="report-heading__controls" hidden={view === "annual"}>
           <div className="report-period-navigation" role="group" aria-label="レポート期間の移動">
-            <button type="button" aria-label={`前の${periodLabel}`} onClick={() => { setPeriodOffset((current) => current - 1); setEditingSessionId(null); }}>‹</button>
+            <button type="button" aria-label={`前の${periodLabel}`} onClick={() => { setPeriodOffset((current) => current - 1); setEditingSessionId(null); setSelectedChartPoint(null); }}>‹</button>
             <span aria-live="polite">{report.periodLabel}</span>
-            <button type="button" aria-label={`次の${periodLabel}`} disabled={periodOffset >= 0} onClick={() => { setPeriodOffset((current) => Math.min(0, current + 1)); setEditingSessionId(null); }}>›</button>
-            <button className="report-period-navigation__current" type="button" disabled={periodOffset >= 0} onClick={() => { setPeriodOffset(0); setEditingSessionId(null); }}>現在</button>
+            <button type="button" aria-label={`次の${periodLabel}`} disabled={periodOffset >= 0} onClick={() => { setPeriodOffset((current) => Math.min(0, current + 1)); setEditingSessionId(null); setSelectedChartPoint(null); }}>›</button>
+            <button className="report-period-navigation__current" type="button" disabled={periodOffset >= 0} onClick={() => { setPeriodOffset(0); setEditingSessionId(null); setSelectedChartPoint(null); }}>現在</button>
           </div>
         </div>
       </div>
 
-      <section className="report-activity" aria-labelledby="report-activity-title">
+      {view === "home" && <nav className="report-chart-nav" aria-label="詳しいレポート"><button data-report-entry="annual" type="button" onClick={(event) => { returnEntryRef.current = "annual"; const scrollable = getScrollContainer(event.currentTarget); if (scrollable) savedScrollRef.current = { element: scrollable, top: scrollable.scrollTop }; setView("annual"); }}><span>年間の集中記録</span><strong>{formatFocusedTime(focusHeatmap.totalFocusedMs)}</strong><small>1年間の記録を見る &gt;</small></button><button data-report-entry="timeline" type="button" onClick={(event) => { returnEntryRef.current = "timeline"; const scrollable = getScrollContainer(event.currentTarget); if (scrollable) savedScrollRef.current = { element: scrollable, top: scrollable.scrollTop }; setView("timeline"); }}><span>実施時間帯</span><strong>{formatFocusedTime(report.focusedMs)}</strong><small>{report.periodLabel}の時間帯を見る &gt;</small></button></nav>}
+
+      <section className="report-activity" aria-labelledby="report-activity-title" hidden={view !== "annual"}>
         <div className="report-activity__heading">
           <div>
             <h4 id="report-activity-title">直近1年の集中記録</h4>
@@ -197,7 +244,7 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
         </div>
       </section>
 
-      <section className="report-summary" aria-label={`${report.periodLabel}のサマリー`}>
+      <section className="report-summary" aria-label={`${report.periodLabel}のサマリー`} hidden={view !== "home"}>
         <div className="report-stats">
           <div><span>集中時間</span><strong>{formatFocusedTime(report.focusedMs)}</strong></div>
           <div><span>完了セッション</span><strong>{report.completedSessions}回</strong></div>
@@ -206,11 +253,15 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
         </div>
       </section>
 
-      {report.focusedMs === 0 ? <section className="report-empty-state" aria-labelledby="report-empty-title">
+      {view === "home" && <section className="report-comparison" aria-label={`${report.periodLabel}の集中時間の推移`}><h4>集中時間の推移</h4><p>{period === "day" ? "時間別" : "日別"} ・ {report.periodLabel}</p>{period === "day" && <p className="report-comparison__note">日をまたぐ記録は、選択日の時間帯に含まれる分を表示します。</p>}{comparisonSeries.every((item) => item.value === 0) ? <p className="report-empty">グラフにできる集中記録はありません。</p> : <div className="report-comparison__chart" aria-label={`${report.periodLabel}の${period === "day" ? "時間別" : "日別"}集中時間`}>
+        {comparisonSeries.map((item) => { const max = Math.max(1, ...comparisonSeries.map((point) => point.value)); return <button type="button" className="report-comparison__column" key={item.label} title={`${item.label}：${formatFocusedTime(item.value)}`} aria-label={`${item.label}、集中時間 ${formatFocusedTime(item.value)}`} aria-pressed={selectedChartPoint === item.label} onClick={() => setSelectedChartPoint(item.label)}><i aria-hidden="true"><b style={{ height: `${Math.max(item.value > 0 ? 3 : 0, item.value / max * 100)}%` }} /></i><small>{item.label}</small></button>; })}
+      </div>}{selectedChartPoint && comparisonSeries.some((item) => item.label === selectedChartPoint) && <p className="report-comparison__selected" aria-live="polite">{selectedChartPoint}：集中 {formatFocusedTime(comparisonSeries.find((item) => item.label === selectedChartPoint)?.value ?? 0)}</p>}</section>}
+
+      {report.focusedMs === 0 ? <section className="report-empty-state" aria-labelledby="report-empty-title" hidden={view !== "home" && view !== "timeline"}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V5M16 20v-7M22 20H2" /></svg>
         <div><h4 id="report-empty-title">この期間の集中記録はありません</h4><p>{report.periodLabel}。タイマーを使うと、ここに記録が表示されます。</p></div>
       </section> : <>
-      <section className="focus-timeline-section" aria-labelledby="focus-timeline-title">
+      <section className="focus-timeline-section" aria-labelledby="focus-timeline-title" hidden={view !== "timeline"}>
         <div className="report-section-heading"><h4 id="focus-timeline-title">実施時間帯</h4><strong>{formatFocusedTime(report.focusedMs)}</strong></div>
         <div className="focus-timeline__scroll">
           <div className="focus-timeline" aria-label={`${report.periodLabel}の集中タイムライン`}>
@@ -244,7 +295,7 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
         </div>
       </section>
 
-      <section aria-labelledby="project-report-title">
+      <section aria-labelledby="project-report-title" hidden={view !== "home"}>
         <h4 id="project-report-title">プロジェクト別</h4>
         {report.projectBreakdown.length === 0 ? <p className="report-empty">集計できるプロジェクトはありません。</p> : (
           <div className="report-breakdown">
@@ -253,7 +304,7 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
         )}
       </section>
 
-      <section aria-labelledby="task-report-title">
+      <section aria-labelledby="task-report-title" hidden={view !== "home"}>
         <details className="report-disclosure">
           <summary><span id="task-report-title">タスク別 見積もり対実績</span><strong>{report.taskComparisons.length}件</strong></summary>
           {report.taskComparisons.length === 0 ? <p className="report-empty">タスクに紐づく集中記録はありません。</p> : (
@@ -265,7 +316,7 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
       </section>
       </>}
 
-      <section aria-labelledby="history-title">
+      <section aria-labelledby="history-title" hidden={view !== "home"}>
         <details className="report-disclosure">
           <summary><span id="history-title">セッション履歴</span><strong>{report.history.length}件</strong></summary>
           {report.history.length === 0 ? <p className="report-empty">この期間の履歴はありません。</p> : (

@@ -978,6 +978,12 @@ export function TaskDrawer({
   const todayFocusedMinutes = sessions
     .filter((session) => session.mode === "work" && toLocalDateKey(new Date(session.endedAt)) === today)
     .reduce((total, session) => total + getFocusedDurationMs(session), 0) / 60_000;
+  const isTodayView = !projectId && view === "today";
+  const overviewOpenTasks = isTodayView ? todayOpenTasks : scopedTasks.filter((task) => task.status === "open");
+  const overviewCompletedTasks = isTodayView ? todayCompletedTasks : projectId ? projectCompletedTasks : scopedTasks.filter((task) => task.status === "completed");
+  const overviewTaskIds = new Set([...scopedTasks, ...overviewCompletedTasks].map((task) => task.id));
+  const overviewRemainingMinutes = isTodayView ? todayRemainingMinutes : overviewOpenTasks.reduce((total, task) => total + Math.max(0, task.estimatedPomodoros * workMinutes - (focusedMsByTask.get(task.id) ?? 0) / 60_000), 0);
+  const overviewFocusedMinutes = isTodayView ? todayFocusedMinutes : sessions.filter((session) => session.mode === "work" && session.taskId !== null && overviewTaskIds.has(session.taskId)).reduce((total, session) => total + getFocusedDurationMs(session), 0) / 60_000;
   const taskSections = useMemo<TaskListSection[]>(() => {
     if (scopedTasks.length === 0) return [];
     if (projectId) {
@@ -1089,6 +1095,14 @@ export function TaskDrawer({
     if (!open || workspaceMode !== "tasks") return;
     setNavigationCollapsed(false);
   }, [open, workspaceMode]);
+
+  useEffect(() => {
+    const showNavigationOnWideScreen = () => {
+      if (!isCompactTaskNavigationViewport()) setNavigationCollapsed(false);
+    };
+    window.addEventListener("resize", showNavigationOnWideScreen);
+    return () => window.removeEventListener("resize", showNavigationOnWideScreen);
+  }, []);
 
   useEffect(() => {
     if (!returnFocusToQuickAdd) return;
@@ -1502,12 +1516,12 @@ export function TaskDrawer({
                 <div className="task-workspace__heading-main"><button className="task-workspace__destination-button" type="button" aria-label="一覧を開く" onClick={openTaskNavigation}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5-7 7 7 7" /></svg></button>{currentProject && <i className="task-workspace__project-color" style={{ background: currentProject.color }} aria-hidden="true" />}<h3>{currentListLabel}</h3><span>{scopedTasks.length + visibleCompletedTasks.length}件のタスク</span></div>
                 {currentProject && <button className="secondary-button task-workspace__project-settings-button" type="button" onClick={() => setProjectSettingsOpen(true)}>プロジェクト設定</button>}
               </div>
-              {!projectId && view === "today" && <section className="today-overview" aria-label="今日の進捗">
-                <div><span>残り時間</span><strong>{formatDurationClock(todayRemainingMinutes)}</strong></div>
-                <div><span>未完了タスク</span><strong>{todayOpenTasks.length}</strong></div>
-                <div><span>集中時間</span><strong>{formatDurationClock(todayFocusedMinutes)}</strong></div>
-                <div><span>完了タスク</span><strong>{todayCompletedTasks.length}</strong></div>
-              </section>}
+              <section className="today-overview" aria-label={`${currentListLabel}の進捗`}>
+                <div><span>残り時間</span><strong>{formatDurationClock(overviewRemainingMinutes)}</strong></div>
+                <div><span>未完了タスク</span><strong>{overviewOpenTasks.length}</strong></div>
+                <div><span>集中時間</span><strong>{formatDurationClock(overviewFocusedMinutes)}</strong></div>
+                <div><span>完了タスク</span><strong>{overviewCompletedTasks.length}</strong></div>
+              </section>
               {(projectId || (view !== "completed" && view !== "archived")) && <form className="task-quick-add task-capture" id="task-quick-add-form" onSubmit={addTask} aria-busy={quickAddPending}>
                 <div className="task-capture__title">
                   <label className="visually-hidden" htmlFor="task-title">新しいタスク</label>
@@ -1549,7 +1563,7 @@ export function TaskDrawer({
               ? <div className="task-empty task-empty--today">
                   <div className="task-empty__art" aria-hidden="true"><svg viewBox="0 0 180 160"><circle className="task-empty__halo" cx="95" cy="81" r="58" /><circle className="task-empty__dot" cx="37" cy="105" r="7" /><path className="task-empty__spark" d="M145 29v13m-6.5-6.5h13" /><rect className="task-empty__paper" x="38" y="39" width="96" height="86" rx="13" transform="rotate(-4 86 82)" /><rect className="task-empty__input" x="55" y="56" width="13" height="13" rx="4" /><path className="task-empty__line" d="M77 62h39M55 83h12m10 0h39M55 101h12m10 0h28" /><circle className="task-empty__clock" cx="130" cy="111" r="17" /><path className="task-empty__clock-hand" d="M130 101v10l7 4" /></svg></div>
                   <strong>{view === "completed" ? "完了したタスクはありません" : view === "archived" ? "保管済みタスクはありません" : "タスクなし"}</strong>
-                  <span>{view === "completed" ? "タスクを完了すると、ここに表示されます。" : view === "archived" ? "保管したタスクは、ここに表示されます。" : currentProject ? "上の入力欄から追加すると、このプロジェクトに表示されます。" : "上の入力欄から追加できます。期限なしのタスクも、この一覧に表示されます。"}</span>
+                  <span>{view === "completed" ? "タスクを完了すると、ここに表示されます。" : view === "archived" ? "保管したタスクは、ここに表示されます。" : currentProject ? "上の入力欄から追加すると、このプロジェクトに表示されます。" : view === "today" ? "上の入力欄から追加できます。期限なしのタスクも、この一覧に表示されます。" : "上の入力欄からタスクを追加できます。"}</span>
                 </div>
               : <div className={`task-list${view === "today" && !projectId ? " task-list--today" : ""}`} aria-label="タスク一覧">
                 {taskSections.map((section) => (

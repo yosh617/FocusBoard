@@ -123,13 +123,31 @@ describe("TaskDrawer", () => {
 
   it("calculates today's remaining time, focus time, and completed task count", () => {
     const completedTask: TaskRecord = { ...task, id: "task-completed", title: "今日の完了", status: "completed", completedAt: Date.now() };
-    const todaySession: FocusSessionRecord = { ...session, startedAt: Date.now() - 25 * 60_000, endedAt: Date.now() };
+    const endedAt = Date.now();
+    const todaySession: FocusSessionRecord = { ...session, startedAt: endedAt - 25 * 60_000, endedAt };
     renderDrawer({ tasks: [task, completedTask], sessions: [todaySession] });
     const overview = within(screen.getByRole("region", { name: "今日の進捗" }));
     expect(overview.getByText("残り時間").nextElementSibling?.textContent).toBe("00:25");
     expect(overview.getByText("集中時間").nextElementSibling?.textContent).toBe("00:25");
     expect(overview.getByText("完了タスク").nextElementSibling?.textContent).toBe("1");
     expect(screen.queryByRole("region", { name: "今日の記録" })).toBeNull();
+  });
+
+  it("shows totals for the selected list and project instead of reusing today's totals", () => {
+    const tomorrowTask: TaskRecord = { ...task, id: "tomorrow", projectId: null, dueDate: addLocalDays(today, 1), estimatedPomodoros: 1 };
+    const projectDone: TaskRecord = { ...task, id: "project-done", status: "completed", completedAt: Date.now() };
+    const focusSession = { ...session, startedAt: session.endedAt - 25 * 60_000 };
+    renderDrawer({ tasks: [task, tomorrowTask, projectDone], sessions: [focusSession] });
+    fireEvent.click(screen.getByRole("button", { name: /^明日 / }));
+    const tomorrowOverview = within(screen.getByRole("region", { name: "明日の進捗" }));
+    expect(tomorrowOverview.getByText("残り時間").nextElementSibling?.textContent).toBe("00:25");
+    expect(tomorrowOverview.getByText("集中時間").nextElementSibling?.textContent).toBe("00:00");
+    expect(tomorrowOverview.getByText("未完了タスク").nextElementSibling?.textContent).toBe("1");
+    fireEvent.click(screen.getByRole("button", { name: /^勉強 / }));
+    const projectOverview = within(screen.getByRole("region", { name: "勉強の進捗" }));
+    expect(projectOverview.getByText("集中時間").nextElementSibling?.textContent).toBe("00:25");
+    expect(projectOverview.getByText("完了タスク").nextElementSibling?.textContent).toBe("1");
+    expect(screen.getByLabelText("新しいタスク")).toBeTruthy();
   });
 
   it("keeps settings below an independently scrolling task list", () => {
@@ -770,9 +788,26 @@ describe("TaskDrawer", () => {
     fireEvent.click(screen.getByRole("button", { name: new RegExp(`^明日 `) }));
     openQuickAddSettings();
     expect(screen.getByRole("button", { name: "期限を明日に設定" })).toBeTruthy();
-    fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "明日の復習" } });
+    const input = screen.getByLabelText("新しいタスク");
+    fireEvent.change(input, { target: { value: "明日の復習" } });
+    fireEvent.click(screen.getByRole("button", { name: "プロジェクトを設定" }));
+    expect((screen.getByLabelText("新しいタスク") as HTMLInputElement).value).toBe("明日の復習");
+    fireEvent.click(within(screen.getByRole("dialog", { name: "プロジェクトを設定" })).getByRole("button", { name: "勉強" }));
     fireEvent.click(screen.getByRole("button", { name: "タスクを追加" }));
-    await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "明日の復習", dueDate: addLocalDays(today, 1) })));
+    await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "明日の復習", dueDate: addLocalDays(today, 1), projectId: project.id })));
+  });
+
+  it("uses the selected project's default when quick-adding from its list", async () => {
+    const props = renderDrawer();
+    fireEvent.click(screen.getByRole("button", { name: /^勉強 / }));
+
+    expect(screen.getByLabelText("新しいタスク")).toBeTruthy();
+    openQuickAddSettings();
+    expect(screen.getByRole("button", { name: "プロジェクトを設定" }).textContent).toContain("勉強");
+    fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "勉強の復習" } });
+    fireEvent.click(screen.getByRole("button", { name: "タスクを追加" }));
+
+    await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "勉強の復習", dueDate: today, projectId: project.id })));
   });
 
   it("hides an empty archive view", () => {

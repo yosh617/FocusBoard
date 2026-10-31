@@ -31,17 +31,48 @@ function toDateTimeLocal(timestamp: number) {
 }
 
 describe("ProductivityReport", () => {
-  it("shows period-aware heatmap totals and expandable report sections", () => {
+  it("navigates between the report home, annual heatmap, and timeline", () => {
     render(<ProductivityReport tasks={[completedTask]} sessions={[todaySession, previousDaySession]} workMinutes={25} now={now} onUpdateSession={vi.fn().mockResolvedValue(true)} />);
     expect(screen.getAllByText("50分").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /年間の集中記録/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /実施時間帯/ })).toBeTruthy();
+    expect(document.querySelector(".productivity-report")?.getAttribute("data-report-view")).toBe("home");
+
+    const chartPoint = screen.getAllByRole("button", { name: /集中時間 25分/ })[0];
+    fireEvent.click(chartPoint);
+    expect(chartPoint.getAttribute("aria-pressed")).toBe("true");
+    expect(document.querySelector(".report-comparison__selected")?.textContent).toContain("集中 25分");
+
+    const annualEntry = screen.getByRole("button", { name: /年間の集中記録/ });
+    fireEvent.click(annualEntry);
+    expect(document.querySelector(".productivity-report")?.getAttribute("data-report-view")).toBe("annual");
     expect(screen.getByRole("heading", { name: "直近1年の集中記録" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "実施時間帯" })).toBeTruthy();
     const activity = screen.getByRole("heading", { name: "直近1年の集中記録" }).closest("section") as HTMLElement;
     expect(activity.textContent).toContain("50分");
     expect(screen.getByLabelText("直近1年の集中時間ヒートマップ").querySelectorAll("[role=\"img\"]")).toHaveLength(371);
+    expect(screen.getByRole("button", { name: "‹ レポートに戻る" })).toBeTruthy();
+    expect(document.querySelector<HTMLElement>(".report-period")?.hidden).toBe(true);
+    expect(document.querySelector<HTMLElement>(".report-heading__controls")?.hidden).toBe(true);
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "‹ レポートに戻る" }));
+    fireEvent.click(screen.getByRole("button", { name: "‹ レポートに戻る" }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: /年間の集中記録/ }));
+
+    const timelineEntry = screen.getByRole("button", { name: /実施時間帯/ });
+    fireEvent.click(timelineEntry);
+    expect(document.querySelector(".productivity-report")?.getAttribute("data-report-view")).toBe("timeline");
+    expect(screen.getByRole("heading", { name: "実施時間帯" })).toBeTruthy();
+    expect(screen.getByLabelText(/の集中タイムライン/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "‹ レポートに戻る" })).toBeTruthy();
+    const timelineNavigation = screen.getByLabelText("レポート期間の移動");
+    const currentTimelinePeriod = timelineNavigation.textContent;
+    fireEvent.click(screen.getByRole("button", { name: "前の週" }));
+    expect(timelineNavigation.textContent).not.toBe(currentTimelinePeriod);
+    fireEvent.click(screen.getByRole("button", { name: "現在" }));
+    fireEvent.click(screen.getByRole("button", { name: "‹ レポートに戻る" }));
+    expect(document.querySelector(".productivity-report")?.getAttribute("data-report-view")).toBe("home");
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: /実施時間帯/ }));
+
     expect(document.querySelector(".report-activity__weekdays")?.closest(".report-activity__scroll")).toBeNull();
-    expect(screen.getByRole("img", { name: /2026年7月18日 25分/ })).toBeTruthy();
-    expect(screen.getAllByText("集中時間").length).toBeGreaterThan(0);
     expect(screen.getByText("完了セッション")).toBeTruthy();
     expect(screen.getByText("中断")).toBeTruthy();
     expect(screen.getByLabelText(/のサマリー/).textContent).toContain("完了タスク1件");
@@ -72,6 +103,9 @@ describe("ProductivityReport", () => {
     expect(screen.getByText("完了タスク")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "この期間の集中記録はありません" })).toBeTruthy();
     expect(screen.getByLabelText("直近1年の集中時間ヒートマップ")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /実施時間帯/ }));
+    expect(document.querySelector(".productivity-report")?.getAttribute("data-report-view")).toBe("timeline");
+    expect(screen.getByRole("heading", { name: "この期間の集中記録はありません" })).toBeTruthy();
   });
 
   it("keeps zero-minute interrupted sessions available for editing", () => {
