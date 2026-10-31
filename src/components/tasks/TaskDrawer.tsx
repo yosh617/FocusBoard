@@ -904,6 +904,7 @@ export function TaskDrawer({
   const now = new Date();
   const today = toLocalDateKey(now);
   const tomorrow = addLocalDays(today, 1);
+  const defaultDueDate = projectId ? null : view === "today" ? today : view === "tomorrow" ? tomorrow : null;
   const activeProjects = useMemo(() => getActiveProjects(projects), [projects]);
   const availableTags = useMemo(() => [...new Set(tasks.flatMap((task) => task.tags ?? []))].sort((left, right) => left.localeCompare(right, "ja")), [tasks]);
   const archivedTasks = useMemo(() => getTasksForView(tasks, "archived", today), [tasks, today]);
@@ -1098,7 +1099,6 @@ export function TaskDrawer({
   const addTask = async (event?: FormEvent) => {
     event?.preventDefault();
     if (quickAddComposingRef.current || quickAddInFlightRef.current || !title.trim()) return;
-    const defaultDueDate = view === "today" ? today : view === "tomorrow" ? tomorrow : null;
     quickAddInFlightRef.current = true;
     setQuickAddPending(true);
     try {
@@ -1106,7 +1106,7 @@ export function TaskDrawer({
         title: title.trim(),
         dueDate: dueDate || defaultDueDate,
         projectId: quickProjectId === null ? projectId : quickProjectId || null,
-        bucket: view === "someday" ? "someday" : "inbox",
+        bucket: !projectId && view === "someday" ? "someday" : "inbox",
         estimatedPomodoros: quickEstimatedPomodoros,
         priority: quickPriority,
         tags: quickTags
@@ -1572,7 +1572,7 @@ export function TaskDrawer({
                     </div>}
                 </div>
                 <div className="task-capture__toolbar">
-                  <button className={dueDate ? "is-active" : ""} type="button" aria-label={dueDate ? `期限 ${dueDate}。もう一度押して変更` : `期限を${view === "tomorrow" ? "明日" : "今日"}に設定`} aria-expanded={quickPanel === "date"} onClick={() => { if (!dueDate) { setDueDate(view === "tomorrow" ? tomorrow : today); setQuickPanel(null); } else setQuickPanel((current) => current === "date" ? null : "date"); }}><QuickAddIcon type="date" /><span className="task-capture__toolbar-copy"><strong>期限</strong><small>{dueDate === today || (!dueDate && view === "today") ? "今日" : dueDate === tomorrow || (!dueDate && view === "tomorrow") ? "明日" : dueDate ? dueDate.slice(5).replace("-", "/") : "なし"}</small></span></button>
+                  <button className={dueDate ? "is-active" : ""} type="button" aria-label={dueDate ? `期限 ${dueDate}。もう一度押して変更` : `期限を${view === "tomorrow" && !projectId ? "明日" : "今日"}に設定`} aria-expanded={quickPanel === "date"} onClick={() => { if (!dueDate) { setDueDate(view === "tomorrow" && !projectId ? tomorrow : today); setQuickPanel(null); } else setQuickPanel((current) => current === "date" ? null : "date"); }}><QuickAddIcon type="date" /><span className="task-capture__toolbar-copy"><strong>期限</strong><small>{dueDate ? dueDate === today ? "今日" : dueDate === tomorrow ? "明日" : dueDate.slice(5).replace("-", "/") : defaultDueDate === today ? "今日" : defaultDueDate === tomorrow ? "明日" : "なし"}</small></span></button>
                   <button className={quickPriority !== "none" ? "is-active" : ""} type="button" aria-label={`優先度 ${priorityOptions.find((option) => option.value === quickPriority)?.label}`} aria-expanded={quickPanel === "priority"} onClick={() => setQuickPanel((current) => current === "priority" ? null : "priority")} style={{ color: priorityOptions.find((option) => option.value === quickPriority)?.color }}><QuickAddIcon type="priority" /><span className="task-capture__toolbar-copy"><strong>優先度</strong><small>{priorityOptions.find((option) => option.value === quickPriority)?.label}</small></span></button>
                   <button className={quickTags.length > 0 ? "is-active" : ""} type="button" aria-label={quickTags.length > 0 ? `タグ ${quickTags.join("、")}` : "タグを設定"} aria-expanded={quickPanel === "tag"} onClick={() => setQuickPanel((current) => current === "tag" ? null : "tag")}><QuickAddIcon type="tag" /><span className="task-capture__toolbar-copy"><strong>タグ</strong><small>{quickTags.length > 0 ? quickTags.join("、") : "なし"}</small></span></button>
                   <button className={quickAddProjectId ? "is-active" : ""} type="button" aria-label="プロジェクトを設定" aria-expanded={quickPanel === "project"} onClick={() => setQuickPanel((current) => current === "project" ? null : "project")}><QuickAddIcon type="project" /><span className="task-capture__toolbar-copy"><strong>プロジェクト</strong><small>{activeProjects.find((item) => item.id === quickAddProjectId)?.name ?? "プロジェクトなし"}</small></span></button>

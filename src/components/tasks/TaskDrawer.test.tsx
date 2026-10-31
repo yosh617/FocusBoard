@@ -797,17 +797,67 @@ describe("TaskDrawer", () => {
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "明日の復習", dueDate: addLocalDays(today, 1), projectId: project.id })));
   });
 
-  it("uses the selected project's default when quick-adding from its list", async () => {
+  it("does not assign an implicit deadline when quick-adding from a project list", async () => {
     const props = renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: /^勉強 / }));
 
     expect(screen.getByLabelText("新しいタスク")).toBeTruthy();
     openQuickAddSettings();
     expect(screen.getByRole("button", { name: "プロジェクトを設定" }).textContent).toContain("勉強");
+    expect(screen.getByRole("button", { name: "期限を今日に設定" }).textContent).toContain("なし");
     fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "勉強の復習" } });
     fireEvent.click(screen.getByRole("button", { name: "タスクを追加" }));
 
-    await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "勉強の復習", dueDate: today, projectId: project.id })));
+    await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "勉強の復習", dueDate: null, projectId: project.id })));
+  });
+
+  it("keeps project quick-add deadlines empty after returning from the tomorrow view", async () => {
+    const props = renderDrawer();
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(`^明日 `) }));
+    fireEvent.click(screen.getByRole("button", { name: /^勉強 / }));
+    openQuickAddSettings();
+    const dueDateButton = screen.getByRole("button", { name: "期限を今日に設定" });
+    expect(dueDateButton.textContent).toContain("なし");
+    fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "プロジェクトの作業" } });
+    fireEvent.click(screen.getByRole("button", { name: "タスクを追加" }));
+
+    await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "プロジェクトの作業", dueDate: null, projectId: project.id })));
+    fireEvent.click(screen.getByRole("button", { name: "期限を今日に設定" }));
+    expect(screen.getByRole("button", { name: `期限 ${today}。もう一度押して変更` }).textContent).toContain("今日");
+  });
+
+  it("keeps someday bucket for picker-added tasks but uses inbox from a project list", async () => {
+    const props = renderDrawer();
+    fireEvent.click(screen.getByRole("button", { name: /^いつか / }));
+    openQuickAddSettings();
+    fireEvent.click(screen.getByRole("button", { name: "プロジェクトを設定" }));
+    fireEvent.click(within(screen.getByRole("dialog", { name: "プロジェクトを設定" })).getByRole("button", { name: "勉強" }));
+    fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "いつかのプロジェクト作業" } });
+    fireEvent.click(screen.getByRole("button", { name: "タスクを追加" }));
+    await waitFor(() => expect(props.onAddTask).toHaveBeenLastCalledWith(expect.objectContaining({ title: "いつかのプロジェクト作業", bucket: "someday", dueDate: null, projectId: project.id })));
+
+    fireEvent.click(screen.getByRole("button", { name: /^勉強 / }));
+    fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "期限なしのプロジェクト作業" } });
+    fireEvent.click(screen.getByRole("button", { name: "タスクを追加" }));
+    await waitFor(() => expect(props.onAddTask).toHaveBeenLastCalledWith(expect.objectContaining({ title: "期限なしのプロジェクト作業", bucket: "inbox", dueDate: null, projectId: project.id })));
+
+    props.rerender({ tasks: [task, { ...task, id: "task-undated-project", title: "期限なしのプロジェクト作業", bucket: "inbox", dueDate: null }] });
+    fireEvent.click(screen.getByRole("button", { name: /^今日 / }));
+    expect(screen.getByText("期限なしのプロジェクト作業")).toBeTruthy();
+  });
+
+  it("saves an explicitly chosen project deadline and clears it for the next task", async () => {
+    const props = renderDrawer();
+    fireEvent.click(screen.getByRole("button", { name: /^勉強 / }));
+    openQuickAddSettings();
+    fireEvent.click(screen.getByRole("button", { name: "期限を今日に設定" }));
+    fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "今日の作業" } });
+    fireEvent.click(screen.getByRole("button", { name: "タスクを追加" }));
+    await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "今日の作業", dueDate: today, projectId: project.id })));
+
+    fireEvent.change(screen.getByLabelText("新しいタスク"), { target: { value: "期限なしの作業" } });
+    fireEvent.click(screen.getByRole("button", { name: "タスクを追加" }));
+    await waitFor(() => expect(props.onAddTask).toHaveBeenLastCalledWith(expect.objectContaining({ title: "期限なしの作業", dueDate: null, projectId: project.id })));
   });
 
   it("hides an empty archive view", () => {
