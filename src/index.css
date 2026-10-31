@@ -4714,8 +4714,11 @@ body { font-family: var(--font-body); }
   border-top: 0;
 }
 .task-editor-screen .task-editor__operations { padding-top: 10px; border-top: 1px solid var(--color-hairline); }
+.task-editor-screen .task-editor__operations .secondary-button { min-height: 42px; padding: 8px 13px; border-radius: var(--radius-s); }
 .task-editor-screen .task-editor__actions { align-items: flex-start; padding-top: 10px; border-top: 1px solid var(--color-hairline); }
 .task-editor-screen .task-editor__destructive-actions { flex-wrap: wrap; }
+.task-editor-screen .task-editor__destructive-actions .danger-button { color: var(--color-ink); border-color: var(--color-hairline); border-radius: var(--radius-s); background: var(--color-paper); box-shadow: none; }
+.task-editor-screen .task-editor__destructive-actions .danger-button:hover:not(:disabled) { border-color: var(--color-ink); background: var(--color-paper); }
 
 @media (max-width: 520px) {
   .task-editor-screen .task-editor { gap: 14px; padding: 14px 14px 16px; }

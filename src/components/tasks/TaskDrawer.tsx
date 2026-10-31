@@ -5,7 +5,7 @@ import type { RepeatRule, TaskDraft, TaskPriority, TaskRecord, TaskView } from "
 import type { TimerStatus } from "../../types/timer";
 import type { ProductivityBackup } from "../../utils/productivityBackup";
 import type { ConflictPreference, ImportStrategy } from "../../utils/productivityImport";
-import { getActiveProjects, getTasksForProject, getTasksForView, sortTasksForFocus, toLocalDateKey, addLocalDays } from "../../utils/taskQueries";
+import { getActiveProjects, getTasksForProject, getTasksForView, toLocalDateKey, addLocalDays } from "../../utils/taskQueries";
 import { calculateFocusedDurationMs, getFocusedDurationMs } from "../../utils/focusSession";
 import { formatFocusedTime } from "../../utils/productivityReport";
 import { ProductivityReport } from "./ProductivityReport";
@@ -154,14 +154,6 @@ function buildRepeatRule(type: string, dueDate: string, customInterval: number, 
   if (customUnit === "daily") return { type: "daily", interval: Math.min(365, interval) };
   if (customUnit === "weekly") return { type: "weekly", interval: Math.min(52, interval), weekdays: [new Date(year, month - 1, day).getDay()] };
   return { type: "monthly", interval: Math.min(24, interval), day };
-}
-
-function dueLabel(task: TaskRecord, today: string) {
-  if (!task.dueDate) return "";
-  if (task.status === "open" && task.dueDate < today) return `期限切れ・${task.dueDate}`;
-  if (task.dueDate === today) return "今日";
-  if (task.dueDate === addLocalDays(today, 1)) return "明日";
-  return task.dueDate;
 }
 
 function reminderLabel(timestamp: number | null, referenceDate: Date) {
@@ -391,7 +383,7 @@ function UnsavedChangesDialog({ open, onCancel, onDiscard }: { open: boolean; on
   );
 }
 
-function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerStatus, activeTaskId, nextTask, nextTaskDetail, onStartTask, onOpenNextTask, onReturnToTimer, onSave, onArchive, onDelete, onDeleteRecurring, onToggleStatus, onCompleteAndStartNextTask, onAddSubtask, onToggleSubtask, canMoveUp, canMoveDown, onMove, onClose, onRegisterExit }: {
+function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerStatus, activeTaskId, onStartTask, onReturnToTimer, onSave, onArchive, onDelete, onDeleteRecurring, onToggleStatus, onAddSubtask, onToggleSubtask, canMoveUp, canMoveDown, onMove, onClose, onRegisterExit }: {
   task: TaskRecord;
   projects: ProjectRecord[];
   availableTags: string[];
@@ -399,17 +391,13 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
   sessions: FocusSessionRecord[];
   timerStatus: TimerStatus;
   activeTaskId: string | null;
-  nextTask: TaskRecord | null;
-  nextTaskDetail: string;
   onStartTask: (id: string) => void;
-  onOpenNextTask?: () => void;
   onReturnToTimer: () => void;
   onSave: (patch: TaskEditorPatch, expectedUpdatedAt: number) => Promise<boolean | "conflict">;
   onArchive: () => Promise<boolean>;
   onDelete: () => Promise<boolean>;
   onDeleteRecurring: (id: string) => Promise<boolean>;
   onToggleStatus: () => Promise<boolean>;
-  onCompleteAndStartNextTask?: () => Promise<boolean>;
   onAddSubtask: (title: string) => Promise<boolean>;
   onToggleSubtask: (id: string) => Promise<boolean>;
   canMoveUp: boolean;
@@ -441,7 +429,6 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
   const [saveStatus, setSaveStatus] = useState<"saved" | "unsaved" | "saving" | "error" | "conflict" | "invalid">("saved");
   const [isComposing, setIsComposing] = useState(false);
   const [togglingStatus, setTogglingStatus] = useState(false);
-  const [startingNextTask, setStartingNextTask] = useState(false);
   const [scheduleExpanded, setScheduleExpanded] = useState(task.reminderAt !== null || task.repeatRule !== null);
   const [noteExpanded, setNoteExpanded] = useState(task.note.trim().length > 0);
   const [subtasksExpanded, setSubtasksExpanded] = useState(subtasks.length > 0);
@@ -459,7 +446,6 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
   const exitHandlerRef = useRef<(action: () => void) => void>(() => undefined);
   const isActiveTask = activeTaskId === task.id && timerStatus !== "idle";
   const canStartTask = isActiveTask || (timerStatus === "idle" && task.status === "open");
-  const canCompleteAndStartNext = task.status === "open" && timerStatus === "idle" && nextTask !== null && onCompleteAndStartNextTask !== undefined;
   const now = new Date();
   const today = toLocalDateKey(now);
   const dueDateSummary = dueDate
@@ -786,7 +772,7 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
             <button
               className="secondary-button"
               type="button"
-              disabled={togglingStatus || startingNextTask}
+              disabled={togglingStatus}
               aria-label={task.status === "completed" ? `${task.title}を詳細から未完了に戻す` : `${task.title}を詳細から完了`}
               onClick={async () => {
                 setTogglingStatus(true);
@@ -800,18 +786,6 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
             >
               {togglingStatus ? "更新中" : task.status === "completed" ? "未完了に戻す" : "完了にする"}
             </button>
-            {canCompleteAndStartNext && (
-              <button className="secondary-button" type="button" disabled={togglingStatus || startingNextTask} aria-label={`${task.title}を完了して${nextTask.title}を開始`} onClick={async () => {
-                setStartingNextTask(true);
-                if (isDirty && !(await saveChanges())) {
-                  setStartingNextTask(false);
-                  return;
-                }
-                await onCompleteAndStartNextTask();
-                setStartingNextTask(false);
-              }}>{startingNextTask ? "切り替え中" : "完了して次を開始"}</button>
-            )}
-            {canCompleteAndStartNext && onOpenNextTask && <button className="text-button" type="button" aria-label={`${nextTask.title}の候補を詳細で見る`} onClick={onOpenNextTask}>{nextTaskDetail ? `次の候補：${nextTask.title}` : "次の候補を見る"}</button>}
           </section>
           <div className="task-editor__actions">
             <div className="task-editor__destructive-actions">
@@ -1205,22 +1179,11 @@ export function TaskDrawer({
     pendingTaskFocusIdRef.current = taskId;
     setSelectedTaskId(null);
   };
-  const selectedTaskNextCandidate = selectedTask
-    ? sortTasksForFocus(tasks, today, activeTaskId).find((task) => task.id !== selectedTask.id) ?? null
-    : null;
   const selectedTaskSection = selectedTask
     ? taskSections.find((section) => section.tasks.some((task) => task.id === selectedTask.id)) ?? null
     : null;
   const selectedTaskVisibleIds = selectedTaskSection?.tasks.map((task) => task.id) ?? [];
   const selectedTaskVisibleIndex = selectedTaskVisibleIds.indexOf(selectedTask?.id ?? "");
-  const selectedTaskNextCandidateProject = selectedTaskNextCandidate?.projectId
-    ? activeProjects.find((project) => project.id === selectedTaskNextCandidate.projectId) ?? null
-    : null;
-  const selectedTaskNextCandidateDetail = selectedTaskNextCandidate ? [
-    selectedTaskNextCandidateProject?.name ?? null,
-    dueLabel(selectedTaskNextCandidate, today) || null,
-    selectedTaskNextCandidate.estimatedPomodoros > 0 ? `目安 ${selectedTaskNextCandidate.estimatedPomodoros}セット` : null
-  ].filter((item): item is string => item !== null).join(" ・ ") : "";
   const swipeDeleteIsRecurring = swipeDeleteTask !== null && Boolean(swipeDeleteTask.repeatRule || swipeDeleteTask.repeatSeriesId !== null);
 
   const beginTaskSwipe = (taskId: string, startX: number, startY: number) => {
@@ -1486,10 +1449,7 @@ export function TaskDrawer({
                 sessions={sessions}
                 timerStatus={timerStatus}
                 activeTaskId={activeTaskId}
-                nextTask={selectedTaskNextCandidate}
-                nextTaskDetail={selectedTaskNextCandidateDetail}
                 onStartTask={onStartTask}
-                onOpenNextTask={selectedTaskNextCandidate ? () => openTaskDetails(selectedTaskNextCandidate, { revealInList: true }) : undefined}
                 onReturnToTimer={() => { setSelectedTaskId(null); onClose(); }}
                 onSave={async (patch, expectedUpdatedAt) => {
                   const latest = tasks.find((item) => item.id === selectedTask.id);
@@ -1501,7 +1461,6 @@ export function TaskDrawer({
                 onDelete={async () => { const deleted = await onDeleteTask(selectedTask.id); if (deleted) setSelectedTaskId(null); return deleted; }}
                 onDeleteRecurring={async (taskId) => onDeleteRecurring?.(taskId) ?? false}
                 onToggleStatus={async () => { const toggled = await onToggleTask(selectedTask.id); if (toggled) closeTaskDetails(selectedTask.id); return toggled; }}
-                onCompleteAndStartNextTask={selectedTaskNextCandidate ? async () => { const toggled = await onToggleTask(selectedTask.id); if (!toggled) return false; onStartTask(selectedTaskNextCandidate.id); return true; } : undefined}
                 onAddSubtask={async (subtaskTitle) => (await onAddTask({ title: subtaskTitle, parentTaskId: selectedTask.id, projectId: selectedTask.projectId, bucket: selectedTask.bucket })) !== null}
                 onToggleSubtask={onToggleTask}
                 canMoveUp={selectedTaskVisibleIndex > 0}

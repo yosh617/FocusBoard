@@ -1018,7 +1018,7 @@ describe("TaskDrawer", () => {
     await waitFor(() => expect(props.onStartTask).toHaveBeenCalledWith(task.id));
   });
 
-  it("completes the selected task and immediately starts the next focus candidate", async () => {
+  it("keeps next-task actions out of the editor and still allows normal completion", async () => {
     const nextTask: TaskRecord = {
       ...task,
       id: "task-2",
@@ -1030,35 +1030,14 @@ describe("TaskDrawer", () => {
     };
     const props = renderDrawer({ tasks: [task, nextTask] });
     fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
-    openAdvancedSettings(within(screen.getByRole("form", { name: "数学の復習の詳細" })));
-    fireEvent.click(screen.getByRole("button", { name: "数学の復習を完了して英語の宿題を開始" }));
+    const details = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
+    openAdvancedSettings(details);
+    expect(screen.queryByRole("button", { name: "数学の復習を完了して英語の宿題を開始" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "英語の宿題の候補を詳細で見る" })).toBeNull();
+
+    fireEvent.click(details.getByRole("button", { name: "数学の復習を詳細から完了" }));
     await waitFor(() => expect(props.onToggleTask).toHaveBeenCalledWith(task.id));
-    expect(props.onStartTask).toHaveBeenCalledWith(nextTask.id);
-  });
-
-  it("opens the next focus candidate details from the task editor", async () => {
-    const workProject: ProjectRecord = { ...project, id: "project-2", name: "仕事", order: 1 };
-    const nextTask: TaskRecord = {
-      ...task,
-      id: "task-2",
-      title: "英語の宿題",
-      dueDate: addLocalDays(today, 1),
-      projectId: workProject.id,
-      estimatedPomodoros: 1,
-      order: 1,
-      updatedAt: 2
-    };
-
-    renderDrawer({ tasks: [task, nextTask], projects: [project, workProject] });
-    fireEvent.click(screen.getByRole("button", { name: /数学の復習/, expanded: false }));
-    openAdvancedSettings(within(screen.getByRole("form", { name: "数学の復習の詳細" })));
-    fireEvent.click(screen.getByRole("button", { name: "英語の宿題の候補を詳細で見る" }));
-
-    await waitFor(() => expect(screen.getByRole("form", { name: "英語の宿題の詳細" })).toBeTruthy());
-    fireEvent.click(screen.getByRole("button", { name: "タスク一覧へ戻る" }));
-    await waitFor(() => expect(screen.queryByRole("form", { name: "英語の宿題の詳細" })).toBeNull());
-    expect(screen.getByRole("heading", { name: "今日", level: 3 })).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: "仕事", level: 3 })).toBeNull();
+    expect(props.onStartTask).not.toHaveBeenCalled();
   });
 
   it("returns to the running timer instead of showing a disabled start for the active task", () => {
