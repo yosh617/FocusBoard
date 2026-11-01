@@ -2167,7 +2167,7 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
   .task-workspace__heading:not(:has(.task-workspace__project-settings-button)) { display: none; }
   .task-workspace__heading { justify-content: flex-end; }
 }
-.today-overview { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 10px 8px; border: 1px solid var(--color-hairline); border-radius: 13px; background: var(--color-paper); }
+.today-overview { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 10px 8px; border: 0; border-radius: 0; background: transparent; }
 .today-overview > div { display: grid; align-content: start; justify-items: center; min-width: 0; gap: 4px; }
 .today-overview > div > span { min-height: 22px; color: var(--task-primary-text); text-align: center; font-size: 10px; line-height: 1.2; }
 .today-overview strong { color: var(--task-primary-text); font-size: clamp(17px, 5vw, 25px); font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
@@ -3156,6 +3156,40 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .task-launcher__headline strong, .task-launcher__task span, .task-launcher__summary strong { color: var(--color-ink); }
 .task-launcher__icon { color: var(--color-ink); border-color: var(--color-hairline); background: var(--color-canvas); }
 .task-launcher__count { color: #fff; background: var(--color-ink); }
+.task-launcher-open {
+  position: fixed;
+  z-index: 11;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(20px, env(safe-area-inset-bottom));
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  padding: 7px;
+  color: var(--color-ink);
+  border: 1px solid var(--color-hairline);
+  border-radius: 50%;
+  background: var(--color-paper);
+  box-shadow: var(--shadow-subtle);
+}
+.home-dock:has(~ .task-launcher-open) { display: none; }
+.task-launcher-open:hover,
+.task-launcher-open:focus-visible {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-subtle), 0 0 0 2px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.task-launcher-open .task-launcher__icon { width: 34px; height: 34px; }
+.task-launcher-open .task-launcher__icon svg { width: 17px; height: 17px; }
+.task-launcher-open .task-launcher__count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 22px;
+  height: 22px;
+  padding-inline: 4px;
+  margin: 0;
+  font-size: 10px;
+}
 
 .settings-drawer, .task-drawer { width: min(560px, 100vw); border-left: 1px solid var(--color-hairline); border-radius: var(--radius-l) 0 0 var(--radius-l); }
 .settings-drawer { width: min(480px, 100vw); }
@@ -4474,29 +4508,12 @@ body { font-family: var(--font-body); }
 }
 
 @media (max-width: 600px) and (orientation: portrait) {
-  .app-shell--task-launcher-visible .task-launcher {
-    top: auto !important;
-    right: max(16px, env(safe-area-inset-right)) !important;
-    bottom: max(16px, env(safe-area-inset-bottom)) !important;
-    left: auto !important;
-    width: 72px;
-    height: 72px;
-    min-height: 72px;
-    max-height: 72px;
-    overflow: visible;
-    grid-template-columns: 1fr;
-    gap: 0;
-    padding: 8px;
-    border-radius: 50%;
-    transform: none !important;
+  .task-launcher-open {
+    right: max(16px, env(safe-area-inset-right));
+    bottom: max(16px, env(safe-area-inset-bottom));
+    width: 60px;
+    height: 60px;
   }
-  .app-shell--task-launcher-visible .task-launcher:hover { transform: none !important; }
-  .app-shell--task-launcher-visible .task-launcher__main { display: none; }
-  .app-shell--task-launcher-visible .task-launcher__side { position: relative; display: grid; justify-items: center; gap: 0; }
-  .app-shell--task-launcher-visible .task-launcher__icon { width: 42px; height: 42px; }
-  .app-shell--task-launcher-visible .task-launcher__icon::before { width: 34px; height: 34px; }
-  .app-shell--task-launcher-visible .task-launcher__icon svg { width: 19px; height: 19px; }
-  .app-shell--task-launcher-visible .task-launcher__count { position: absolute; top: -7px; right: -7px; min-width: 24px; height: 24px; padding-inline: 5px; margin: 0; font-size: 11px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

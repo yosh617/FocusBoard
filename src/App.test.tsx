@@ -155,10 +155,10 @@ describe("App", () => {
       localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...defaultSettings, taskLauncherVisibility: "background-tap" }));
       render(<App />);
       revealSettings();
-      const launcher = screen.getByRole("button", { name: /タスクを開く/ });
+      expect(screen.getByRole("button", { name: /タスクを開く/ })).toBeTruthy();
 
       act(() => { vi.advanceTimersByTime(2_500); });
-      expect(launcher.classList.contains("task-launcher--fading")).toBe(true);
+      expect(document.querySelector(".task-launcher")?.classList.contains("task-launcher--fading")).toBe(true);
 
       act(() => { vi.advanceTimersByTime(280); });
       expect(document.querySelector(".task-launcher")).toBeNull();
@@ -179,12 +179,12 @@ describe("App", () => {
       expect(screen.queryByRole("button", { name: /タスクを開く/ })).toBeNull();
 
       revealSettings();
-      const launcher = screen.getByRole("button", { name: /タスクを開く/ });
+      expect(screen.getByRole("button", { name: /タスクを開く/ })).toBeTruthy();
       const homeDock = screen.getByRole("navigation", { name: "ホーム操作" });
       expect(document.querySelector(".settings-button")).toBeNull();
 
       act(() => { vi.advanceTimersByTime(2_500); });
-      expect(launcher.classList.contains("task-launcher--fading")).toBe(true);
+      expect(document.querySelector(".task-launcher")?.classList.contains("task-launcher--fading")).toBe(true);
       expect(homeDock.classList.contains("home-dock--fading")).toBe(true);
       act(() => { vi.advanceTimersByTime(280); });
       expect(screen.queryByRole("button", { name: /タスクを開く/ })).toBeNull();
@@ -516,8 +516,9 @@ describe("App", () => {
 
       fireEvent.click(screen.getByRole("button", { name: "次の短い休憩を開始" }));
       const launcher = screen.getByRole("button", { name: "タスクを開く。短い休憩中。次のおすすめは数学の復習。今日の未完了は2件" });
-      expect(launcher.textContent).toContain("短い休憩");
-      expect(launcher.textContent).toContain("次は 数学の復習");
+      const card = screen.getByRole("group", { name: "タスク表示カード" });
+      expect(card.textContent).toContain("短い休憩");
+      expect(card.textContent).toContain("次は 数学の復習");
       fireEvent.click(launcher);
       expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy();
       fireEvent.click(screen.getByRole("button", { name: "タスク一覧へ戻る" }));
@@ -1098,7 +1099,7 @@ describe("App", () => {
   it("persists a dragged task launcher position and restores it on a new render", async () => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...defaultSettings, taskLauncherPosition: { x: .5, y: .5 } }));
     const { unmount } = render(<App />);
-    const launcher = screen.getByRole("button", { name: /タスクを開く/ });
+    const launcher = screen.getByRole("group", { name: "タスク表示カード" });
     fireEvent(launcher, new MouseEvent("pointerdown", { bubbles: true, clientX: 100, clientY: 100 }));
     fireEvent(launcher, new MouseEvent("pointermove", { bubbles: true, clientX: 260, clientY: 20 }));
     fireEvent(launcher, new MouseEvent("pointerup", { bubbles: true, clientX: 260, clientY: 20 }));
@@ -1109,7 +1110,7 @@ describe("App", () => {
     unmount();
 
     render(<App />);
-    const restored = screen.getByRole("button", { name: /タスクを開く/ });
+    const restored = screen.getByRole("group", { name: "タスク表示カード" });
     expect(restored.style.left).toBe(`${savedPosition.x * 100}%`);
     expect(restored.style.top).toBe(`${savedPosition.y * 100}%`);
   });

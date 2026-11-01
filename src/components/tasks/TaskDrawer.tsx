@@ -904,6 +904,11 @@ export function TaskDrawer({
   const [projectToArchive, setProjectToArchive] = useState<ProjectRecord | null>(null);
   const [projectToDelete, setProjectToDelete] = useState<ProjectRecord | null>(null);
   const [swipeDeleteTask, setSwipeDeleteTask] = useState<TaskRecord | null>(null);
+  const [swipeDueDateTask, setSwipeDueDateTask] = useState<TaskRecord | null>(null);
+  const [swipeDueDate, setSwipeDueDate] = useState("");
+  const [swipeDueDateSaving, setSwipeDueDateSaving] = useState(false);
+  const [swipeDueDateError, setSwipeDueDateError] = useState(false);
+  const swipeDueDateDialogRef = useRef<HTMLElement | null>(null);
   const [swipeOffset, setSwipeOffset] = useState<{ id: string; offset: number } | null>(null);
   const [showResumeBanner, setShowResumeBanner] = useState(false);
   const [showTodayCompleted, setShowTodayCompleted] = useState(false);
@@ -1256,7 +1261,7 @@ export function TaskDrawer({
     }
     gesture.horizontal = true;
     preventDefault();
-    setSwipeOffset({ id: taskId, offset: Math.max(-96, Math.min(0, deltaX)) });
+    setSwipeOffset({ id: taskId, offset: Math.max(-96, Math.min(96, deltaX)) });
   };
   const endTaskSwipe = (clientX: number, task: TaskRecord) => {
     const gesture = swipeGestureRef.current;
@@ -1270,6 +1275,44 @@ export function TaskDrawer({
     if (deltaX <= -56) {
       swipeMovedTaskIdRef.current = task.id;
       setSwipeDeleteTask(task);
+    } else if (deltaX >= 56) {
+      swipeMovedTaskIdRef.current = task.id;
+      setSwipeDueDateTask(task);
+      setSwipeDueDate(task.dueDate ?? "");
+      setSwipeDueDateError(false);
+    }
+  };
+  const closeSwipeDueDate = () => {
+    if (swipeDueDateSaving) return;
+    setSwipeDueDateTask(null);
+    setSwipeDueDateError(false);
+    const taskId = swipeDueDateTask?.id;
+    if (taskId) window.setTimeout(() => {
+      (taskContentButtonRefs.current.get(taskId) ?? workspaceRef.current)?.focus();
+      swipeMovedTaskIdRef.current = null;
+    }, 0);
+  };
+  useEffect(() => {
+    if (!swipeDueDateTask) return;
+    const dialog = swipeDueDateDialogRef.current;
+    const firstControl = dialog?.querySelector<HTMLElement>("button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled)");
+    firstControl?.focus();
+  }, [swipeDueDateTask]);
+  const saveSwipeDueDate = async () => {
+    if (!swipeDueDateTask || swipeDueDateSaving) return;
+    setSwipeDueDateSaving(true);
+    setSwipeDueDateError(false);
+    try {
+      const saved = await onUpdateTask(swipeDueDateTask.id, { dueDate: swipeDueDate || null, bucket: swipeDueDate ? "inbox" : swipeDueDateTask.bucket });
+      if (!saved) {
+        setSwipeDueDateError(true);
+        return;
+      }
+      closeSwipeDueDate();
+    } catch {
+      setSwipeDueDateError(true);
+    } finally {
+      setSwipeDueDateSaving(false);
     }
   };
   const handleTaskPointerDown = (event: ReactPointerEvent<HTMLElement>, taskId: string) => {
@@ -1338,7 +1381,7 @@ export function TaskDrawer({
     const isResumeTarget = showResumeBanner && resumeContext?.taskId === task.id;
     const isActiveFocusTarget = activeTaskId === task.id && timerStatus !== "idle";
     return (
-      <div className={`task-list__item${isResumeTarget || isActiveFocusTarget ? " task-list__item--attention" : ""}${swipeOffset?.id === task.id ? " task-list__item--swiping" : ""}`} key={task.id} ref={(node) => {
+      <div className={`task-list__item${isResumeTarget || isActiveFocusTarget ? " task-list__item--attention" : ""}${swipeOffset?.id === task.id ? ` task-list__item--swiping task-list__item--swiping-${swipeOffset.offset < 0 ? "left" : "right"}` : ""}`} key={task.id} ref={(node) => {
         if (node) taskRowRefs.current.set(task.id, node);
         else taskRowRefs.current.delete(task.id);
       }}>
@@ -1656,6 +1699,26 @@ export function TaskDrawer({
           if (project) void handleArchiveProject(project.id);
         }}
       />
+      {swipeDueDateTask && <div className="task-swipe-date-backdrop" onPointerDown={(event) => { if (event.target === event.currentTarget) closeSwipeDueDate(); }}>
+        <section ref={swipeDueDateDialogRef} className="task-swipe-date-dialog" role="dialog" aria-modal="true" aria-labelledby="task-swipe-date-title" onKeyDown={(event) => {
+          if (event.key === "Escape" && !(event.target as HTMLElement).closest(".app-calendar")) { event.stopPropagation(); closeSwipeDueDate(); return; }
+          if (event.key !== "Tab" || (event.target as HTMLElement).closest(".app-calendar")) return;
+          const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>("button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled)"));
+          if (!controls.length) { event.preventDefault(); return; }
+          if (event.shiftKey && document.activeElement === controls[0]) { event.preventDefault(); controls.at(-1)?.focus(); }
+          else if (!event.shiftKey && document.activeElement === controls.at(-1)) { event.preventDefault(); controls[0].focus(); }
+        }}>
+          <h3 id="task-swipe-date-title">期限を変更</h3>
+          <p>{swipeDueDateTask.title}</p>
+          <AppDateField id={`swipe-due-date-${swipeDueDateTask.id}`} label="期限" value={swipeDueDate} today={today} disabled={swipeDueDateSaving} onChange={setSwipeDueDate} />
+          <button className="secondary-button" type="button" disabled={swipeDueDateSaving} onClick={() => setSwipeDueDate("")}>期限なし</button>
+          {swipeDueDateError && <p className="task-swipe-date-dialog__error" role="alert">保存できませんでした。もう一度お試しください。</p>}
+          <div className="task-swipe-date-dialog__actions">
+            <button className="secondary-button" type="button" disabled={swipeDueDateSaving} onClick={closeSwipeDueDate}>キャンセル</button>
+            <button className="primary-button" type="button" disabled={swipeDueDateSaving} onClick={() => void saveSwipeDueDate()}>{swipeDueDateSaving ? "保存中" : swipeDueDateError ? "再試行" : "保存"}</button>
+          </div>
+        </section>
+      </div>}
       <ConfirmDialog
         open={projectToDelete !== null}
         title="プロジェクトを削除しますか？"

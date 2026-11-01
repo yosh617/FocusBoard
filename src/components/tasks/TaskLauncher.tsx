@@ -54,7 +54,7 @@ export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLa
         ? `タスクを開く。次のおすすめは${suggestedTask.title}。今日の未完了は${todayCount}件`
         : `タスクを開く。今日の未完了は${todayCount}件`);
   const [isDimmed, setIsDimmed] = useState(false);
-  const launcherRef = useRef<HTMLButtonElement>(null);
+  const launcherRef = useRef<HTMLDivElement>(null);
   const dimTimeoutRef = useRef<number | null>(null);
   const pointerStart = useRef<{ x: number; y: number; position: FreePosition } | null>(null);
   const positionRef = useRef(position);
@@ -125,10 +125,12 @@ export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLa
     };
   }, [isEmphasized]);
 
-  return (
-    <button
+  return <>
+    <div
       className={`task-launcher${isEmphasized ? " task-launcher--active" : ""}${isBreakFlow ? " task-launcher--break" : ""}${isDimmed ? " task-launcher--dimmed" : ""}${transient ? " task-launcher--transient" : ""}${fading ? " task-launcher--fading" : ""}`}
-      type="button"
+      role="group"
+      aria-label="タスク表示カード"
+      tabIndex={0}
       style={{ left: `${position.x * 100}%`, top: `${position.y * 100}%` }}
       onPointerDown={(event) => {
         if (event.currentTarget.setPointerCapture) event.currentTarget.setPointerCapture(event.pointerId);
@@ -145,14 +147,6 @@ export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLa
       }}
       onPointerUp={() => { pointerStart.current = null; }}
       onPointerCancel={() => { pointerStart.current = null; moved.current = true; }}
-      onClick={(event) => {
-        if (moved.current) {
-          event.preventDefault();
-          moved.current = false;
-          return;
-        }
-        onClick();
-      }}
       onKeyDown={(event) => {
         const step = event.shiftKey ? .05 : .015;
         if (event.key === "ArrowLeft") { event.preventDefault(); moveBy(position.x - step, position.y); }
@@ -161,47 +155,24 @@ export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLa
         if (event.key === "ArrowDown") { event.preventDefault(); moveBy(position.x, position.y + step); }
       }}
       onFocus={() => setIsDimmed(false)}
-      ref={(node) => {
-        launcherRef.current = node;
-        if (typeof ref === "function") ref(node);
-        else if (ref) ref.current = node;
-      }}
-      aria-label={accessibleLabel}
+      ref={(node) => { launcherRef.current = node; }}
     >
       <span className="task-launcher__main">
         <span className="task-launcher__topline">
-          <span className="task-launcher__status" aria-hidden="true">
-            <i />
-            <span>{status}</span>
-          </span>
-          <span className="task-launcher__queue" aria-hidden="true">{queueLabel}</span>
+          <span className="task-launcher__status"><i aria-hidden="true" /><span>{status}</span></span>
+          <span className="task-launcher__queue">{queueLabel}</span>
         </span>
-        {(!showTodayTasks || todayTasks.length === 0) && <span className="task-launcher__headline">
-          <strong>{title}</strong>
-        </span>}
+        {(!showTodayTasks || todayTasks.length === 0) && <span className="task-launcher__headline"><strong>{title}</strong></span>}
         <span className="task-launcher__detail">{detail}</span>
-        {showTodayTasks && todayTasks.length > 0 && <span className="task-launcher__tasks" aria-hidden="true">
-          {todayTasks.slice(0, 2).map((task) => <span className="task-launcher__task" key={task.id}>
-            <i />
-            <span>{task.title}</span>
-            <small>{task.meta}</small>
-          </span>)}
-        </span>}
-        {todaySummary && <span className="task-launcher__summary" aria-hidden="true">
-          <span><strong>{todaySummary.completedCount}/{todaySummary.totalCount}</strong> 完了</span>
-          <span><strong>{todaySummary.focusedLabel}</strong> 集中</span>
-          {todaySummary.overdueCount > 0 && <span className="task-launcher__overdue"><strong>{todaySummary.overdueCount}</strong> 期限切れ</span>}
-        </span>}
+        {showTodayTasks && todayTasks.length > 0 && <span className="task-launcher__tasks">{todayTasks.slice(0, 2).map((task) => <span className="task-launcher__task" key={task.id}><i aria-hidden="true" /><span>{task.title}</span><small>{task.meta}</small></span>)}</span>}
+        {todaySummary && <span className="task-launcher__summary"><span><strong>{todaySummary.completedCount}/{todaySummary.totalCount}</strong> 完了</span><span><strong>{todaySummary.focusedLabel}</strong> 集中</span>{todaySummary.overdueCount > 0 && <span className="task-launcher__overdue"><strong>{todaySummary.overdueCount}</strong> 期限切れ</span>}</span>}
       </span>
-      <span className="task-launcher__side" aria-hidden="true">
-        <span className="task-launcher__icon" style={{ "--task-completion": `${completionRate}%` } as CSSProperties}>
-          <svg viewBox="0 0 24 24">
-            <path d="M9 6h10M9 12h10M9 18h10" />
-            <path d="m4 6 1 1 2-2M4 12h3M4 18h3" />
-          </svg>
-        </span>
-        <b className="task-launcher__count">{todayCount}</b>
-      </span>
+      <span className="task-launcher__side" aria-hidden="true"><span className="task-launcher__icon" style={{ "--task-completion": `${completionRate}%` } as CSSProperties}><svg viewBox="0 0 24 24"><path d="M9 6h10M9 12h10M9 18h10" /><path d="m4 6 1 1 2-2M4 12h3M4 18h3" /></svg></span><b className="task-launcher__count">{todayCount}</b></span>
+    </div>
+    <button className="task-launcher-open" type="button" onClick={onClick} ref={ref} aria-label={accessibleLabel}>
+      <span className="task-launcher__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 6h10M9 12h10M9 18h10" /><path d="m4 6 1 1 2-2M4 12h3M4 18h3" /></svg></span>
+      <b className="task-launcher__count" aria-hidden="true">{todayCount}</b>
+      <span className="visually-hidden">タスクを開く</span>
     </button>
-  );
+  </>;
 });

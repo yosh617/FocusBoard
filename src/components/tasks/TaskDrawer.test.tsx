@@ -794,6 +794,52 @@ describe("TaskDrawer", () => {
     await waitFor(() => expect(props.onDeleteTask).toHaveBeenCalledWith(task.id));
   });
 
+  it("opens a due-date editor on a right touch swipe and saves the selected date", async () => {
+    const props = renderDrawer();
+    const row = screen.getByRole("article");
+    fireEvent.touchStart(row, { touches: [{ clientX: 100, clientY: 20 }] });
+    fireEvent.touchMove(row, { touches: [{ clientX: 180, clientY: 22 }] });
+    fireEvent.touchEnd(row, { changedTouches: [{ clientX: 180, clientY: 22 }] });
+
+    const dialog = screen.getByRole("dialog", { name: "期限を変更" });
+    expect(within(dialog).getByText(task.title)).toBeTruthy();
+    fireEvent.click(within(dialog).getByLabelText("期限"));
+    fireEvent.click(within(within(dialog).getByRole("dialog", { name: "期限を選択" })).getByRole("button", { name: "明日" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, { dueDate: addLocalDays(today, 1), bucket: "inbox" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "期限を変更" })).toBeNull());
+    expect(screen.queryByRole("form", { name: "数学の復習の詳細" })).toBeNull();
+  });
+
+  it("keeps the chosen due date available for retry when saving fails", async () => {
+    const props = renderDrawer({ onUpdateTask: vi.fn().mockResolvedValue(false) });
+    const row = screen.getByRole("article");
+    fireEvent.touchStart(row, { touches: [{ clientX: 100, clientY: 20 }] });
+    fireEvent.touchMove(row, { touches: [{ clientX: 180, clientY: 20 }] });
+    fireEvent.touchEnd(row, { changedTouches: [{ clientX: 180, clientY: 20 }] });
+
+    const dialog = screen.getByRole("dialog", { name: "期限を変更" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "期限なし" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
+    await waitFor(() => expect(within(dialog).getByRole("alert").textContent).toContain("保存できませんでした"));
+    expect(within(dialog).getByRole("button", { name: "再試行" })).toBeTruthy();
+    expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, { dueDate: null, bucket: "inbox" });
+  });
+
+  it("does not treat vertical touch scrolling or short horizontal movement as a swipe", () => {
+    renderDrawer();
+    const row = screen.getByRole("article");
+    fireEvent.touchStart(row, { touches: [{ clientX: 100, clientY: 20 }] });
+    fireEvent.touchMove(row, { touches: [{ clientX: 102, clientY: 60 }] });
+    fireEvent.touchEnd(row, { changedTouches: [{ clientX: 102, clientY: 60 }] });
+    fireEvent.touchStart(row, { touches: [{ clientX: 100, clientY: 20 }] });
+    fireEvent.touchMove(row, { touches: [{ clientX: 120, clientY: 21 }] });
+    fireEvent.touchEnd(row, { changedTouches: [{ clientX: 120, clientY: 21 }] });
+    expect(screen.queryByRole("dialog", { name: "期限を変更" })).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "タスクを完全に削除しますか？" })).toBeNull();
+    expect(screen.queryByRole("form", { name: "数学の復習の詳細" })).toBeNull();
+  });
+
   it("uses tomorrow as the quick-add default in the tomorrow view", async () => {
     const props = renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: new RegExp(`^明日 `) }));
