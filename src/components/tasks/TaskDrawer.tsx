@@ -383,8 +383,11 @@ function UnsavedChangesDialog({ open, onCancel, onDiscard }: { open: boolean; on
   );
 }
 
-function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerStatus, activeTaskId, onStartTask, onReturnToTimer, onSave, onArchive, onDelete, onDeleteRecurring, onToggleStatus, onAddSubtask, onToggleSubtask, canMoveUp, canMoveDown, onMove, onClose, onRegisterExit }: {
+function TaskEditor({ task, parentTask, backLabel, onOpenRelatedTask, projects, availableTags, subtasks, sessions, timerStatus, activeTaskId, onStartTask, onReturnToTimer, onSave, onArchive, onDelete, onDeleteRecurring, onToggleStatus, onAddSubtask, onToggleSubtask, canMoveUp, canMoveDown, onMove, onClose, onRegisterExit }: {
   task: TaskRecord;
+  parentTask: TaskRecord | null;
+  backLabel: string;
+  onOpenRelatedTask: (task: TaskRecord) => void;
   projects: ProjectRecord[];
   availableTags: string[];
   subtasks: TaskRecord[];
@@ -398,7 +401,7 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
   onDelete: () => Promise<boolean>;
   onDeleteRecurring: (id: string) => Promise<boolean>;
   onToggleStatus: () => Promise<boolean>;
-  onAddSubtask: (title: string) => Promise<boolean>;
+  onAddSubtask: (title: string, defaults: Pick<TaskRecord, "projectId" | "bucket">) => Promise<boolean>;
   onToggleSubtask: (id: string) => Promise<boolean>;
   canMoveUp: boolean;
   canMoveDown: boolean;
@@ -425,6 +428,9 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
   );
   const [repeatRuleEdited, setRepeatRuleEdited] = useState(false);
   const [subtaskTitle, setSubtaskTitle] = useState("");
+  const [addingSubtask, setAddingSubtask] = useState(false);
+  const subtaskTitleRef = useRef(subtaskTitle);
+  const addingSubtaskRef = useRef(false);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"saved" | "unsaved" | "saving" | "error" | "conflict" | "invalid">("saved");
   const [isComposing, setIsComposing] = useState(false);
@@ -559,7 +565,7 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
   saveChangesRef.current = saveChanges;
 
   const flushChanges = async () => {
-    if (!isDirty) return true;
+    if (!isDirty && !savePromiseRef.current) return true;
     return saveChanges();
   };
   const performExit = (action: () => void) => {
@@ -643,6 +649,24 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
     if (onClose) performExit(onClose);
   };
 
+  const addSubtask = async () => {
+    if (addingSubtaskRef.current || !subtaskTitleRef.current.trim()) return;
+    addingSubtaskRef.current = true;
+    setAddingSubtask(true);
+    const submittedTitle = subtaskTitleRef.current;
+    try {
+      if (await flushChanges() && await onAddSubtask(submittedTitle, { projectId: draftRef.current.projectId || null, bucket: draftRef.current.bucket })) {
+        if (subtaskTitleRef.current === submittedTitle) {
+          subtaskTitleRef.current = "";
+          setSubtaskTitle("");
+        }
+      }
+    } finally {
+      addingSubtaskRef.current = false;
+      setAddingSubtask(false);
+    }
+  };
+
   const discardChanges = () => {
     setDiscardDialogOpen(false);
     const action = pendingExitRef.current;
@@ -660,7 +684,7 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
       }}>
       <div className="task-editor__heading">
         <div className="task-editor__heading-title">
-          {onClose && <button className="task-editor__back" type="button" onClick={closeEditor} aria-label="タスク一覧へ戻る"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7" /></svg></button>}
+          {onClose && <button className="task-editor__back" type="button" onClick={closeEditor} aria-label={backLabel}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7" /></svg></button>}
           <h3>タスク詳細</h3>
         </div>
         <div className="task-editor__heading-actions">
@@ -689,6 +713,7 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
         </div>
       </div>
       <section className="task-editor__summary" aria-label="タスクの要点">
+        {parentTask && <button className="task-editor__parent" type="button" onClick={() => onOpenRelatedTask(parentTask)}>親タスク：{parentTask.title}</button>}
         <label className="task-editor__title-field">タスク名{task.status === "completed" && <span>完了済み</span>}<input aria-label="タスク名" value={title} maxLength={200} required onCompositionStart={() => setIsComposing(true)} onCompositionEnd={() => setIsComposing(false)} onChange={(event) => setTitle(event.target.value)} /></label>
       </section>
       <section className="task-editor__quick-actions" aria-label="よく使う設定">
@@ -764,8 +789,11 @@ function TaskEditor({ task, projects, availableTags, subtasks, sessions, timerSt
           <details className="task-editor__details subtask-editor" open={subtasksExpanded} onToggle={(event) => setSubtasksExpanded((event.currentTarget as HTMLDetailsElement).open)}>
             <summary><span>サブタスク</span>{subtasks.length > 0 && <strong>{`${subtasks.length}件`}</strong>}</summary>
             <div className="task-editor__details-body">
-              {subtasks.length > 0 && <div className="subtask-list">{subtasks.map((subtask) => <button type="button" aria-pressed={subtask.status === "completed"} onClick={() => void onToggleSubtask(subtask.id)} key={subtask.id}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 12 4 4 8-9" /></svg><span>{subtask.title}</span></button>)}</div>}
-              <div className="subtask-add"><label className="visually-hidden" htmlFor={`subtask-title-${task.id}`}>サブタスク名</label><input id={`subtask-title-${task.id}`} value={subtaskTitle} maxLength={200} placeholder="サブタスクを追加" onChange={(event) => setSubtaskTitle(event.target.value)} /><button type="button" disabled={!subtaskTitle.trim()} onClick={async () => { if (await onAddSubtask(subtaskTitle)) setSubtaskTitle(""); }}>追加</button></div>
+              {subtasks.length > 0 && <div className="subtask-list subtask-list--tasks">{subtasks.map((subtask) => <div className={`subtask-list__row${subtask.status === "completed" ? " is-completed" : ""}`} key={subtask.id}>
+                <button className="subtask-list__check" type="button" aria-label={subtask.status === "completed" ? `${subtask.title}を未完了に戻す` : `${subtask.title}を完了`} aria-pressed={subtask.status === "completed"} onClick={async () => { if (await flushChanges()) await onToggleSubtask(subtask.id); }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 12 4 4 8-9" /></svg></button>
+                <button className="subtask-list__open" type="button" aria-label={`${subtask.title}の詳細を開く`} onClick={() => onOpenRelatedTask(subtask)}><span>{subtask.title}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg></button>
+              </div>)}</div>}
+              <div className="subtask-add"><label className="visually-hidden" htmlFor={`subtask-title-${task.id}`}>サブタスク名</label><input id={`subtask-title-${task.id}`} value={subtaskTitle} maxLength={200} placeholder="サブタスクを追加" onChange={(event) => { subtaskTitleRef.current = event.target.value; setSubtaskTitle(event.target.value); }} /><button type="button" disabled={!subtaskTitle.trim() || saving || addingSubtask} onClick={() => void addSubtask()}>追加</button></div>
             </div>
           </details>
           <section className="task-editor__operations" aria-label="タスク操作">
@@ -858,6 +886,7 @@ export function TaskDrawer({
   const [view, setView] = useState<TaskView>("today");
   const [projectId, setProjectId] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [taskDetailHistory, setTaskDetailHistory] = useState<string[]>([]);
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [quickEstimatedPomodoros, setQuickEstimatedPomodoros] = useState(0);
@@ -930,15 +959,14 @@ export function TaskDrawer({
   );
   const todayCompletedTasks = useMemo(() => tasks
     .filter((task) => (
-      task.parentTaskId === null
-      && task.status === "completed"
+      task.status === "completed"
       && task.completedAt !== null
       && toLocalDateKey(new Date(task.completedAt)) === today
     ))
     .sort((left, right) => (right.completedAt ?? 0) - (left.completedAt ?? 0)), [tasks, today]);
   const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null;
   const projectCompletedTasks = useMemo(() => projectId ? tasks
-    .filter((task) => task.parentTaskId === null && task.status === "completed" && task.projectId === projectId)
+    .filter((task) => task.status === "completed" && task.projectId === projectId)
     .sort((left, right) => (right.completedAt ?? 0) - (left.completedAt ?? 0)) : [], [projectId, tasks]);
   const visibleCompletedTasks = projectId ? projectCompletedTasks : view === "today" ? todayCompletedTasks : [];
   const todayOpenTasks = view === "today" && !projectId ? scopedTasks.filter((task) => task.status === "open" && task.dueDate !== null) : [];
@@ -1063,6 +1091,12 @@ export function TaskDrawer({
   }, [selectedTaskId, tasks]);
 
   useEffect(() => {
+    if (!open || !selectedTaskId || !workspaceRef.current) return;
+    workspaceRef.current.scrollTop = 0;
+    workspaceRef.current.querySelector<HTMLButtonElement>(".task-editor__back")?.focus({ preventScroll: true });
+  }, [open, selectedTaskId]);
+
+  useEffect(() => {
     setShowTodayCompleted(false);
   }, [projectId, view, workspaceMode]);
 
@@ -1169,13 +1203,31 @@ export function TaskDrawer({
   const quickAddProjectId = quickProjectId === null ? projectId : quickProjectId || null;
   const openTaskDetails = useCallback((task: TaskRecord, options?: { revealInList?: boolean }) => {
     requestEditorExit(() => {
+      setTaskDetailHistory([]);
       selectedTaskScrollModeRef.current = options?.revealInList ? "start" : "nearest";
       setWorkspaceMode("tasks");
       collapseNavigationIfCompact();
       setSelectedTaskId(task.id);
     });
   }, [collapseNavigationIfCompact, requestEditorExit]);
+  const openRelatedTask = (task: TaskRecord) => {
+    requestEditorExit(() => {
+      setTaskDetailHistory((history) => {
+        const previousIndex = history.lastIndexOf(task.id);
+        return previousIndex >= 0 ? history.slice(0, previousIndex) : selectedTaskId ? [...history, selectedTaskId] : [];
+      });
+      setSelectedTaskId(task.id);
+    });
+  };
+  const previousDetailIndex = taskDetailHistory.reduce((lastIndex, id, index) => tasks.some((task) => task.id === id && task.status !== "archived") ? index : lastIndex, -1);
+  const previousDetailTask = previousDetailIndex >= 0 ? tasks.find((task) => task.id === taskDetailHistory[previousDetailIndex]) : null;
   const closeTaskDetails = (taskId: string) => {
+    if (previousDetailTask) {
+      setTaskDetailHistory((history) => history.slice(0, previousDetailIndex));
+      setSelectedTaskId(previousDetailTask.id);
+      return;
+    }
+    setTaskDetailHistory([]);
     pendingTaskFocusIdRef.current = taskId;
     setSelectedTaskId(null);
   };
@@ -1280,6 +1332,7 @@ export function TaskDrawer({
   }, [open, selectedTaskId]);
 
   const renderTaskRow = (task: TaskRecord) => {
+    const parentTask = tasks.find((item) => item.id === task.parentTaskId);
     const completedPomodoros = completedPomodorosByTask.get(task.id) ?? 0;
     const isArchived = task.status === "archived";
     const isResumeTarget = showResumeBanner && resumeContext?.taskId === task.id;
@@ -1332,6 +1385,7 @@ export function TaskDrawer({
                 {completedPomodoros}/{task.estimatedPomodoros}
               </span>
             </span>
+            {parentTask && <span className="task-row__parent">親タスク：{parentTask.title}</span>}
           </button>
           {task.status === "open" && (
             <button
@@ -1443,6 +1497,9 @@ export function TaskDrawer({
               <TaskEditor
                 key={selectedTask.id}
                 task={selectedTask}
+                parentTask={tasks.find((item) => item.id === selectedTask.parentTaskId && item.status !== "archived") ?? null}
+                backLabel={previousDetailTask ? `${previousDetailTask.title}の詳細へ戻る` : "タスク一覧へ戻る"}
+                onOpenRelatedTask={openRelatedTask}
                 projects={activeProjects}
                 availableTags={availableTags}
                 subtasks={tasks.filter((item) => item.parentTaskId === selectedTask.id && item.status !== "archived").sort((a, b) => a.order - b.order)}
@@ -1461,7 +1518,7 @@ export function TaskDrawer({
                 onDelete={async () => { const deleted = await onDeleteTask(selectedTask.id); if (deleted) setSelectedTaskId(null); return deleted; }}
                 onDeleteRecurring={async (taskId) => onDeleteRecurring?.(taskId) ?? false}
                 onToggleStatus={async () => { const toggled = await onToggleTask(selectedTask.id); if (toggled) closeTaskDetails(selectedTask.id); return toggled; }}
-                onAddSubtask={async (subtaskTitle) => (await onAddTask({ title: subtaskTitle, parentTaskId: selectedTask.id, projectId: selectedTask.projectId, bucket: selectedTask.bucket })) !== null}
+                onAddSubtask={async (subtaskTitle, defaults) => (await onAddTask({ title: subtaskTitle, parentTaskId: selectedTask.id, ...defaults })) !== null}
                 onToggleSubtask={onToggleTask}
                 canMoveUp={selectedTaskVisibleIndex > 0}
                 canMoveDown={selectedTaskVisibleIndex >= 0 && selectedTaskVisibleIndex < selectedTaskVisibleIds.length - 1}

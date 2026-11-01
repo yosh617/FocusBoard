@@ -197,7 +197,7 @@ export function createProductivityReport(
     .filter((session) => session.mode === "work" && session.endedAt >= startAt && session.endedAt < endAt)
     .sort((a, b) => b.endedAt - a.endedAt || b.startedAt - a.startedAt);
   const focusedMs = periodSessions.reduce((sum, session) => sum + getFocusedDurationMs(session), 0);
-  const todayTasks = tasks.filter((task) => task.parentTaskId === null && task.status !== "archived" && (
+  const todayTasks = tasks.filter((task) => task.status !== "archived" && (
     (task.status === "open" && task.dueDate !== null && task.dueDate <= todayKey)
     || (task.status === "completed" && task.completedAt !== null && task.completedAt >= todayRange.startAt && task.completedAt < todayRange.endAt)
   ));

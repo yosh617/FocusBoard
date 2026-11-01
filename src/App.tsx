@@ -159,7 +159,7 @@ export default function App() {
     };
   }), [projects, tasks, todayKey]);
   const todayCompletedTaskCount = useMemo(
-    () => tasks.filter((task) => task.parentTaskId === null && task.status === "completed" && task.completedAt !== null && toLocalDateKey(new Date(task.completedAt)) === todayKey).length,
+    () => tasks.filter((task) => task.status === "completed" && task.completedAt !== null && toLocalDateKey(new Date(task.completedAt)) === todayKey).length,
     [tasks, todayKey]
   );
   const todayTaskTotalCount = todayOpenTaskCount + todayCompletedTaskCount;
@@ -170,7 +170,7 @@ export default function App() {
     [sessions, todayKey]
   );
   const todayOverdueTaskCount = useMemo(
-    () => tasks.filter((task) => task.parentTaskId === null && task.status === "open" && task.dueDate !== null && task.dueDate < todayKey).length,
+    () => tasks.filter((task) => task.status === "open" && task.dueDate !== null && task.dueDate < todayKey).length,
     [tasks, todayKey]
   );
   const suggestedNextTask = useMemo(

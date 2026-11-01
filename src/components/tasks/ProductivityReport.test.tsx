@@ -108,6 +108,15 @@ describe("ProductivityReport", () => {
     expect(screen.getByRole("heading", { name: "この期間の集中記録はありません" })).toBeTruthy();
   });
 
+  it("includes completed subtasks in the period summary", () => {
+    const completedSubtask: TaskRecord = {
+      ...completedTask, id: "subtask-1", title: "演習", parentTaskId: completedTask.id
+    };
+    render(<ProductivityReport tasks={[completedTask, completedSubtask]} sessions={[todaySession]} workMinutes={25} now={now} onUpdateSession={vi.fn().mockResolvedValue(true)} />);
+
+    expect(screen.getByLabelText(/のサマリー/).textContent).toContain("完了タスク2件");
+  });
+
   it("keeps zero-minute interrupted sessions available for editing", () => {
     const interruptedSession: FocusSessionRecord = {
       ...todaySession,

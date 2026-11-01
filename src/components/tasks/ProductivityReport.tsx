@@ -172,7 +172,7 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
     } else backButtonRef.current?.focus();
   }, [view]);
   const periodLabel = period === "day" ? "日" : period === "week" ? "週" : "月";
-  const completedTaskCount = tasks.filter((task) => task.parentTaskId === null && task.status === "completed" && task.completedAt !== null && task.completedAt >= report.startAt && task.completedAt < report.endAt).length;
+  const completedTaskCount = tasks.filter((task) => task.status === "completed" && task.completedAt !== null && task.completedAt >= report.startAt && task.completedAt < report.endAt).length;
 
   return (
     <div ref={reportRootRef} className={`productivity-report${focusHeatmap.totalFocusedMs === 0 ? " productivity-report--no-activity" : ""}`} data-report-view={view}>

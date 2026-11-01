@@ -47,6 +47,30 @@ describe("productivityReport", () => {
     expect(report.projectBreakdown[0]).toMatchObject({ label: "勉強", focusedMs: 15 * 60_000, ratio: 1 });
   });
 
+  it("includes due and completed subtasks once and keeps their focus sessions separate", () => {
+    const now = new Date(2026, 6, 18, 12);
+    const completedAt = new Date(2026, 6, 18, 11).getTime();
+    const dueSubtask: TaskRecord = { ...task, id: "subtask-open", title: "復習", parentTaskId: task.id, estimatedPomodoros: 1 };
+    const completedSubtask: TaskRecord = {
+      ...task, id: "subtask-done", title: "演習", parentTaskId: task.id, status: "completed", completedAt,
+      estimatedPomodoros: 3, dueDate: null
+    };
+    const report = createProductivityReport(
+      [task, dueSubtask, completedSubtask],
+      [session("parent-session", completedAt, 5 * 60_000), {
+        ...session("child-session", completedAt, 7 * 60_000), taskId: completedSubtask.id, taskTitleSnapshot: completedSubtask.title
+      }],
+      "day", now, 25
+    );
+
+    expect(report.todayEstimatedMinutes).toBe(150);
+    expect(report.todayRemainingTasks).toBe(2);
+    expect(report.todayCompletedTasks).toBe(1);
+    expect(report.taskComparisons.map(({ id, focusedMs }) => [id, focusedMs])).toEqual([
+      [completedSubtask.id, 7 * 60_000], [task.id, 5 * 60_000]
+    ]);
+  });
+
   it("splits sessions around pauses and local midnight for the timeline", () => {
     const now = new Date(2026, 6, 18, 12);
     const startedAt = new Date(2026, 6, 18, 10).getTime();

@@ -37,13 +37,13 @@ describe("task smart lists", () => {
     createTask("subtask", { parentTaskId: "today", dueDate: today })
   ];
 
-  it("groups tasks by local due date and excludes subtasks", () => {
-    expect(getTasksForView(tasks, "today", today).map((task) => task.id)).toEqual(["overdue", "today", "inbox"]);
+  it("groups parent tasks and subtasks by local due date", () => {
+    expect(getTasksForView(tasks, "today", today).map((task) => task.id)).toEqual(["overdue", "today", "subtask", "inbox"]);
     expect(getTasksForView(tasks, "tomorrow", today).map((task) => task.id)).toEqual(["tomorrow"]);
     expect(getTasksForView(tasks, "upcoming", today).map((task) => task.id)).toEqual(["future"]);
     expect(getTasksForView(tasks, "someday", today).map((task) => task.id)).toEqual(["someday"]);
-    expect(getTasksForView(tasks, "completed", today).map((task) => task.id)).toEqual(["done"]);
-    expect(getTasksForView([...tasks, createTask("archived", { status: "archived" })], "archived", today).map((task) => task.id)).toEqual(["archived"]);
+    expect(getTasksForView([...tasks, createTask("done-subtask", { parentTaskId: "done", status: "completed", completedAt: 3 })], "completed", today).map((task) => task.id)).toEqual(["done", "done-subtask"]);
+    expect(getTasksForView([...tasks, createTask("archived", { status: "archived" }), createTask("archived-subtask", { parentTaskId: "archived", status: "archived" })], "archived", today).map((task) => task.id)).toEqual(["archived", "archived-subtask"]);
   });
 
   it("uses manual order before due date when displaying a view", () => {
@@ -55,8 +55,8 @@ describe("task smart lists", () => {
   });
 
   it("filters projects and hides archived projects", () => {
-    const projectTasks = [createTask("a", { projectId: "project-1" }), createTask("b", { projectId: "project-2" })];
-    expect(getTasksForProject(projectTasks, "project-1").map((task) => task.id)).toEqual(["a"]);
+    const projectTasks = [createTask("a", { projectId: "project-1" }), createTask("b", { projectId: "project-2" }), createTask("a-subtask", { parentTaskId: "a", projectId: "project-1", order: 1 })];
+    expect(getTasksForProject(projectTasks, "project-1").map((task) => task.id)).toEqual(["a", "a-subtask"]);
     const projects: ProjectRecord[] = [
       { version: 1, id: "project-1", name: "勉強", color: "#3f6fab", order: 2, archivedAt: null, createdAt: 1, updatedAt: 1 },
       { version: 1, id: "project-2", name: "終了", color: "#3f6fab", order: 1, archivedAt: 2, createdAt: 1, updatedAt: 2 }
@@ -72,12 +72,13 @@ describe("task smart lists", () => {
       createTask("overdue-1", { dueDate: "2026-07-17", order: 5 }),
       createTask("future-2", { dueDate: "2026-07-19", order: 0 }),
       createTask("done-1", { status: "completed", dueDate: today }),
-      createTask("subtask-1", { parentTaskId: "today-1", dueDate: today })
+      createTask("subtask-1", { parentTaskId: "today-1", dueDate: today, order: 5 })
     ];
 
     expect(sortTasksForFocus(focusTasks, today).map((task) => task.id)).toEqual([
       "overdue-1",
       "today-1",
+      "subtask-1",
       "future-2",
       "future-1",
       "inbox-1"

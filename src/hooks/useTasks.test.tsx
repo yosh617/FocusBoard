@@ -177,6 +177,21 @@ describe("useTasks", () => {
     ]));
   });
 
+  it("creates a recurring subtask occurrence under its original parent without cloning it under the parent's occurrence", async () => {
+    const today = toLocalDateKey(new Date());
+    const parent = { ...savedTask, dueDate: addLocalDays(today, -1), repeatRule: { type: "daily", interval: 1 } as const };
+    const child = { ...savedTask, id: "subtask-recurring", title: "反復する子", parentTaskId: parent.id, dueDate: addLocalDays(today, -1), repeatRule: { type: "daily", interval: 1 } as const, order: 1 };
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [parent, child], projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0 });
+    const { result } = renderHook(() => useTasks());
+    await waitFor(() => expect(result.current.tasks).toHaveLength(4));
+
+    const parentOccurrence = result.current.tasks.find((item) => item.repeatSeriesId === parent.id);
+    const childOccurrence = result.current.tasks.find((item) => item.repeatSeriesId === child.id);
+    expect(parentOccurrence).toMatchObject({ parentTaskId: null, dueDate: today });
+    expect(childOccurrence).toMatchObject({ parentTaskId: parent.id, dueDate: today });
+    expect(result.current.tasks.filter((item) => item.parentTaskId === parentOccurrence?.id)).toEqual([]);
+  });
+
   it("clears an older undo after a successful task edit", async () => {
     vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask], projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0 });
     const { result } = renderHook(() => useTasks());
@@ -320,13 +335,252 @@ describe("useTasks", () => {
     expect(result.current.tasks.every((task) => task.repeatRule === null && task.repeatSeriesId === null)).toBe(true);
   });
 
-  it("does not complete a subtask when its parent is completed", async () => {
+  it("completes open descendants with a parent, preserves completed descendants, and reopens only the parent", async () => {
     const child = { ...savedTask, id: "subtask-1", title: "例題", parentTaskId: savedTask.id, order: 1 };
+    const completedChild = { ...savedTask, id: "subtask-done", title: "済み", parentTaskId: child.id, status: "completed" as const, completedAt: 5, order: 2 };
+    const grandchild = { ...savedTask, id: "subtask-2", parentTaskId: child.id, order: 3 };
+    const archivedChild = { ...savedTask, id: "subtask-archived", parentTaskId: savedTask.id, status: "archived" as const, completedAt: null, order: 4 };
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask, child, completedChild, grandchild, archivedChild], projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0 });
+    const { result } = renderHook(() => useTasks());
+    await waitFor(() => expect(result.current.tasks).toHaveLength(5));
+    await act(async () => { await result.current.toggleTask(savedTask.id); });
+    expect(result.current.tasks.map((task) => task.status)).toEqual(["completed", "completed", "completed", "completed", "archived"]);
+    expect(result.current.tasks.find((task) => task.id === completedChild.id)).toMatchObject({ completedAt: 5, updatedAt: 1 });
+    expect(result.current.tasks.find((task) => task.id === archivedChild.id)).toEqual(archivedChild);
+    expect(saveProductivityRecords).toHaveBeenLastCalledWith({ tasks: [
+      expect.objectContaining({ id: savedTask.id, status: "completed" }),
+      expect.objectContaining({ id: child.id, status: "completed" }),
+      expect.objectContaining({ id: grandchild.id, status: "completed" })
+    ] });
+    await act(async () => { await result.current.toggleTask(savedTask.id); });
+    expect(result.current.tasks.map((task) => task.status)).toEqual(["open", "completed", "completed", "completed", "archived"]);
+    await act(async () => { await result.current.undo(); });
+    expect(result.current.tasks.map((task) => task.status)).toEqual(["completed", "completed", "completed", "completed", "archived"]);
+  });
+
+  it("keeps parent and descendants unchanged when cascade persistence fails, preserving the prior undo", async () => {
+    const child = { ...savedTask, id: "subtask-1", parentTaskId: savedTask.id, order: 1 };
+    const priorTask = { ...savedTask, id: "task-prior", title: "先に完了", order: 2 };
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask, child, priorTask], projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0 });
+    const { result } = renderHook(() => useTasks());
+    await waitFor(() => expect(result.current.tasks).toHaveLength(3));
+    await act(async () => { expect(await result.current.toggleTask(priorTask.id)).toBe(true); });
+    expect(result.current.canUndo).toBe(true);
+
+    vi.mocked(saveProductivityRecords).mockRejectedValueOnce(new Error("write failed"));
+    await act(async () => { expect(await result.current.toggleTask(savedTask.id)).toBe(false); });
+    expect(result.current.tasks.find((task) => task.id === savedTask.id)?.status).toBe("open");
+    expect(result.current.tasks.find((task) => task.id === child.id)?.status).toBe("open");
+    expect(result.current.tasks.find((task) => task.id === priorTask.id)?.status).toBe("completed");
+    expect(result.current.canUndo).toBe(true);
+
+    await act(async () => { expect(await result.current.undo()).toBe(true); });
+    expect(result.current.tasks.find((task) => task.id === priorTask.id)?.status).toBe("open");
+    expect(result.current.tasks.find((task) => task.id === savedTask.id)?.status).toBe("open");
+    expect(result.current.tasks.find((task) => task.id === child.id)?.status).toBe("open");
+  });
+
+  it("rejects overlapping completion toggles while descendant records are being saved", async () => {
+    const child = { ...savedTask, id: "subtask-1", parentTaskId: savedTask.id, order: 1 };
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask, child], projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0 });
+    let releaseSave!: () => void;
+    vi.mocked(saveProductivityRecords).mockImplementationOnce(() => new Promise<void>((resolve) => { releaseSave = resolve; }));
+    const { result } = renderHook(() => useTasks());
+    await waitFor(() => expect(result.current.tasks).toHaveLength(2));
+    let firstToggle!: Promise<boolean>;
+    await act(async () => {
+      firstToggle = result.current.toggleTask(savedTask.id);
+      await Promise.resolve();
+      expect(await result.current.toggleTask(child.id)).toBe(false);
+      releaseSave();
+      expect(await firstToggle).toBe(true);
+    });
+    expect(result.current.tasks.every((task) => task.status === "completed")).toBe(true);
+  });
+
+  it("finishes an in-flight child edit before allowing ancestor completion", async () => {
+    const child = { ...savedTask, id: "subtask-1", parentTaskId: savedTask.id, order: 1 };
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask, child], projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0 });
+    let releaseEdit!: () => void;
+    vi.mocked(saveTaskRecord).mockImplementationOnce(() => new Promise<void>((resolve) => { releaseEdit = resolve; }));
+    const { result } = renderHook(() => useTasks());
+    await waitFor(() => expect(result.current.tasks).toHaveLength(2));
+
+    let childEdit!: Promise<boolean>;
+    await act(async () => {
+      childEdit = result.current.updateTask(child.id, { note: "編集を保持" });
+      await Promise.resolve();
+      expect(await result.current.toggleTask(savedTask.id)).toBe(false);
+      releaseEdit();
+      expect(await childEdit).toBe(true);
+    });
+    expect(result.current.tasks.find((task) => task.id === child.id)).toMatchObject({ status: "open", note: "編集を保持" });
+
+    await act(async () => { expect(await result.current.toggleTask(savedTask.id)).toBe(true); });
+    expect(result.current.tasks.find((task) => task.id === savedTask.id)?.status).toBe("completed");
+    expect(result.current.tasks.find((task) => task.id === child.id)).toMatchObject({ status: "completed", note: "編集を保持" });
+  });
+
+  it("uses the latest saved parent fields when completion follows an edit in the same turn", async () => {
+    const child = { ...savedTask, id: "subtask-1", parentTaskId: savedTask.id, order: 1 };
     vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask, child], projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0 });
     const { result } = renderHook(() => useTasks());
     await waitFor(() => expect(result.current.tasks).toHaveLength(2));
-    await act(async () => { await result.current.toggleTask(savedTask.id); });
+
+    await act(async () => {
+      expect(await result.current.updateTask(savedTask.id, { title: "保存済みの親" })).toBe(true);
+      expect(await result.current.toggleTask(savedTask.id)).toBe(true);
+    });
+    expect(result.current.tasks.find((task) => task.id === savedTask.id)).toMatchObject({ title: "保存済みの親", status: "completed" });
+    expect(result.current.tasks.find((task) => task.id === child.id)?.status).toBe("completed");
+    expect(saveProductivityRecords).toHaveBeenLastCalledWith({ tasks: [
+      expect.objectContaining({ id: savedTask.id, title: "保存済みの親", status: "completed" }),
+      expect.objectContaining({ id: child.id, status: "completed" })
+    ] });
+  });
+
+  it("updates refs immediately after a cascade before the next task edit", async () => {
+    const child = { ...savedTask, id: "subtask-1", parentTaskId: savedTask.id, order: 1 };
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask, child], projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0 });
+    const { result } = renderHook(() => useTasks());
+    await waitFor(() => expect(result.current.tasks).toHaveLength(2));
+
+    await act(async () => {
+      expect(await result.current.toggleTask(savedTask.id)).toBe(true);
+      expect(await result.current.updateTask(child.id, { note: "完了後の補足" })).toBe(true);
+    });
+    expect(result.current.tasks.find((task) => task.id === child.id)).toMatchObject({ status: "completed", note: "完了後の補足" });
+  });
+
+  it("locks a recurring series root while deleting one occurrence", async () => {
+    const today = toLocalDateKey(new Date());
+    const root = { ...savedTask, dueDate: addLocalDays(today, -1), repeatRule: { type: "daily", interval: 1 } as const };
+    const occurrence = { ...root, id: "task-occurrence", dueDate: today, repeatSeriesId: root.id };
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [root, occurrence], projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0 });
+    let releaseRootSave!: () => void;
+    vi.mocked(saveProductivityRecords).mockImplementationOnce(() => new Promise<void>((resolve) => { releaseRootSave = resolve; }));
+    const { result } = renderHook(() => useTasks());
+    await waitFor(() => expect(result.current.tasks).toHaveLength(2));
+
+    let deletion!: Promise<boolean>;
+    await act(async () => {
+      deletion = result.current.deleteTask(occurrence.id);
+      await Promise.resolve();
+      expect(await result.current.toggleTask(root.id)).toBe(false);
+      releaseRootSave();
+      expect(await deletion).toBe(true);
+    });
+    expect(deleteProductivityRecords).toHaveBeenCalledWith({ taskIds: [occurrence.id] });
+  });
+
+  it("locks every series task while stopping recurrence", async () => {
+    const today = toLocalDateKey(new Date());
+    const root = { ...savedTask, dueDate: addLocalDays(today, -1), repeatRule: { type: "daily", interval: 1 } as const };
+    const occurrence = { ...root, id: "task-occurrence", dueDate: today, repeatSeriesId: root.id };
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [root, occurrence], projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0 });
+    let releaseSeriesSave!: () => void;
+    vi.mocked(saveProductivityRecords).mockImplementationOnce(() => new Promise<void>((resolve) => { releaseSeriesSave = resolve; }));
+    const { result } = renderHook(() => useTasks());
+    await waitFor(() => expect(result.current.tasks).toHaveLength(2));
+
+    let stop!: Promise<boolean>;
+    await act(async () => {
+      stop = result.current.deleteRecurringSeries(root.id);
+      await Promise.resolve();
+      expect(await result.current.toggleTask(occurrence.id)).toBe(false);
+      releaseSeriesSave();
+      expect(await stop).toBe(true);
+    });
+    expect(result.current.tasks.every((task) => task.repeatRule === null && task.repeatSeriesId === null)).toBe(true);
+  });
+
+  it("rejects child edits and structural mutations while an ancestor cascade owns the tree", async () => {
+    const child = { ...savedTask, id: "subtask-1", parentTaskId: savedTask.id, order: 1 };
+    const archivedChild = { ...savedTask, id: "subtask-archived", parentTaskId: savedTask.id, status: "archived" as const, completedAt: null, order: 2 };
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask, child, archivedChild], projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0 });
+    let releaseCascade!: () => void;
+    vi.mocked(saveProductivityRecords).mockImplementationOnce(() => new Promise<void>((resolve) => { releaseCascade = resolve; }));
+    const { result } = renderHook(() => useTasks());
+    await waitFor(() => expect(result.current.tasks).toHaveLength(3));
+
+    let cascade!: Promise<boolean>;
+    await act(async () => {
+      cascade = result.current.toggleTask(savedTask.id);
+      await Promise.resolve();
+      expect(await result.current.updateTask(child.id, { note: "編集を保留" })).toBe(false);
+      expect(await result.current.archiveTask(child.id)).toBe(false);
+      expect(await result.current.deleteTask(child.id)).toBe(false);
+      expect(await result.current.restoreTask(archivedChild.id)).toBe(false);
+      expect(await result.current.toggleTask(archivedChild.id)).toBe(false);
+      releaseCascade();
+      expect(await cascade).toBe(true);
+    });
+
+    expect(result.current.tasks.find((task) => task.id === child.id)).toMatchObject({ status: "completed", note: "" });
+    expect(result.current.tasks.find((task) => task.id === archivedChild.id)).toEqual(archivedChild);
+    await act(async () => { expect(await result.current.toggleTask(archivedChild.id)).toBe(false); });
+    expect(saveTaskRecord).not.toHaveBeenCalled();
+    expect(deleteProductivityRecords).not.toHaveBeenCalled();
+  });
+
+  it("blocks ancestor completion while a prior child undo is saving", async () => {
+    const child = { ...savedTask, id: "subtask-1", parentTaskId: savedTask.id, order: 1 };
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask, child], projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0 });
+    const { result } = renderHook(() => useTasks());
+    await waitFor(() => expect(result.current.tasks).toHaveLength(2));
+    await act(async () => { expect(await result.current.toggleTask(child.id)).toBe(true); });
+    expect(result.current.canUndo).toBe(true);
+
+    let releaseUndo!: () => void;
+    vi.mocked(saveProductivityRecords).mockImplementationOnce(() => new Promise<void>((resolve) => { releaseUndo = resolve; }));
+    let undo!: Promise<boolean>;
+    await act(async () => {
+      undo = result.current.undo();
+      await Promise.resolve();
+      expect(await result.current.toggleTask(savedTask.id)).toBe(false);
+      releaseUndo();
+      expect(await undo).toBe(true);
+    });
+    expect(result.current.tasks.find((task) => task.id === savedTask.id)?.status).toBe("open");
     expect(result.current.tasks.find((task) => task.id === child.id)?.status).toBe("open");
+    expect(result.current.canUndo).toBe(false);
+  });
+
+  it("preserves an available undo when it is requested during an ancestor cascade", async () => {
+    const child = { ...savedTask, id: "subtask-1", parentTaskId: savedTask.id, order: 1 };
+    const priorTask = { ...savedTask, id: "task-prior", title: "直前の操作", order: 2 };
+    vi.mocked(loadProductivityData).mockResolvedValue({ tasks: [savedTask, child, priorTask], projects: [], sessions: [], invalidRecordCount: 0, repairedRecordCount: 0 });
+    const { result } = renderHook(() => useTasks());
+    await waitFor(() => expect(result.current.tasks).toHaveLength(3));
+    await act(async () => { expect(await result.current.toggleTask(priorTask.id)).toBe(true); });
+    expect(result.current.canUndo).toBe(true);
+
+    let releaseCascade!: () => void;
+    vi.mocked(saveProductivityRecords).mockImplementationOnce(() => new Promise<void>((resolve) => { releaseCascade = resolve; }));
+    let cascade!: Promise<boolean>;
+    await act(async () => {
+      cascade = result.current.toggleTask(savedTask.id);
+      await Promise.resolve();
+      expect(await result.current.undo()).toBe(false);
+      expect(result.current.canUndo).toBe(true);
+      releaseCascade();
+      expect(await cascade).toBe(true);
+    });
+    expect(result.current.tasks.find((task) => task.id === savedTask.id)?.status).toBe("completed");
+    expect(result.current.tasks.find((task) => task.id === child.id)?.status).toBe("completed");
+    expect(result.current.canUndo).toBe(true);
+    await act(async () => { expect(await result.current.undo()).toBe(true); });
+    expect(result.current.tasks.find((task) => task.id === savedTask.id)?.status).toBe("open");
+    expect(result.current.tasks.find((task) => task.id === child.id)?.status).toBe("open");
+    expect(result.current.tasks.find((task) => task.id === priorTask.id)?.status).toBe("completed");
+  });
+
+  it("does not try to toggle tasks when local storage is unavailable", async () => {
+    vi.mocked(loadProductivityData).mockRejectedValue(new Error("unavailable"));
+    const { result } = renderHook(() => useTasks());
+    await waitFor(() => expect(result.current.storageAvailable).toBe(false));
+    await act(async () => { expect(await result.current.toggleTask(savedTask.id)).toBe(false); });
+    expect(saveProductivityRecords).not.toHaveBeenCalled();
   });
 
   it("archives and restores descendants at any depth", async () => {

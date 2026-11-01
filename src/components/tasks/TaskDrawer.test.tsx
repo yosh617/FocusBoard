@@ -680,6 +680,17 @@ describe("TaskDrawer", () => {
     expect(screen.getByRole("heading", { name: "タスク詳細" })).toBeTruthy();
   });
 
+  it("shows a subtask in the list with its parent label and an independent focus count", () => {
+    const child = { ...task, id: "task-child", title: "例題を解く", parentTaskId: task.id, estimatedPomodoros: 3, order: 1 };
+    renderDrawer({ tasks: [task, child], sessions: [session] });
+    const list = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
+    const parentRow = within(list).getByRole("button", { name: /数学の復習 集中回数/ });
+    const childRow = within(list).getByRole("button", { name: /例題を解く 集中回数/ });
+    expect(within(parentRow).getByLabelText("集中回数 1/2")).toBeTruthy();
+    expect(within(childRow).getByLabelText("集中回数 0/3")).toBeTruthy();
+    expect(childRow.textContent).toContain("親タスク：数学の復習");
+  });
+
   it("preserves the selected task when returning from the settings panel", () => {
     const onOpenSettings = vi.fn();
     const props = renderDrawer({ onOpenSettings });
@@ -1195,6 +1206,121 @@ describe("TaskDrawer", () => {
     fireEvent.change(details.getByLabelText("サブタスク名"), { target: { value: "例題を3問解く" } });
     fireEvent.click(details.getByRole("button", { name: "追加" }));
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "例題を3問解く", parentTaskId: task.id, projectId: task.projectId })));
+  });
+
+  it("prevents duplicate subtask adds while preserving a newer title typed during the save", async () => {
+    let resolveAdd: ((value: string | null) => void) | undefined;
+    const onAddTask = vi.fn().mockImplementation(() => new Promise<string | null>((resolve) => { resolveAdd = resolve; }));
+    renderDrawer({ onAddTask });
+    fireEvent.click(screen.getByRole("button", { name: /^数学の復習/, expanded: false }));
+    openAdvancedSettings(within(screen.getByRole("form", { name: "数学の復習の詳細" })));
+    fireEvent.click(screen.getByText("サブタスク"));
+    const titleInput = screen.getByLabelText("サブタスク名");
+    const addButton = screen.getByRole("button", { name: "追加" });
+    fireEvent.change(titleInput, { target: { value: "最初の子タスク" } });
+
+    fireEvent.click(addButton);
+    fireEvent.click(addButton);
+    await waitFor(() => expect(onAddTask).toHaveBeenCalledTimes(1));
+    expect((addButton as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(titleInput, { target: { value: "次の子タスク" } });
+
+    await act(async () => { resolveAdd?.("created-child"); });
+    expect((titleInput as HTMLInputElement).value).toBe("次の子タスク");
+    expect(onAddTask).toHaveBeenCalledTimes(1);
+  });
+
+  it("inherits the parent's edited project and bucket when adding a subtask immediately", async () => {
+    const otherProject: ProjectRecord = { ...project, id: "project-2", name: "仕事", order: 1 };
+    const props = renderDrawer({ projects: [project, otherProject] });
+    fireEvent.click(screen.getByRole("button", { name: /^数学の復習/, expanded: false }));
+    const details = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
+    openAdvancedSettings(details);
+    chooseSelect(details, "プロジェクト", "仕事");
+    chooseSelect(details, "分類", "いつか");
+    fireEvent.click(details.getByText("サブタスク"));
+    fireEvent.change(details.getByLabelText("サブタスク名"), { target: { value: "新しい子タスク" } });
+    fireEvent.click(details.getByRole("button", { name: "追加" }));
+
+    await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({ projectId: otherProject.id, bucket: "someday" })));
+    await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({
+      title: "新しい子タスク",
+      parentTaskId: task.id,
+      projectId: otherProject.id,
+      bucket: "someday"
+    })));
+  });
+
+  it("keeps a subtask checkbox separate from opening that subtask's details", async () => {
+    const child = { ...task, id: "task-child", title: "例題を解く", parentTaskId: task.id, order: 1 };
+    const props = renderDrawer({ tasks: [task, child] });
+    fireEvent.click(screen.getByRole("button", { name: /^数学の復習/, expanded: false }));
+    const parentDetails = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
+    openAdvancedSettings(parentDetails);
+    fireEvent.click(parentDetails.getByRole("button", { name: "例題を解くを完了" }));
+    await waitFor(() => expect(props.onToggleTask).toHaveBeenCalledWith(child.id));
+    expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy();
+
+    fireEvent.click(parentDetails.getByRole("button", { name: "例題を解くの詳細を開く" }));
+    expect(screen.getByRole("form", { name: "例題を解くの詳細" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "親タスク：数学の復習" })).toBeTruthy();
+  });
+
+  it("saves parent edits before opening a related subtask", async () => {
+    const child = { ...task, id: "task-child", title: "例題を解く", parentTaskId: task.id, order: 1 };
+    const props = renderDrawer({ tasks: [task, child] });
+    fireEvent.click(screen.getByRole("button", { name: /^数学の復習/, expanded: false }));
+    const parentDetails = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
+    openAdvancedSettings(parentDetails);
+    fireEvent.change(parentDetails.getByLabelText("メモ"), { target: { value: "保存してから移動" } });
+    fireEvent.click(parentDetails.getByRole("button", { name: "例題を解くの詳細を開く" }));
+
+    await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({ note: "保存してから移動" })));
+    await waitFor(() => expect(screen.getByRole("form", { name: "例題を解くの詳細" })).toBeTruthy());
+  });
+
+  it("stays on parent details when saving edits fails before related navigation", async () => {
+    const child = { ...task, id: "task-child", title: "例題を解く", parentTaskId: task.id, order: 1 };
+    const props = renderDrawer({ tasks: [task, child], onUpdateTask: vi.fn().mockResolvedValue(false) });
+    fireEvent.click(screen.getByRole("button", { name: /^数学の復習/, expanded: false }));
+    const parentDetails = within(screen.getByRole("form", { name: "数学の復習の詳細" }));
+    fireEvent.change(parentDetails.getByLabelText("タスク名"), { target: { value: "保存に失敗する親" } });
+    fireEvent.click(parentDetails.getByRole("button", { name: "例題を解くの詳細を開く" }));
+
+    await waitFor(() => expect(screen.getByRole("dialog", { name: "変更が保存されていません" })).toBeTruthy());
+    expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy();
+    expect(screen.queryByRole("form", { name: "例題を解くの詳細" })).toBeNull();
+    expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, expect.objectContaining({ title: "保存に失敗する親" }));
+  });
+
+  it("supports nested detail history and direct navigation to a child's parent", () => {
+    const child = { ...task, id: "task-child", title: "例題を解く", parentTaskId: task.id, order: 1 };
+    const grandchild = { ...task, id: "task-grandchild", title: "問1を解く", parentTaskId: child.id, order: 2 };
+    renderDrawer({ tasks: [task, child, grandchild] });
+    fireEvent.click(screen.getByRole("button", { name: /^数学の復習/, expanded: false }));
+    openAdvancedSettings(within(screen.getByRole("form", { name: "数学の復習の詳細" })));
+    fireEvent.click(screen.getByRole("button", { name: "例題を解くの詳細を開く" }));
+    openAdvancedSettings(within(screen.getByRole("form", { name: "例題を解くの詳細" })));
+    fireEvent.click(screen.getByRole("button", { name: "問1を解くの詳細を開く" }));
+
+    expect(screen.getByRole("form", { name: "問1を解くの詳細" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "親タスク：例題を解く" }));
+    expect(screen.getByRole("form", { name: "例題を解くの詳細" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "数学の復習の詳細へ戻る" }));
+    expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy();
+  });
+
+  it("starts the timer from a subtask's details and shows completed subtasks in the completed list", () => {
+    const child = { ...task, id: "task-child", title: "例題を解く", parentTaskId: task.id, order: 1 };
+    const completedChild = { ...child, id: "task-child-done", title: "復習ノートを書く", status: "completed" as const, completedAt: Date.now(), order: 2 };
+    const props = renderDrawer({ tasks: [task, child, completedChild] });
+    fireEvent.click(screen.getByRole("button", { name: /例題を解く 集中回数/ }));
+    fireEvent.click(within(screen.getByRole("form", { name: "例題を解くの詳細" })).getByRole("button", { name: "例題を解くを詳細から開始" }));
+    expect(props.onStartTask).toHaveBeenCalledWith(child.id);
+
+    fireEvent.click(screen.getByRole("button", { name: /^完了済み/ }));
+    const completedList = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
+    expect(within(completedList).getByRole("button", { name: /復習ノートを書く 集中回数/ })).toBeTruthy();
   });
 
   it("saves a custom repeat interval", async () => {

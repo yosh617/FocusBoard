@@ -16,7 +16,6 @@ export function addLocalDays(dateKey: string, days: number) {
 export function getTasksForView(tasks: TaskRecord[], view: TaskView, today = toLocalDateKey(new Date())) {
   const tomorrow = addLocalDays(today, 1);
   return tasks
-    .filter((task) => task.parentTaskId === null)
     .filter((task) => {
       if (view === "archived") return task.status === "archived";
       if (view === "completed") return task.status === "completed";
@@ -36,7 +35,7 @@ export function getTasksForView(tasks: TaskRecord[], view: TaskView, today = toL
 
 export function getTasksForProject(tasks: TaskRecord[], projectId: string) {
   return tasks
-    .filter((task) => task.parentTaskId === null && task.status === "open" && task.projectId === projectId)
+    .filter((task) => task.status === "open" && task.projectId === projectId)
     .sort((a, b) => a.order - b.order || a.createdAt - b.createdAt);
 }
 
@@ -51,7 +50,7 @@ function getFocusRank(task: TaskRecord, today: string, activeTaskId?: string | n
 
 export function sortTasksForFocus(tasks: TaskRecord[], today = toLocalDateKey(new Date()), activeTaskId?: string | null) {
   return tasks
-    .filter((task) => task.parentTaskId === null && task.status === "open")
+    .filter((task) => task.status === "open")
     .sort((left, right) => {
       const rankDiff = getFocusRank(left, today, activeTaskId) - getFocusRank(right, today, activeTaskId);
       if (rankDiff !== 0) return rankDiff;

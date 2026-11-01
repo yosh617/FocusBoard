@@ -10,6 +10,23 @@
   --accent-contrast: var(--task-primary-text, #17345f);
 }
 
+.task-drawer .task-row__content:has(.task-row__parent) { flex-direction: column; align-items: stretch; justify-content: center; gap: 4px; padding-block: 8px; }
+.task-row__parent { display: block; overflow: hidden; max-width: 100%; color: var(--color-mid-gray); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.task-editor__parent { max-width: 100%; min-height: 44px; padding: 6px 10px; color: var(--color-mid-gray); border: 1px solid var(--color-hairline); border-radius: var(--radius-s); background: var(--color-paper); font: inherit; font-size: 13px; text-align: left; overflow-wrap: anywhere; }
+.task-editor__parent:hover { color: var(--color-ink); text-decoration: underline; }
+.subtask-list--tasks .subtask-list__row { display: flex; align-items: stretch; min-width: 0; border-bottom: 1px solid var(--color-hairline); }
+.subtask-list--tasks .subtask-list__row > button { display: flex; align-items: center; min-height: 44px; padding: 8px; color: var(--color-ink); border: 0; border-radius: var(--radius-s); background: transparent; font: inherit; text-align: left; }
+.subtask-list--tasks .subtask-list__check { flex: none; justify-content: center; width: 44px; }
+.subtask-list--tasks .subtask-list__check svg { width: 20px; height: 20px; padding: 2px; color: transparent; border: 1px solid var(--color-mid-gray); border-radius: 5px; }
+.subtask-list--tasks .subtask-list__check[aria-pressed="true"] svg { color: var(--accent-contrast); border-color: var(--accent); background: var(--accent-soft); }
+.subtask-list--tasks .subtask-list__open { flex: 1; justify-content: space-between; gap: 8px; min-width: 0; }
+.subtask-list--tasks .subtask-list__open span { overflow-wrap: anywhere; }
+.subtask-list--tasks .subtask-list__open svg { flex: none; width: 18px; height: 18px; }
+.subtask-list--tasks .subtask-list__row > button svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; opacity: 1; }
+.subtask-list--tasks .is-completed .subtask-list__open span { color: var(--color-mid-gray); text-decoration: line-through; }
+.subtask-list--tasks button:hover { background: var(--color-canvas); }
+.subtask-list--tasks button:focus-visible, .task-editor__parent:focus-visible { outline: 2px solid var(--accent-contrast); outline-offset: 2px; }
+
 .completed-session-add {
   display: grid;
   min-width: 0;

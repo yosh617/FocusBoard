@@ -44,6 +44,13 @@ function getTaskTree(tasks: TaskRecord[], rootId: string) {
   return tasks.filter((task) => taskIds.has(task.id));
 }
 
+function lockTaskIds(pendingTaskIds: Set<string>, taskIds: string[]) {
+  const uniqueIds = [...new Set(taskIds)];
+  if (uniqueIds.some((taskId) => pendingTaskIds.has(taskId))) return null;
+  uniqueIds.forEach((taskId) => pendingTaskIds.add(taskId));
+  return () => uniqueIds.forEach((taskId) => pendingTaskIds.delete(taskId));
+}
+
 function getSessionProjectUpdates(sessions: FocusSessionRecord[], updatedTasks: TaskRecord[], projects: ProjectRecord[]) {
   const updatedTasksById = new Map(updatedTasks.map((task) => [task.id, task]));
   const projectsById = new Map(projects.map((project) => [project.id, project]));
@@ -100,6 +107,12 @@ export function useTasks() {
   }, []);
 
   const fail = useCallback(() => setMessage("タスクを保存できませんでした。端末の保存設定を確認してください。"), []);
+
+  const applyTaskUpdates = useCallback((updatedRecords: TaskRecord[]) => {
+    const updatedById = new Map(updatedRecords.map((task) => [task.id, task]));
+    tasksRef.current = tasksRef.current.map((task) => updatedById.get(task.id) ?? task);
+    setTasks((current) => current.map((task) => updatedById.get(task.id) ?? task));
+  }, []);
 
   const materializeTodayRecurringTasks = useCallback(async (today = toLocalDateKey(new Date())) => {
     if (!storageAvailable || recurringGenerationInFlightRef.current) return;
@@ -201,10 +214,12 @@ export function useTasks() {
     const updatedSessions = previous.projectId === candidate.projectId
       ? []
       : getSessionProjectUpdates(sessionsRef.current, [candidate], projectsRef.current);
+    const releaseTaskLocks = lockTaskIds(pendingTaskIdsRef.current, [id]);
+    if (!releaseTaskLocks) return false;
     try {
       if (updatedSessions.length > 0) await saveProductivityRecords({ tasks: [candidate], sessions: updatedSessions });
       else await saveTaskRecord(candidate);
-      setTasks((current) => current.map((task) => task.id === id ? candidate : task));
+      applyTaskUpdates([candidate]);
       if (updatedSessions.length > 0) {
         const updatedSessionsById = new Map(updatedSessions.map((session) => [session.id, session]));
         setSessions((current) => current.map((session) => updatedSessionsById.get(session.id) ?? session));
@@ -214,8 +229,10 @@ export function useTasks() {
     } catch {
       fail();
       return false;
+    } finally {
+      releaseTaskLocks();
     }
-  }, [clearUndo, fail, storageAvailable]);
+  }, [applyTaskUpdates, clearUndo, fail, storageAvailable]);
 
   const updateSession = useCallback(async (id: string, patch: Partial<FocusSessionRecord>) => {
     const previous = sessionsRef.current.find((session) => session.id === id);
@@ -276,45 +293,58 @@ export function useTasks() {
   }, [fail, storageAvailable]);
 
   const toggleTask = useCallback(async (id: string) => {
-    if (pendingTaskIdsRef.current.has(id)) return false;
+    if (!storageAvailable) return false;
     const previous = tasksRef.current.find((task) => task.id === id);
-    if (!previous) return false;
-    pendingTaskIdsRef.current.add(id);
+    if (!previous || previous.status === "archived") return false;
     const completed = previous.status !== "completed";
     const now = Date.now();
-    const changedTask = validateTaskRecord({ ...previous, status: completed ? "completed" : "open", completedAt: completed ? now : null, updatedAt: now });
-    if (!changedTask) {
-      pendingTaskIdsRef.current.delete(id);
+    const taskTree = completed ? getTaskTree(tasksRef.current, id) : [previous];
+    const previousRecords = completed ? taskTree.filter((task) => task.status === "open") : [previous];
+    const releaseTaskLocks = lockTaskIds(pendingTaskIdsRef.current, taskTree.map((task) => task.id));
+    if (!releaseTaskLocks) return false;
+    const changedRecords = previousRecords.map((task) => validateTaskRecord({
+      ...task,
+      status: completed ? "completed" : "open",
+      completedAt: completed ? now : null,
+      updatedAt: now
+    }));
+    if (changedRecords.some((task) => task === null)) {
+      releaseTaskLocks();
       return false;
     }
+    const validChangedRecords = changedRecords as TaskRecord[];
     try {
-      await saveProductivityRecords({ tasks: [changedTask] });
-      setTasks((current) => current.map((task) => task.id === id ? changedTask : task));
-      setMessage(completed ? "タスクを完了しました。次回分は対象日に作成します。" : "タスクを未完了に戻しました。");
+      await saveProductivityRecords({ tasks: validChangedRecords });
+      applyTaskUpdates(validChangedRecords);
+      setMessage(completed
+        ? validChangedRecords.length > 1 ? `タスクと未完了のサブタスク${validChangedRecords.length - 1}件を完了しました。` : "タスクを完了しました。次回分は対象日に作成します。"
+        : "タスクを未完了に戻しました。");
       setUndo(async () => {
-        await saveProductivityRecords({ tasks: [previous] });
-        setTasks((current) => current.map((task) => task.id === id ? previous : task));
+        await saveProductivityRecords({ tasks: previousRecords });
+        const previousById = new Map(previousRecords.map((task) => [task.id, task]));
+        setTasks((current) => current.map((task) => previousById.get(task.id) ?? task));
       });
       return true;
     } catch {
       fail();
       return false;
     } finally {
-      pendingTaskIdsRef.current.delete(id);
+      releaseTaskLocks();
     }
-  }, [fail, setUndo]);
+  }, [applyTaskUpdates, fail, setUndo, storageAvailable]);
 
   const archiveTask = useCallback(async (id: string) => {
     const previous = tasksRef.current.find((task) => task.id === id);
     if (!previous || !storageAvailable) return false;
     const previousRecords = getTaskTree(tasksRef.current, id);
+    const releaseTaskLocks = lockTaskIds(pendingTaskIdsRef.current, previousRecords.map((task) => task.id));
+    if (!releaseTaskLocks) return false;
     const childTasks = previousRecords.filter((task) => task.id !== id);
     const now = Date.now();
     const archivedRecords = previousRecords.map((task) => ({ ...task, status: "archived" as const, completedAt: null, updatedAt: now }));
     try {
       await saveProductivityRecords({ tasks: archivedRecords });
-      const archivedById = new Map(archivedRecords.map((task) => [task.id, task]));
-      setTasks((current) => current.map((task) => archivedById.get(task.id) ?? task));
+      applyTaskUpdates(archivedRecords);
       setMessage(childTasks.length > 0 ? "タスクとサブタスクをアーカイブしました。" : "タスクをアーカイブしました。");
       setUndo(async () => {
         await saveProductivityRecords({ tasks: previousRecords });
@@ -325,8 +355,10 @@ export function useTasks() {
     } catch {
       fail();
       return false;
+    } finally {
+      releaseTaskLocks();
     }
-  }, [fail, setUndo, storageAvailable]);
+  }, [applyTaskUpdates, fail, setUndo, storageAvailable]);
 
   const deleteTask = useCallback(async (id: string) => {
     const previousRecords = getTaskTree(tasksRef.current, id);
@@ -360,12 +392,16 @@ export function useTasks() {
       });
     }
     const deletedTaskIds = previousRecords.filter((task) => task.id !== updatedSeriesRoot?.id).map((task) => task.id);
+    const releaseTaskLocks = lockTaskIds(pendingTaskIdsRef.current, [...taskIds, ...(updatedSeriesRoot ? [updatedSeriesRoot.id] : [])]);
+    if (!releaseTaskLocks) return false;
     try {
       if (updatedSeriesRoot) await saveProductivityRecords({ tasks: [updatedSeriesRoot] });
       await deleteProductivityRecords({ taskIds: deletedTaskIds });
-      setTasks((current) => current
+      const updateAfterDelete = (current: TaskRecord[]) => current
         .filter((task) => !taskIds.has(task.id) || task.id === updatedSeriesRoot?.id)
-        .map((task) => updatedSeriesRoot && task.id === updatedSeriesRoot.id ? updatedSeriesRoot : task));
+        .map((task) => updatedSeriesRoot && task.id === updatedSeriesRoot.id ? updatedSeriesRoot : task);
+      tasksRef.current = updateAfterDelete(tasksRef.current);
+      setTasks(updateAfterDelete);
       setMessage(deletedTask.repeatRule || deletedTask.repeatSeriesId !== null ? "この繰り返しタスクだけを削除しました。" : previousRecords.length > 1 ? "タスクとサブタスクを削除しました。" : "タスクを削除しました。");
       setUndo(async () => {
         await saveProductivityRecords({ tasks: [...previousRecords, ...(previousSeriesRoot ? [previousSeriesRoot] : [])] });
@@ -375,6 +411,8 @@ export function useTasks() {
     } catch {
       fail();
       return false;
+    } finally {
+      releaseTaskLocks();
     }
   }, [fail, setUndo, storageAvailable]);
 
@@ -382,12 +420,13 @@ export function useTasks() {
     const previous = tasksRef.current.find((task) => task.id === id);
     if (!previous || previous.status !== "archived" || !storageAvailable) return false;
     const previousRecords = getTaskTree(tasksRef.current, id);
+    const releaseTaskLocks = lockTaskIds(pendingTaskIdsRef.current, previousRecords.map((task) => task.id));
+    if (!releaseTaskLocks) return false;
     const now = Date.now();
     const restoredRecords = previousRecords.map((task) => ({ ...task, status: "open" as const, completedAt: null, updatedAt: now }));
     try {
       await saveProductivityRecords({ tasks: restoredRecords });
-      const restoredById = new Map(restoredRecords.map((task) => [task.id, task]));
-      setTasks((current) => current.map((task) => restoredById.get(task.id) ?? task));
+      applyTaskUpdates(restoredRecords);
       setMessage(restoredRecords.length > 1 ? "タスクとサブタスクを復元しました。" : "タスクを復元しました。");
       setUndo(async () => {
         await saveProductivityRecords({ tasks: previousRecords });
@@ -398,22 +437,25 @@ export function useTasks() {
     } catch {
       fail();
       return false;
+    } finally {
+      releaseTaskLocks();
     }
-  }, [fail, setUndo, storageAvailable]);
+  }, [applyTaskUpdates, fail, setUndo, storageAvailable]);
 
   const deleteRecurringSeries = useCallback(async (id: string) => {
     const selectedTask = tasksRef.current.find((task) => task.id === id);
     if (!selectedTask || (!selectedTask.repeatRule && selectedTask.repeatSeriesId === null) || !storageAvailable) return false;
     const seriesId = getRepeatSeriesId(selectedTask);
     const previousRecords = tasksRef.current.filter((task) => getRepeatSeriesId(task) === seriesId);
+    const releaseTaskLocks = lockTaskIds(pendingTaskIdsRef.current, previousRecords.map((task) => task.id));
+    if (!releaseTaskLocks) return false;
     const now = Date.now();
     const updatedRecords = previousRecords
       .map((task) => validateTaskRecord({ ...task, repeatRule: null, repeatSeriesId: null, repeatSkipDates: undefined, updatedAt: now }))
       .filter((task): task is TaskRecord => task !== null);
     try {
       await saveProductivityRecords({ tasks: updatedRecords });
-      const updatedById = new Map(updatedRecords.map((task) => [task.id, task]));
-      setTasks((current) => current.map((task) => updatedById.get(task.id) ?? task));
+      applyTaskUpdates(updatedRecords);
       setMessage("繰り返しを削除しました。既存のタスクは残しています。");
       setUndo(async () => {
         await saveProductivityRecords({ tasks: previousRecords });
@@ -424,8 +466,10 @@ export function useTasks() {
     } catch {
       fail();
       return false;
+    } finally {
+      releaseTaskLocks();
     }
-  }, [fail, setUndo, storageAvailable]);
+  }, [applyTaskUpdates, fail, setUndo, storageAvailable]);
 
   const moveTask = useCallback(async (id: string, visibleIds: string[], direction: -1 | 1) => {
     const index = visibleIds.indexOf(id);
@@ -553,6 +597,8 @@ export function useTasks() {
   const undo = useCallback(async () => {
     const action = undoRef.current;
     if (!action) return false;
+    const releaseTaskLocks = lockTaskIds(pendingTaskIdsRef.current, tasksRef.current.map((task) => task.id));
+    if (!releaseTaskLocks) return false;
     try {
       await action();
       undoRef.current = null;
@@ -562,6 +608,8 @@ export function useTasks() {
     } catch {
       fail();
       return false;
+    } finally {
+      releaseTaskLocks();
     }
   }, [fail]);
 
