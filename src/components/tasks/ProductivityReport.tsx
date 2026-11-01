@@ -150,18 +150,7 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
     return current.map((value, hour) => ({ label: `${String(hour).padStart(2, "0")}時`, value }));
   }, [period, report]);
   const focusHeatmap = useMemo(() => createFocusHeatmap(sessions, now), [now, sessions]);
-  const activityScrollRef = useRef<HTMLDivElement>(null);
   const todayKey = toLocalDateKey(now);
-  useEffect(() => {
-    const scrollElement = activityScrollRef.current;
-    if (!scrollElement) return;
-    const alignToLatest = () => {
-      scrollElement.scrollLeft = Math.max(0, scrollElement.scrollWidth - scrollElement.clientWidth);
-    };
-    alignToLatest();
-    const frame = window.requestAnimationFrame(alignToLatest);
-    return () => window.cancelAnimationFrame(frame);
-  }, [focusHeatmap.weeks.length, view]);
   useEffect(() => {
     const previousView = previousViewRef.current;
     previousViewRef.current = view;
@@ -169,7 +158,11 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
     if (view === "home") {
       if (savedScrollRef.current) savedScrollRef.current.element.scrollTop = savedScrollRef.current.top;
       reportRootRef.current?.querySelector<HTMLButtonElement>(`[data-report-entry="${returnEntryRef.current}"]`)?.focus();
-    } else backButtonRef.current?.focus();
+    } else {
+      const scrollable = reportRootRef.current && getScrollContainer(reportRootRef.current);
+      if (scrollable) scrollable.scrollTop = 0;
+      backButtonRef.current?.focus({ preventScroll: true });
+    }
   }, [view]);
   const periodLabel = period === "day" ? "日" : period === "week" ? "週" : "月";
   const completedTaskCount = tasks.filter((task) => task.status === "completed" && task.completedAt !== null && task.completedAt >= report.startAt && task.completedAt < report.endAt).length;
@@ -212,13 +205,13 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
             <span>金</span>
             <span>土</span>
           </div>
-          <div className="report-activity__scroll" ref={activityScrollRef}>
+          <div className="report-activity__scroll">
             <div className="report-activity__graph">
               <div className="report-activity__months" aria-hidden="true">
                 {focusHeatmap.weeks.map((week, index) => {
                   const month = new Date(`${week[0].date}T00:00:00`).getMonth();
                   const previousMonth = index === 0 ? -1 : new Date(`${focusHeatmap.weeks[index - 1][0].date}T00:00:00`).getMonth();
-                  return <span key={week[0].date}>{month !== previousMonth ? `${month + 1}月` : ""}</span>;
+                  return <span key={week[0].date} data-month={month + 1}>{month !== previousMonth ? `${month + 1}月` : ""}</span>;
                 })}
               </div>
               <div className="report-activity__grid">

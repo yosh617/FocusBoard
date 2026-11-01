@@ -22,4 +22,58 @@
 .report-comparison__column b { display: block; width: 7px; min-height: 0; border-radius: 3px 3px 0 0; background: var(--accent); }
 .report-comparison__column small { color: var(--color-mid-gray); font-size: 10px; }
 .report-comparison__note { margin: 0 0 8px; color: var(--color-mid-gray); font-size: 11px; }
-@media (max-width: 520px) { .report-chart-nav { grid-template-columns: 1fr; } .report-comparison__bars > div { grid-template-columns: 72px minmax(0, 1fr) auto; gap: 6px; } }
+@media (max-width: 520px) { .report-comparison__bars > div { grid-template-columns: 72px minmax(0, 1fr) auto; gap: 6px; } }
+
+/* Charts size to the report panel, including when its sidebar is visible. */
+.productivity-report { min-width: 0; grid-template-columns: minmax(0, 1fr); container-type: inline-size; }
+.productivity-report > *, .productivity-report section { min-width: 0; }
+.productivity-report .report-back { justify-self: start; }
+.productivity-report .report-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; }
+.productivity-report .report-heading__controls { grid-column: 1 / -1; margin: 0; min-width: 0; }
+.productivity-report .report-period-navigation { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px 44px; width: 100%; }
+.productivity-report .report-period-navigation > span { min-width: 0; }
+.task-drawer .productivity-report .report-period button[aria-pressed="true"] { color: var(--color-ink); background: var(--color-paper); box-shadow: inset 0 -3px var(--accent) !important; font-weight: 800; }
+.report-chart-nav { order: 1; gap: 12px; padding-block: 12px; }
+.report-chart-nav button[data-report-entry="timeline"] { order: 0; }
+.report-chart-nav button[data-report-entry="annual"] { order: 1; }
+.report-chart-nav button small { overflow-wrap: anywhere; }
+.report-chart-nav button strong { font-size: clamp(18px, 4cqw, 24px); overflow-wrap: anywhere; }
+.report-comparison__chart { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 1px; overflow: visible; }
+.task-drawer .report-comparison__column { grid-template-columns: minmax(0, 1fr); min-width: 0; width: 100%; padding-inline: 0; }
+.report-comparison__column b { width: min(70%, 12px); }
+.report-comparison__column small { white-space: nowrap; }
+.report-comparison__column > * { min-width: 0; width: 100%; }
+.report-comparison__column small { justify-self: center; width: max-content; }
+.report-comparison__column:first-child small { justify-self: start; }
+.report-comparison__column:last-child small { justify-self: end; }
+.report-comparison__column[aria-pressed="true"] { box-shadow: inset 0 -3px var(--accent); background: var(--color-surface-alt); }
+.report-comparison__column[aria-pressed="true"] small { color: var(--color-ink); font-weight: 800; }
+.report-comparison__selected { border-left: 3px solid var(--accent); font-size: 14px; font-weight: 700; }
+.productivity-report .report-activity { --activity-cell: calc((100cqw - 22px - 104px) / 53); }
+.productivity-report .report-activity__scroll { overflow: visible; padding: 0; }
+.productivity-report .report-activity__graph { width: 100%; min-width: 0; padding: 0; gap: 2px; }
+.productivity-report .report-activity__months, .productivity-report .report-activity__grid { display: grid; grid-template-columns: repeat(53, minmax(0, 1fr)); gap: 2px; }
+.productivity-report .report-activity__week { grid-template-rows: repeat(7, var(--activity-cell)); gap: 2px; min-width: 0; }
+.productivity-report .report-activity__day { width: 100%; height: var(--activity-cell); border-radius: min(3px, 1cqw); }
+.productivity-report .report-activity__weekdays { grid-template-rows: 16px repeat(7, var(--activity-cell)); gap: 2px; line-height: var(--activity-cell); }
+.productivity-report .report-activity__heading { flex-wrap: wrap; }
+.report-activity__months span:nth-last-child(-n + 5) { justify-self: end; }
+.productivity-report .focus-timeline__scroll { overflow: visible; }
+.productivity-report .focus-timeline { min-width: 0; }
+.productivity-report .focus-timeline__axis, .productivity-report .focus-timeline__row { grid-template-columns: 68px minmax(0, 1fr); gap: 8px; }
+.productivity-report .report-table-wrap { overflow: visible; }
+.productivity-report table { table-layout: fixed; }
+.productivity-report th, .productivity-report td { overflow-wrap: anywhere; }
+.report-breakdown > div { grid-template-columns: minmax(0, 1fr) minmax(24px, .6fr) auto; }
+@container (max-width: 560px) {
+  .report-comparison__column small { font-size: 9px; }
+  .report-comparison__column:not(:nth-child(5n + 1)):not(:last-child):not([aria-pressed="true"]) small { visibility: hidden; }
+  .report-activity__weekdays span:nth-child(even) { visibility: hidden; }
+  .focus-timeline__axis > div span:nth-child(2n) { visibility: hidden; }
+  .report-activity__months { font-size: 8px; }
+}
+@container (max-width: 400px) {
+  .report-activity__months span[data-month="2"], .report-activity__months span[data-month="4"],
+  .report-activity__months span[data-month="6"], .report-activity__months span[data-month="8"],
+  .report-activity__months span[data-month="10"], .report-activity__months span[data-month="12"] { visibility: hidden; }
+}
