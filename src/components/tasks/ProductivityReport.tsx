@@ -128,6 +128,7 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
   const backButtonRef = useRef<HTMLButtonElement>(null);
   const returnEntryRef = useRef<"annual" | "timeline">("annual");
   const savedScrollRef = useRef<{ element: HTMLElement; top: number } | null>(null);
+  const restoreHomeRef = useRef(true);
   const report = useMemo(
     () => createProductivityReport(tasks, sessions, period, now, workMinutes, periodOffset),
     [now, period, periodOffset, sessions, tasks, workMinutes]
@@ -150,14 +151,36 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
     return current.map((value, hour) => ({ label: `${String(hour).padStart(2, "0")}時`, value }));
   }, [period, report]);
   const focusHeatmap = useMemo(() => createFocusHeatmap(sessions, now), [now, sessions]);
+  const activityMonths = useMemo(() => {
+    const months = new Map<string, typeof focusHeatmap.weeks[number]>();
+    for (const day of focusHeatmap.weeks.flat()) {
+      const key = day.date.slice(0, 7);
+      const days = months.get(key) ?? [];
+      days.push(day);
+      months.set(key, days);
+    }
+    return [...months.entries()];
+  }, [focusHeatmap]);
   const todayKey = toLocalDateKey(now);
+  const selectedPoint = comparisonSeries.find((point) => point.label === selectedChartPoint)
+    ?? [...comparisonSeries].reverse().find((point) => point.value > 0);
+  const chartMax = Math.max(1, ...comparisonSeries.map((point) => point.value));
+  const openDetail = (next: "annual" | "timeline", element: HTMLElement) => {
+    returnEntryRef.current = next;
+    const scrollable = getScrollContainer(element);
+    if (scrollable) savedScrollRef.current = { element: scrollable, top: scrollable.scrollTop };
+    setView(next);
+  };
   useEffect(() => {
     const previousView = previousViewRef.current;
     previousViewRef.current = view;
     if (previousView === view) return;
     if (view === "home") {
-      if (savedScrollRef.current) savedScrollRef.current.element.scrollTop = savedScrollRef.current.top;
-      reportRootRef.current?.querySelector<HTMLButtonElement>(`[data-report-entry="${returnEntryRef.current}"]`)?.focus();
+      if (restoreHomeRef.current) {
+        if (savedScrollRef.current) savedScrollRef.current.element.scrollTop = savedScrollRef.current.top;
+        reportRootRef.current?.querySelector<HTMLButtonElement>(`[data-report-entry="${returnEntryRef.current}"]`)?.focus({ preventScroll: true });
+      }
+      restoreHomeRef.current = true;
     } else {
       const scrollable = reportRootRef.current && getScrollContainer(reportRootRef.current);
       if (scrollable) scrollable.scrollTop = 0;
@@ -172,8 +195,9 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
       {view !== "home" && <button ref={backButtonRef} className="report-back" type="button" onClick={() => setView("home")}>‹ レポートに戻る</button>}
       <div className="report-heading">
         <h3>レポート</h3>
-        <div className="report-period" role="group" aria-label="集計期間" hidden={view === "annual"}>
-          {periods.map((item) => <button type="button" aria-pressed={period === item.value} onClick={() => { setPeriod(item.value); setPeriodOffset(0); setEditingSessionId(null); setSelectedChartPoint(null); }} key={item.value}>{item.label}</button>)}
+        <div className="report-period" role="group" aria-label="集計期間">
+          {periods.map((item) => <button type="button" aria-pressed={view !== "annual" && period === item.value} onClick={() => { if (view === "annual") { restoreHomeRef.current = false; setView("home"); } setPeriod(item.value); setPeriodOffset(0); setEditingSessionId(null); setSelectedChartPoint(null); }} key={item.value}>{item.label}</button>)}
+          <button data-report-entry="annual" type="button" aria-label="年間の集中記録" aria-pressed={view === "annual"} onClick={(event) => { if (view !== "annual") openDetail("annual", event.currentTarget); }}>年間</button>
         </div>
         <div className="report-heading__controls" hidden={view === "annual"}>
           <div className="report-period-navigation" role="group" aria-label="レポート期間の移動">
@@ -185,8 +209,6 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
         </div>
       </div>
 
-      {view === "home" && <nav className="report-chart-nav" aria-label="詳しいレポート"><button data-report-entry="annual" type="button" onClick={(event) => { returnEntryRef.current = "annual"; const scrollable = getScrollContainer(event.currentTarget); if (scrollable) savedScrollRef.current = { element: scrollable, top: scrollable.scrollTop }; setView("annual"); }}><span>年間の集中記録</span><strong>{formatFocusedTime(focusHeatmap.totalFocusedMs)}</strong><small>1年間の記録を見る &gt;</small></button><button data-report-entry="timeline" type="button" onClick={(event) => { returnEntryRef.current = "timeline"; const scrollable = getScrollContainer(event.currentTarget); if (scrollable) savedScrollRef.current = { element: scrollable, top: scrollable.scrollTop }; setView("timeline"); }}><span>実施時間帯</span><strong>{formatFocusedTime(report.focusedMs)}</strong><small>{report.periodLabel}の時間帯を見る &gt;</small></button></nav>}
-
       <section className="report-activity" aria-labelledby="report-activity-title" hidden={view !== "annual"}>
         <div className="report-activity__heading">
           <div>
@@ -195,31 +217,15 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
           <strong>{formatFocusedTime(focusHeatmap.totalFocusedMs)}</strong>
         </div>
         <div className="report-activity__calendar" aria-label="直近1年の集中時間ヒートマップ">
-          <div className="report-activity__weekdays" aria-hidden="true">
-            <span className="report-activity__month-spacer" />
-            <span>日</span>
-            <span>月</span>
-            <span>火</span>
-            <span>水</span>
-            <span>木</span>
-            <span>金</span>
-            <span>土</span>
-          </div>
-          <div className="report-activity__scroll">
-            <div className="report-activity__graph">
-              <div className="report-activity__months" aria-hidden="true">
-                {focusHeatmap.weeks.map((week, index) => {
-                  const month = new Date(`${week[0].date}T00:00:00`).getMonth();
-                  const previousMonth = index === 0 ? -1 : new Date(`${focusHeatmap.weeks[index - 1][0].date}T00:00:00`).getMonth();
-                  return <span key={week[0].date} data-month={month + 1}>{month !== previousMonth ? `${month + 1}月` : ""}</span>;
-                })}
-              </div>
-              <div className="report-activity__grid">
-                {focusHeatmap.weeks.map((week) => (
-                  <div className="report-activity__week" key={week[0].date}>
-                    {week.map((day) => (
+          {activityMonths.map(([month, days]) => (
+            <div className="report-month" key={month}>
+              <div className="report-month__heading"><h5>{new Date(`${month}-01T00:00:00`).toLocaleDateString("ja-JP", { year: "numeric", month: "long" })}</h5><span>{formatFocusedTime(days.reduce((total, day) => total + day.focusedMs, 0))}</span></div>
+              <div className="report-month__weekdays" aria-hidden="true">{["日", "月", "火", "水", "木", "金", "土"].map((day) => <span key={day}>{day}</span>)}</div>
+              <div className="report-month__days">
+                    {days.map((day, index) => (
                       <span
-                        className="report-activity__day"
+                        className="report-activity__day report-month__day"
+                        style={index === 0 ? { gridColumnStart: new Date(`${day.date}T00:00:00`).getDay() + 1 } : undefined}
                         data-level={day.level}
                         data-future={day.isFuture ? "true" : undefined}
                         data-today={day.date === todayKey ? "true" : undefined}
@@ -227,28 +233,39 @@ export function ProductivityReport({ tasks, sessions, workMinutes, onUpdateSessi
                         role="img"
                         aria-label={`${new Date(`${day.date}T00:00:00`).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" })} ${day.isFuture ? "予定" : formatFocusedTime(day.focusedMs)}`}
                         title={`${day.date.replaceAll("-", "/")}：${day.isFuture ? "予定" : formatFocusedTime(day.focusedMs)}`}
-                      />
+                      >{new Date(`${day.date}T00:00:00`).getDate()}</span>
                     ))}
-                  </div>
-                ))}
               </div>
             </div>
-          </div>
+          ))}
         </div>
       </section>
 
       <section className="report-summary" aria-label={`${report.periodLabel}のサマリー`} hidden={view !== "home"}>
-        <div className="report-stats">
+        <div className="report-summary__primary">
           <div><span>集中時間</span><strong>{formatFocusedTime(report.focusedMs)}</strong></div>
+          <button data-report-entry="timeline" className="report-detail-link" type="button" onClick={(event) => openDetail("timeline", event.currentTarget)}>実施時間帯を見る <span aria-hidden="true">›</span></button>
+        </div>
+        <div className="report-stats">
           <div><span>完了セッション</span><strong>{report.completedSessions}回</strong></div>
           <div><span>中断</span><strong>{report.cancelledSessions}回</strong></div>
           <div><span>完了タスク</span><strong>{completedTaskCount}件</strong></div>
         </div>
       </section>
 
-      {view === "home" && <section className="report-comparison" aria-label={`${report.periodLabel}の集中時間の推移`}><h4>集中時間の推移</h4><p>{period === "day" ? "時間別" : "日別"} ・ {report.periodLabel}</p>{period === "day" && <p className="report-comparison__note">日をまたぐ記録は、選択日の時間帯に含まれる分を表示します。</p>}{comparisonSeries.every((item) => item.value === 0) ? <p className="report-empty">グラフにできる集中記録はありません。</p> : <div className="report-comparison__chart" aria-label={`${report.periodLabel}の${period === "day" ? "時間別" : "日別"}集中時間`}>
-        {comparisonSeries.map((item) => { const max = Math.max(1, ...comparisonSeries.map((point) => point.value)); return <button type="button" className="report-comparison__column" key={item.label} title={`${item.label}：${formatFocusedTime(item.value)}`} aria-label={`${item.label}、集中時間 ${formatFocusedTime(item.value)}`} aria-pressed={selectedChartPoint === item.label} onClick={() => setSelectedChartPoint(item.label)}><i aria-hidden="true"><b style={{ height: `${Math.max(item.value > 0 ? 3 : 0, item.value / max * 100)}%` }} /></i><small>{item.label}</small></button>; })}
-      </div>}{selectedChartPoint && comparisonSeries.some((item) => item.label === selectedChartPoint) && <p className="report-comparison__selected" aria-live="polite">{selectedChartPoint}：集中 {formatFocusedTime(comparisonSeries.find((item) => item.label === selectedChartPoint)?.value ?? 0)}</p>}</section>}
+      {view === "home" && <section className={`report-comparison report-comparison--${period}`} aria-label={`${report.periodLabel}の集中時間の推移`} hidden={report.focusedMs === 0}>
+        <div className="report-comparison__heading"><h4>集中時間の推移</h4><span>{period === "day" ? "時間別" : "日別"}</span></div>
+        {comparisonSeries.every((item) => item.value === 0) ? <p className="report-empty">グラフにできる集中記録はありません。</p> : <>
+          <p className="report-comparison__selected" aria-live="polite"><span>{selectedPoint?.label}</span><strong>集中 {formatFocusedTime(selectedPoint?.value ?? 0)}</strong></p>
+          <div className="report-comparison__plot">
+            <div className="report-comparison__scale" aria-hidden="true"><span>{formatFocusedTime(chartMax)}</span><span>0分</span></div>
+            <div className="report-comparison__chart" aria-label={`${report.periodLabel}の${period === "day" ? "時間別" : "日別"}集中時間`}>
+              {comparisonSeries.map((item, index) => <button type="button" className="report-comparison__column" data-tick={period === "week" || index % (period === "day" ? 4 : 5) === 0 || index === comparisonSeries.length - 1 ? "true" : undefined} key={item.label} title={`${item.label}：${formatFocusedTime(item.value)}`} aria-label={`${item.label}、集中時間 ${formatFocusedTime(item.value)}`} aria-pressed={selectedPoint?.label === item.label} onClick={() => setSelectedChartPoint(item.label)}><i aria-hidden="true"><b style={{ height: `${Math.max(item.value > 0 ? 3 : 0, item.value / chartMax * 100)}%` }} /></i><small>{item.label}</small></button>)}
+            </div>
+          </div>
+          <label className="report-point-picker">{period === "day" ? "時間を選択" : "日付を選択"}<select aria-label={period === "day" ? "グラフの時間を選択" : "グラフの日付を選択"} value={selectedPoint?.label ?? ""} onChange={(event) => setSelectedChartPoint(event.target.value)}>{comparisonSeries.map((point) => <option key={point.label} value={point.label}>{point.label} · {formatFocusedTime(point.value)}</option>)}</select></label>
+        </>}
+      </section>}
 
       {report.focusedMs === 0 ? <section className="report-empty-state" aria-labelledby="report-empty-title" hidden={view !== "home" && view !== "timeline"}>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V5M16 20v-7M22 20H2" /></svg>

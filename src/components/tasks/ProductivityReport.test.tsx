@@ -51,7 +51,8 @@ describe("ProductivityReport", () => {
     expect(activity.textContent).toContain("50分");
     expect(screen.getByLabelText("直近1年の集中時間ヒートマップ").querySelectorAll("[role=\"img\"]")).toHaveLength(371);
     expect(screen.getByRole("button", { name: "‹ レポートに戻る" })).toBeTruthy();
-    expect(document.querySelector<HTMLElement>(".report-period")?.hidden).toBe(true);
+    expect(screen.getByRole("button", { name: "年間の集中記録" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "週" }).getAttribute("aria-pressed")).toBe("false");
     expect(document.querySelector<HTMLElement>(".report-heading__controls")?.hidden).toBe(true);
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "‹ レポートに戻る" }));
     fireEvent.click(screen.getByRole("button", { name: "‹ レポートに戻る" }));
@@ -72,7 +73,7 @@ describe("ProductivityReport", () => {
     expect(document.querySelector(".productivity-report")?.getAttribute("data-report-view")).toBe("home");
     expect(document.activeElement).toBe(screen.getByRole("button", { name: /実施時間帯/ }));
 
-    expect(document.querySelector(".report-activity__weekdays")?.closest(".report-activity__scroll")).toBeNull();
+    expect(document.querySelectorAll(".report-month").length).toBeGreaterThanOrEqual(12);
     expect(screen.getByText("完了セッション")).toBeTruthy();
     expect(screen.getByText("中断")).toBeTruthy();
     expect(screen.getByLabelText(/のサマリー/).textContent).toContain("完了タスク1件");
@@ -106,6 +107,22 @@ describe("ProductivityReport", () => {
     fireEvent.click(screen.getByRole("button", { name: /実施時間帯/ }));
     expect(document.querySelector(".productivity-report")?.getAttribute("data-report-view")).toBe("timeline");
     expect(screen.getByRole("heading", { name: "この期間の集中記録はありません" })).toBeTruthy();
+  });
+
+  it("selects exact chart values without tapping narrow bars and switches directly from annual to daily", () => {
+    render(<ProductivityReport tasks={[]} sessions={[todaySession]} workMinutes={25} now={now} onUpdateSession={vi.fn().mockResolvedValue(true)} />);
+    fireEvent.click(screen.getByRole("button", { name: "日" }));
+    expect(document.querySelector(".report-comparison__selected")?.textContent).toContain("集中 25分");
+    fireEvent.change(screen.getByLabelText("グラフの時間を選択"), { target: { value: "00時" } });
+    expect(document.querySelector(".report-comparison__selected")?.textContent).toContain("集中 0分");
+    expect(screen.getByRole("button", { name: "00時、集中時間 0分" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "年間の集中記録" }));
+    const dayButton = screen.getByRole("button", { name: "日" });
+    dayButton.focus();
+    fireEvent.click(dayButton);
+    expect(dayButton.getAttribute("aria-pressed")).toBe("true");
+    expect(document.querySelector(".productivity-report")?.getAttribute("data-report-view")).toBe("home");
+    expect(document.activeElement).toBe(dayButton);
   });
 
   it("includes completed subtasks in the period summary", () => {
