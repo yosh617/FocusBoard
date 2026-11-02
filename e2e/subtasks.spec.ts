@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 async function openTasks(page: Page) {
-  const button = page.getByRole("button", { name: "タスク", exact: true });
+  const button = page.getByRole("button", { name: /^タスクを開く/ });
   if (!await button.isVisible()) await page.locator(".app-shell").click({ position: { x: 12, y: 12 } });
   await button.click();
   const tasks = page.getByRole("dialog", { name: "タスク", exact: true });

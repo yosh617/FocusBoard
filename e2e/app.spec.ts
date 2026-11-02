@@ -3,11 +3,11 @@ import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 
 const openTasks = async (page: Page) => {
-  const dockButton = page.getByRole("button", { name: "タスク", exact: true });
-  if (!(await dockButton.isVisible())) {
+  const launcher = page.getByRole("button", { name: /^タスクを開く/ });
+  if (!(await launcher.isVisible())) {
     await page.locator(".app-shell").click({ position: { x: 12, y: 12 } });
   }
-  await dockButton.click();
+  await launcher.click();
   return page.getByRole("dialog", { name: "タスク" });
 };
 
