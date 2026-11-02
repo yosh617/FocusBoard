@@ -170,9 +170,8 @@ export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLa
       <span className="task-launcher__side" aria-hidden="true"><span className="task-launcher__icon" style={{ "--task-completion": `${completionRate}%` } as CSSProperties}><svg viewBox="0 0 24 24"><path d="M9 6h10M9 12h10M9 18h10" /><path d="m4 6 1 1 2-2M4 12h3M4 18h3" /></svg></span><b className="task-launcher__count">{todayCount}</b></span>
     </div>
     <button className="task-launcher-open" type="button" onClick={onClick} ref={ref} aria-label={accessibleLabel}>
-      <span className="task-launcher__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 6h10M9 12h10M9 18h10" /><path d="m4 6 1 1 2-2M4 12h3M4 18h3" /></svg></span>
-      <b className="task-launcher__count" aria-hidden="true">{todayCount}</b>
-      <span className="visually-hidden">タスクを開く</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h10M9 12h10M9 18h10M4 6h.01M4 12h.01M4 18h.01" /></svg>
+      <span>タスク</span>
     </button>
   </>;
 });
