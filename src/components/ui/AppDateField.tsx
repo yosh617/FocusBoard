@@ -17,12 +17,13 @@ export type AppDateFieldProps = {
   onChange: (value: string) => void;
   today: string;
   disabled?: boolean;
+  defaultOpen?: boolean;
 };
 
-export function AppDateField({ id, label, value, onChange, today, disabled = false }: AppDateFieldProps) {
+export function AppDateField({ id, label, value, onChange, today, disabled = false, defaultOpen = false }: AppDateFieldProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const calendarId = `${id}-calendar`;
 
   useEffect(() => {

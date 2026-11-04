@@ -1710,7 +1710,7 @@ export function TaskDrawer({
         }}>
           <h3 id="task-swipe-date-title">期限を変更</h3>
           <p>{swipeDueDateTask.title}</p>
-          <AppDateField id={`swipe-due-date-${swipeDueDateTask.id}`} label="期限" value={swipeDueDate} today={today} disabled={swipeDueDateSaving} onChange={setSwipeDueDate} />
+          <AppDateField id={`swipe-due-date-${swipeDueDateTask.id}`} label="期限" defaultOpen value={swipeDueDate} today={today} disabled={swipeDueDateSaving} onChange={setSwipeDueDate} />
           <button className="secondary-button" type="button" disabled={swipeDueDateSaving} onClick={() => setSwipeDueDate("")}>期限なし</button>
           {swipeDueDateError && <p className="task-swipe-date-dialog__error" role="alert">保存できませんでした。もう一度お試しください。</p>}
           <div className="task-swipe-date-dialog__actions">
