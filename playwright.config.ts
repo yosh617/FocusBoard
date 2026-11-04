@@ -12,10 +12,11 @@ export default defineConfig({
   use: {
     baseURL: "http://127.0.0.1:4182",
     browserName: "chromium",
+    ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ? { launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH } } : {}),
     actionTimeout: 8_000,
     viewport: { width: 1280, height: 720 },
     screenshot: "only-on-failure",
-    video: "retain-on-failure",
+    video: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ? "off" : "retain-on-failure",
     trace: "retain-on-failure"
   },
   webServer: {

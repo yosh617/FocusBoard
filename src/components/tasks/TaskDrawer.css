@@ -102,3 +102,6 @@
   .completed-session-add__fields { grid-template-columns: minmax(0, 1fr); }
   .completed-session-add__fields > button { justify-self: stretch; }
 }
+
+.task-swipe-date-dialog { max-height: calc(100dvh - 40px); overflow-y: auto; }
+.task-swipe-date-dialog .app-calendar { position: static; width: 100%; max-height: none; transform: none; margin-top: 8px; box-shadow: none; }

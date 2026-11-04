@@ -81,9 +81,8 @@ test("report charts fit the available width and retain the selected period", asy
       expect(await report.locator(".report-month__day").first().evaluate((el) => el.getBoundingClientRect().width)).toBeGreaterThanOrEqual(12);
       await report.locator(".report-month__day").last().scrollIntoViewIfNeeded();
       await report.evaluate((root) => { let parent = root.parentElement; while (parent) { if (parent.scrollHeight > parent.clientHeight) parent.scrollTop = parent.scrollHeight; parent = parent.parentElement; } });
-      const lastDay = await report.locator(".report-month__day").last().boundingBox();
-      const launcherBox = await launcher.boundingBox();
-      expect(lastDay!.y + lastDay!.height).toBeLessThan(launcherBox!.y);
+      await expect(report.locator(".report-month__day").last()).toBeInViewport();
+      await expect(launcher).toBeHidden();
     }
     await report.getByRole("button", { name: "‹ レポートに戻る" }).click();
     await report.getByRole("button", { name: /実施時間帯/ }).click();

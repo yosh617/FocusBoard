@@ -27,7 +27,7 @@ export function AppDateField({ id, label, value, onChange, today, disabled = fal
   const calendarId = `${id}-calendar`;
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || defaultOpen) return;
     const handlePointerDown = (event: PointerEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) {
         setOpen(false);
@@ -36,7 +36,7 @@ export function AppDateField({ id, label, value, onChange, today, disabled = fal
     };
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
-  }, [open]);
+  }, [open, defaultOpen]);
 
   useEffect(() => {
     if (disabled) setOpen(false);
