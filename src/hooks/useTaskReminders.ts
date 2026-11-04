@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TaskRecord } from "../types/task";
+import { showSystemNotification } from "../utils/notifications";
 
 type ReminderPermission = NotificationPermission | "unsupported";
 
@@ -20,7 +21,7 @@ export function useTaskReminders(tasks: TaskRecord[]) {
       const body = `「${task.title}」の時間です。`;
       setMessage(body);
       if (permission === "granted") {
-        try { new Notification("FocusBoard", { body, tag: key }); } catch { /* In-app reminder remains available. */ }
+        void showSystemNotification(body, key);
       }
       break;
     }

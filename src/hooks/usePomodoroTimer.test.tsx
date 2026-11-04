@@ -175,6 +175,7 @@ describe("usePomodoroTimer", () => {
     act(() => result.current.startBreak());
 
     expect(result.current.timer.mode).toBe("shortBreak");
+    expect(result.current.timer.completedWorkSessions).toBe(1);
     expect(result.current.timer.category).toBe("break");
     expect(result.current.timer.status).toBe("running");
     expect(result.current.timer.activeTaskId).toBeNull();

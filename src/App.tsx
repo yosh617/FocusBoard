@@ -113,7 +113,7 @@ export default function App() {
   const [breakResumeTaskId, setBreakResumeTaskId] = useState<string | null>(null);
   const [timerSetupVisible, setTimerSetupVisible] = useState(false);
   const [selectedTimerTaskId, setSelectedTimerTaskId] = useState<string | null>(null);
-  const [timerTaskPickerIntent, setTimerTaskPickerIntent] = useState<"select" | "start" | null>(null);
+  const [timerTaskPickerIntent, setTimerTaskPickerIntent] = useState<"select" | "start" | "next" | null>(null);
   const [taskDetailCardVisible, setTaskDetailCardVisible] = useState(false);
   const [taskDetailCardFading, setTaskDetailCardFading] = useState(false);
   const [backgroundEditing, setBackgroundEditing] = useState(false);
@@ -437,10 +437,22 @@ export default function App() {
     updateSettings({ timerSetupCollapsed: false });
   }, [reset, updateSettings]);
   const endTimer = useCallback(() => {
+    if (timer.program === "pomodoro" && timer.mode === "work" && timer.status === "overtime") {
+      setOvertimePromptOpen(false);
+      setBreakResumeTaskId(timer.activeTaskId);
+      suppressCompletedSessionDialogRef.current = true;
+      startBreak();
+      return;
+    }
     end();
+    if (timer.program === "pomodoro" && timer.mode !== "work" && timer.status !== "idle") {
+      selectMode("work");
+      setSelectedTimerTaskId(tasks.find((task) => task.id === breakResumeTaskId && task.status === "open")?.id ?? null);
+      setBreakResumeTaskId(null);
+    }
     setTimerSetupVisible(false);
     updateSettings({ timerSetupCollapsed: false });
-  }, [end, updateSettings]);
+  }, [breakResumeTaskId, end, selectMode, startBreak, tasks, timer.activeTaskId, timer.mode, timer.program, timer.status, updateSettings]);
   const continueOvertime = useCallback(() => setOvertimePromptOpen(false), []);
   const startBreakFromOvertime = useCallback(() => {
     setOvertimePromptOpen(false);
@@ -627,6 +639,8 @@ export default function App() {
           timer={timer}
           taskTitle={activeTask?.title ?? (timer.status === "idle" && timerAcceptsTask ? selectedTimerTask?.title ?? null : null)}
           taskProgress={activeTaskProgress}
+          nextTaskTitle={breakResumeTask?.title ?? null}
+          onSelectNextTask={timer.program === "pomodoro" && timer.mode !== "work" && timer.status !== "idle" ? () => setTimerTaskPickerIntent("next") : undefined}
           onStart={startTimer}
           onPause={pause}
           onEnd={endTimer}
@@ -639,26 +653,27 @@ export default function App() {
       {liveMessage && <div className="toast" role="status" aria-live="polite">{liveMessage}</div>}
       <TimerTaskPicker
         open={timerTaskPickerIntent !== null}
-        intent={timerTaskPickerIntent ?? "select"}
+        intent={timerTaskPickerIntent === "start" ? "start" : "select"}
         tasks={timerTaskCandidates}
         projects={projects}
-        selectedTaskId={selectedTimerTask?.id ?? null}
+        selectedTaskId={timerTaskPickerIntent === "next" ? breakResumeTask?.id ?? null : selectedTimerTask?.id ?? null}
         storageAvailable={taskStorageAvailable}
         onAddTask={(title) => addTask({ title, dueDate: todayKey })}
         onSelect={(taskId) => {
           setSelectedTimerTaskId(taskId);
+          if (timerTaskPickerIntent === "next") setBreakResumeTaskId(taskId);
           setTimerTaskPickerIntent(null);
         }}
         onStart={(taskId) => beginFocusTimer(taskId)}
         onClose={() => setTimerTaskPickerIntent(null)}
       />
-      {(taskDetailCardVisible || settingsOpen || tasksOpen) && <nav style={tasksOpen ? { display: "none" } : undefined} className={`home-dock home-dock--transient${taskDetailCardFading && !settingsOpen && !tasksOpen ? " home-dock--fading" : ""}`} aria-label="ホーム操作">
+      {(taskDetailCardVisible || settingsOpen || tasksOpen) && <nav style={tasksOpen || settingsOpen ? { display: "none" } : undefined} className={`home-dock home-dock--transient${taskDetailCardFading && !settingsOpen && !tasksOpen ? " home-dock--fading" : ""}`} aria-label="ホーム操作">
         <button className="home-dock__button home-dock__button--tasks" type="button" aria-label="タスク" aria-pressed={tasksOpen} onClick={() => openTasks(homeTasksRef.current)} ref={homeTasksRef}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h10M9 12h10M9 18h10M4 6h.01M4 12h.01M4 18h.01" /></svg><span>タスク</span>
         </button>
       </nav>}
       {taskLauncherVisible && <TaskLauncher
-        hideButton={tasksOpen}
+        hideButton={tasksOpen || settingsOpen}
         todayCount={todayOpenTaskCount}
         todaySummary={{
           completedCount: todayCompletedTaskCount,
@@ -714,6 +729,8 @@ export default function App() {
         settings={settings}
         orientation={orientation}
         saveState={saveState}
+        notificationPermission={notificationPermission}
+        onRequestNotification={requestNotificationPermission}
         onChange={updateSettings}
         onClose={closeSettings}
         onOpenTasks={openTasks}

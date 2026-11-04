@@ -210,6 +210,8 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "設定を開く" }));
     expect(screen.queryByRole("dialog", { name: "タスク" })).toBeNull();
     expect(screen.getByRole("dialog", { name: "設定" })).toBeTruthy();
+    expect(screen.queryByRole("navigation", { name: "ホーム操作" })).toBeNull();
+    expect(document.querySelector<HTMLElement>(".task-launcher-open")?.style.display).toBe("none");
     fireEvent.click(screen.getByRole("button", { name: "タスクを開く" }));
     expect(screen.queryByRole("dialog", { name: "設定" })).toBeNull();
     expect(screen.getByRole("dialog", { name: "タスク" })).toBeTruthy();
@@ -505,6 +507,52 @@ describe("App", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("starts a break when an extended focus session is ended", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-29T09:00:00+09:00"));
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...defaultSettings, workMinutes: 1, pomodoroEndBehavior: "overtime" }));
+    try {
+      prepareTaskFlow([focusTask, nextFocusTask]);
+      await act(async () => { await vi.advanceTimersByTimeAsync(60_250); });
+      fireEvent.click(screen.getByRole("button", { name: "延長を続ける" }));
+      fireEvent.click(screen.getByRole("button", { name: "タイマーを終了" }));
+      expect(screen.getByRole("button", { name: "休憩後のタスクを選ぶ" })).toBeTruthy();
+      expect(screen.queryByRole("dialog", { name: "集中セッション完了" })).toBeNull();
+      expect(screen.getByText("休憩中")).toBeTruthy();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("uses the task selected during a break when focus resumes", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-29T09:00:00+09:00"));
+    try {
+      prepareTaskFlow([focusTask, nextFocusTask]);
+      await act(async () => { await vi.advanceTimersByTimeAsync(25 * 60_000 + 250); });
+      fireEvent.click(screen.getByRole("button", { name: "次の短い休憩を開始" }));
+      fireEvent.click(screen.getByRole("button", { name: "休憩後のタスクを選ぶ" }));
+      fireEvent.click(screen.getByRole("button", { name: `${nextFocusTask.title}を選択` }));
+      expect(screen.getByRole("button", { name: "休憩後のタスクを選ぶ" }).textContent).toContain(nextFocusTask.title);
+      await act(async () => { await vi.advanceTimersByTimeAsync(5 * 60_000 + 250); });
+      expect(screen.getByRole("group", { name: `${nextFocusTask.title}の集中タイマー` })).toBeTruthy();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("prepares focus with the chosen task after ending a break early", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-29T09:00:00+09:00"));
+    try {
+      prepareTaskFlow([focusTask, nextFocusTask]);
+      await act(async () => { await vi.advanceTimersByTimeAsync(25 * 60_000 + 250); });
+      fireEvent.click(screen.getByRole("button", { name: "次の短い休憩を開始" }));
+      fireEvent.click(screen.getByRole("button", { name: "休憩後のタスクを選ぶ" }));
+      fireEvent.click(screen.getByRole("button", { name: `${nextFocusTask.title}を選択` }));
+      fireEvent.click(screen.getByRole("button", { name: "タイマーを終了して記録" }));
+      expect(screen.getByRole("button", { name: /^集中$/ }).getAttribute("aria-pressed")).toBe("true");
+      fireEvent.click(screen.getByRole("button", { name: `${nextFocusTask.title}を開始` }));
+      expect(screen.getByRole("group", { name: `${nextFocusTask.title}の集中タイマー` })).toBeTruthy();
+    } finally { vi.useRealTimers(); }
   });
 
   it("surfaces the previous task to resume after the break", async () => {

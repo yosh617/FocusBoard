@@ -4766,3 +4766,5 @@ body { font-family: var(--font-body); }
 .task-capture__estimate-dial::-webkit-scrollbar { display: none; }
 .task-capture__estimate-dial button { flex: 0 0 48px; height: 44px; padding: 0; scroll-snap-align: center; border: 0; border-radius: 22px; background: transparent; color: var(--color-mid-gray); font-size: 18px; }
 .task-capture__estimate-dial button[aria-selected="true"] { color: var(--task-primary-text); background: var(--task-primary-soft); font-weight: 700; }
+
+.floating-timer__next-task { max-width: 85%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 0; border-radius: 8px; padding: 4px 8px; background: var(--task-primary-soft); color: var(--task-primary-text); font-size: 11px; cursor: pointer; }

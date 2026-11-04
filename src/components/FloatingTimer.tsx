@@ -8,6 +8,8 @@ import { formatDuration, getCountupLap, getTimerElapsedMs, getTimerOvertimeMs, g
 type Props = {
   timer: TimerState;
   taskTitle?: string | null;
+  nextTaskTitle?: string | null;
+  onSelectNextTask?: () => void;
   taskProgress?: { current: number; planned: number } | null;
   onStart: () => void;
   onPause: () => void;
@@ -19,7 +21,7 @@ type Props = {
 
 const programLabels = { countdown: "カウントダウン", countup: "カウントアップ" } as const;
 
-export function FloatingTimer({ timer, taskTitle, taskProgress, onStart, onPause, onEnd, onShowSetup, onPositionChange, orientation }: Props) {
+export function FloatingTimer({ timer, taskTitle, nextTaskTitle, onSelectNextTask, taskProgress, onStart, onPause, onEnd, onShowSetup, onPositionChange, orientation }: Props) {
   const [isCompact, setIsCompact] = useState(false);
   const [position, setPosition] = useState(timer.floatingPosition);
   const positionRef = useRef(timer.floatingPosition);
@@ -187,6 +189,7 @@ export function FloatingTimer({ timer, taskTitle, taskProgress, onStart, onPause
               {programText && <span className="floating-timer__program">{programText}</span>}
               {taskTitle && <span className="floating-timer__task" title={taskTitle}>{taskTitle}</span>}
               <strong aria-label={`${statusLabel} ${formatDuration(displayMs)}`}>{formatDuration(displayMs)}</strong>
+              {onSelectNextTask && <button className="floating-timer__next-task" type="button" onClick={onSelectNextTask} aria-label="休憩後のタスクを選ぶ">{nextTaskTitle ? `次: ${nextTaskTitle}` : "休憩後のタスクを選ぶ"}</button>}
               <div className="floating-timer__controls" role="group" aria-label="タイマー操作" onPointerDown={(event) => event.stopPropagation()}>
                 {timer.status === "overtime" ? (
                   <button className="floating-timer__primary floating-timer__end" type="button" onClick={onEnd} aria-label="タイマーを終了" title="タイマーを終了">

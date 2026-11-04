@@ -4,6 +4,7 @@ import type { FloatingPosition, PauseInterval, SessionCategory, TimerMode, Timer
 import { createInitialTimerState, loadTimerState, removeTimerState, saveTimerState } from "../utils/storage";
 import { calculateFocusedDurationMs } from "../utils/focusSession";
 import { getDurationMs, modeLabels } from "../utils/time";
+import { showSystemNotification } from "../utils/notifications";
 
 type AudioWindow = Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext };
 type SessionEndHandler = (event: TimerSessionEvent) => void;
@@ -37,12 +38,7 @@ function playChime() {
 
 function sendTimerNotification(body: string, behavior: AppSettings["timerNotificationBehavior"]) {
   if (behavior === "off" || behavior === "background" && !document.hidden) return;
-  if (!("Notification" in globalThis) || Notification.permission !== "granted") return;
-  try {
-    new Notification("FocusBoard", { body, tag: `focusboard-timer-${Date.now()}` });
-  } catch {
-    // The in-app announcement remains available when system notifications fail.
-  }
+  void showSystemNotification(body, `focusboard-timer-${Date.now()}`);
 }
 
 const categoryLabel: Record<SessionCategory, string> = { focus: "実施中", break: "休憩" };
@@ -332,7 +328,7 @@ export function usePomodoroTimer(settings: AppSettings, orientationOrHandler?: O
     const current = timerRef.current;
     if (current.program !== "pomodoro" || current.mode !== "work" || current.status !== "overtime") return;
     const now = Date.now();
-    const completedWorkSessions = current.completedWorkSessions + 1;
+    const completedWorkSessions = current.completedWorkSessions;
     const nextMode: TimerMode = completedWorkSessions % 4 === 0 ? "longBreak" : "shortBreak";
     const nextDurationMs = getDurationMs(nextMode, settingsRef.current);
     if (settingsRef.current.soundEnabled) prepareAudio();
