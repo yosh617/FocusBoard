@@ -35,7 +35,7 @@
 .productivity-report .report-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--color-hairline); }
 .productivity-report .report-heading h3 { margin: 0; font-size: 20px; font-weight: 650; }
 .task-drawer .productivity-report .report-period { display: flex; gap: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
-.task-drawer .productivity-report .report-period button { min-width: 44px; min-height: 44px; padding: 0 12px; border: 0; border-radius: 0; color: var(--color-mid-gray); background: transparent; font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
+.task-drawer .productivity-report .report-period button { min-width: 44px; min-height: 44px; padding: 0 16px; border: 0; border-radius: 0; color: var(--color-mid-gray); background: transparent; font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
 .task-drawer .productivity-report .report-period button[aria-pressed="true"] { color: var(--color-ink) !important; background: transparent !important; box-shadow: inset 0 -3px var(--task-primary, var(--accent)) !important; font-weight: 750; }
 .productivity-report .report-heading__controls { grid-column: 1 / -1; display: flex; min-width: 0; margin: 0; }
 .productivity-report .report-period-navigation { display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px auto; align-items: center; width: 100%; gap: 8px; padding: 0; }
@@ -48,7 +48,7 @@
 .productivity-report .report-summary__primary > div { display: grid; min-width: 0; gap: 8px; }
 .productivity-report .report-summary__primary > div > span { color: var(--color-mid-gray); font-size: 13px; }
 .productivity-report .report-summary__primary strong { color: var(--color-ink); font-size: clamp(28px, 5.5cqw, 40px); font-weight: 650; line-height: 1.2; overflow-wrap: anywhere; }
-.task-drawer .productivity-report .report-detail-link { flex: none; display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px; border: 1px solid var(--color-hairline); border-radius: var(--radius-control); color: var(--color-ink); background: var(--color-paper); font: inherit; font-size: 12px; cursor: pointer; }
+.task-drawer .productivity-report .report-detail-link { flex: none; display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 16px; border: 1px solid var(--color-hairline); border-radius: var(--radius-control); color: var(--color-ink); background: var(--color-paper); font: inherit; font-size: 12px; cursor: pointer; }
 .productivity-report .report-summary .report-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
 .productivity-report .report-stats > div { display: grid; gap: 8px; padding: 0 16px; border: 0; border-radius: 0; background: transparent; }
 .productivity-report .report-stats > div:first-child { padding-left: 0; }
@@ -56,15 +56,15 @@
 .productivity-report .report-stats span { color: var(--color-mid-gray); font-size: 12px; }
 .productivity-report .report-stats strong { font-size: 18px; font-weight: 600; white-space: normal; }
 .productivity-report .report-comparison { padding-block: 24px; }
-.productivity-report .report-comparison__heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.productivity-report .report-comparison__heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
 .productivity-report .report-comparison__heading h4 { margin: 0; }
 .productivity-report .report-comparison__heading > span { font-size: 12px; color: var(--color-mid-gray); }
-.productivity-report .report-comparison__selected { display: flex; align-items: baseline; gap: 12px; margin: 0 0 20px; padding: 0; color: var(--color-ink); border: 0; background: transparent; font-size: 14px; }
+.productivity-report .report-comparison__selected { display: flex; align-items: baseline; gap: 16px; margin: 0 0 24px; padding: 0; color: var(--color-ink); border: 0; background: transparent; font-size: 14px; }
 .productivity-report .report-comparison__selected strong { font-size: 18px; font-weight: 650; }
 .productivity-report .report-comparison__plot { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 8px; }
-.productivity-report .report-comparison__scale { display: flex; flex-direction: column; justify-content: space-between; padding-bottom: 26px; color: var(--color-mid-gray); font-size: 10px; }
-.productivity-report .report-comparison__chart { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 3px; min-width: 0; min-height: 0; overflow: visible; padding: 0; border-bottom: 0; background: repeating-linear-gradient(to top, transparent 0, transparent calc(50% - 1px), var(--color-hairline) 50%, transparent calc(50% + 1px)); }
-.task-drawer .productivity-report .report-comparison__column { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: 148px 22px; align-items: stretch; gap: 4px; width: 100%; min-width: 0; min-height: 0; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--color-ink); cursor: pointer; }
+.productivity-report .report-comparison__scale { display: flex; flex-direction: column; justify-content: space-between; padding-bottom: 24px; color: var(--color-mid-gray); font-size: 10px; }
+.productivity-report .report-comparison__chart { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0; min-width: 0; min-height: 0; overflow: visible; padding: 0; border-bottom: 0; background: repeating-linear-gradient(to top, transparent 0, transparent calc(50% - 1px), var(--color-hairline) 50%, transparent calc(50% + 1px)); }
+.task-drawer .productivity-report .report-comparison__column { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: 148px 22px; align-items: stretch; gap: 8px; width: 100%; min-width: 0; min-height: 0; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--color-ink); cursor: pointer; }
 .task-drawer .productivity-report .report-comparison__column[aria-pressed="true"] { background: transparent; box-shadow: none; }
 .productivity-report .report-comparison__column i { display: flex; align-items: flex-end; justify-content: center; min-width: 0; height: 148px; border-bottom: 1px solid var(--color-hairline); }
 .productivity-report .report-comparison__column b { display: block; width: 70%; max-width: 24px; min-width: 0; border-radius: 3px 3px 0 0; background: var(--task-primary-text, var(--accent)); opacity: .45; }
@@ -74,19 +74,19 @@
 .productivity-report .report-comparison__column:first-child small { justify-self: start; }
 .productivity-report .report-comparison__column:last-child small { justify-self: end; }
 .productivity-report .report-comparison__column[aria-pressed="true"] small { color: var(--color-ink); font-weight: 700; }
-.productivity-report .report-point-picker { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 16px; color: var(--color-mid-gray); font-size: 12px; }
-.productivity-report .report-point-picker select { width: auto; max-width: 70%; min-width: 0; min-height: 40px; padding: 0 12px; border: 1px solid var(--color-hairline); border-radius: var(--radius-control); color: var(--color-ink); background: var(--color-paper); font: inherit; }
+.productivity-report .report-point-picker { display: flex; align-items: center; justify-content: flex-end; gap: 16px; margin-top: 16px; color: var(--color-mid-gray); font-size: 12px; }
+.productivity-report .report-point-picker select { width: auto; max-width: 70%; min-width: 0; min-height: 40px; padding: 0 16px; border: 1px solid var(--color-hairline); border-radius: var(--radius-control); color: var(--color-ink); background: var(--color-paper); font: inherit; }
 .productivity-report .report-activity { display: grid; gap: 24px; padding-block: 24px; }
-.productivity-report .report-activity__heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 12px; }
+.productivity-report .report-activity__heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 16px; }
 .productivity-report .report-activity__heading h4 { margin: 0; font-size: 15px; }
 .productivity-report .report-activity__heading > strong { color: var(--color-ink); font-size: 24px; font-weight: 650; }
-.productivity-report .report-activity__calendar { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px 24px; width: 100%; min-width: 0; padding: 0; }
+.productivity-report .report-activity__calendar { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 32px 24px; width: 100%; min-width: 0; padding: 0; }
 .productivity-report .report-month { min-width: 0; }
-.productivity-report .report-month__heading { display: grid; gap: 4px; margin-bottom: 12px; }
+.productivity-report .report-month__heading { display: grid; gap: 8px; margin-bottom: 16px; }
 .productivity-report .report-month__heading h5 { margin: 0; color: var(--color-ink); font-size: 13px; font-weight: 650; }
 .productivity-report .report-month__heading > span { color: var(--color-mid-gray); font-size: 12px; }
-.productivity-report .report-month__weekdays, .productivity-report .report-month__days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
-.productivity-report .report-month__weekdays { margin-bottom: 4px; color: var(--color-mid-gray); font-size: 9px; text-align: center; }
+.productivity-report .report-month__weekdays, .productivity-report .report-month__days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+.productivity-report .report-month__weekdays { margin-bottom: 8px; color: var(--color-mid-gray); font-size: 9px; text-align: center; }
 .productivity-report .report-month__day { display: flex; align-items: center; justify-content: center; width: 100%; height: auto; aspect-ratio: 1; border: 0; border-radius: 3px; background: var(--color-surface-alt); color: var(--color-mid-gray); font-size: 9px; line-height: 1; }
 .productivity-report .report-month__day[data-level="1"] { background: color-mix(in srgb, var(--task-primary, var(--accent)) 18%, var(--color-paper)); color: var(--color-ink); }
 .productivity-report .report-month__day[data-level="2"] { background: color-mix(in srgb, var(--task-primary, var(--accent)) 32%, var(--color-paper)); color: var(--color-ink); }
@@ -100,7 +100,7 @@
 .productivity-report .report-table-wrap { overflow: visible; }
 .productivity-report table { table-layout: fixed; }
 .productivity-report th, .productivity-report td { overflow-wrap: anywhere; }
-.productivity-report .report-breakdown > div { grid-template-columns: minmax(0, .8fr) minmax(24px, 1fr) auto; gap: 12px; }
+.productivity-report .report-breakdown > div { grid-template-columns: minmax(0, .8fr) minmax(24px, 1fr) auto; gap: 16px; }
 .productivity-report .report-breakdown strong { white-space: nowrap; }
 .productivity-report button:focus-visible, .productivity-report select:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
 .productivity-report .report-detail-link:hover, .productivity-report .report-period button:hover { background: var(--color-surface-alt) !important; }
@@ -108,14 +108,14 @@
   .productivity-report .report-activity__calendar { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px 16px; }
 }
 @container (max-width: 480px) {
-  .productivity-report .report-heading { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .productivity-report .report-heading { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .task-drawer .productivity-report .report-period { justify-content: stretch; }
   .task-drawer .productivity-report .report-period button { flex: 1; }
   .productivity-report .report-summary__primary { flex-wrap: wrap; gap: 16px; }
-  .productivity-report .report-stats > div { padding-inline: 10px; }
+  .productivity-report .report-stats > div { padding-inline: 8px; }
   .productivity-report .report-stats span { font-size: 11px; }
-  .productivity-report .report-comparison__plot { grid-template-columns: 36px minmax(0, 1fr); gap: 4px; }
-  .productivity-report .report-comparison__chart { gap: 2px; }
+  .productivity-report .report-comparison__plot { grid-template-columns: 36px minmax(0, 1fr); gap: 8px; }
+  .productivity-report .report-comparison__chart { gap: 0; }
   .productivity-report .report-comparison__column small { font-size: 9px; }
   .productivity-report .report-comparison--week .report-comparison__column:nth-child(2n) small { visibility: hidden; }
   .productivity-report .report-activity__calendar { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 16px; }
@@ -123,3 +123,6 @@
   .productivity-report .report-breakdown > div { grid-template-columns: minmax(0, 1fr) auto; }
   .productivity-report .report-breakdown i { grid-column: 1 / -1; grid-row: 2; }
 }
+
+/* Fit month grids without squeezing the day cells on narrow screens. */
+.productivity-report .report-activity__calendar { grid-template-columns: repeat(auto-fit, minmax(min(100%, 168px), 1fr)); }
