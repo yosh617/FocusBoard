@@ -4752,7 +4752,7 @@ body { font-family: var(--font-body); }
 }
 
 /* Keep task views and actions together in the drawer header. */
-.task-drawer__header { gap: 8px; min-height: 0; padding-block: max(16px, env(safe-area-inset-top)) 16px; }
+.task-drawer__header { gap: 8px; min-height: 0; padding-block: calc(max(16px, env(safe-area-inset-top)) + 8px) 16px; }
 .task-drawer__header .task-mode-tabs { min-width: 0; padding: 0; border: 0; }
 .task-drawer__header-actions { flex: none; }
 @media (max-width: 600px) {
