@@ -2,6 +2,7 @@ import { forwardRef, useCallback, useEffect, useLayoutEffect, useRef, useState, 
 import type { FreePosition } from "../../types/settings";
 
 type Props = {
+  hideButton?: boolean;
   todayCount: number;
   todaySummary?: {
     completedCount: number;
@@ -32,7 +33,7 @@ type Props = {
 const defaultPosition: FreePosition = { x: .2, y: .86 };
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLauncher({ todayCount, todaySummary, todayTasks = [], activeTaskTitle, suggestedTask, timerSummary, onClick, position = defaultPosition, onPositionChange = () => undefined, transient = false, fading = false }, ref) {
+export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLauncher({ hideButton = false, todayCount, todaySummary, todayTasks = [], activeTaskTitle, suggestedTask, timerSummary, onClick, position = defaultPosition, onPositionChange = () => undefined, transient = false, fading = false }, ref) {
   const title = timerSummary?.title ?? activeTaskTitle ?? suggestedTask?.title ?? "今日";
   const detail = timerSummary?.detail
     ?? (activeTaskTitle
@@ -169,7 +170,7 @@ export const TaskLauncher = forwardRef<HTMLButtonElement, Props>(function TaskLa
       </span>
       <span className="task-launcher__side" aria-hidden="true"><span className="task-launcher__icon" style={{ "--task-completion": `${completionRate}%` } as CSSProperties}><svg viewBox="0 0 24 24"><path d="M9 6h10M9 12h10M9 18h10" /><path d="m4 6 1 1 2-2M4 12h3M4 18h3" /></svg></span><b className="task-launcher__count">{todayCount}</b></span>
     </div>
-    <button className="task-launcher-open" type="button" onClick={onClick} ref={ref} aria-label={accessibleLabel}>
+    <button className="task-launcher-open" style={hideButton ? { display: "none" } : undefined} type="button" onClick={onClick} ref={ref} aria-label={accessibleLabel}>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h10M9 12h10M9 18h10M4 6h.01M4 12h.01M4 18h.01" /></svg>
       <span>タスク</span>
     </button>

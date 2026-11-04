@@ -690,7 +690,7 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .task-drawer { width: min(940px, 92vw); max-width: none; background: #f6f9fd; box-shadow: -30px 0 80px rgba(24, 51, 86, .28); backdrop-filter: none; -webkit-backdrop-filter: none; }
 .task-drawer__header { min-height: 90px; padding: max(20px, env(safe-area-inset-top)) 24px 16px max(28px, env(safe-area-inset-left)); background: rgba(255,255,255,.94); }
 .task-drawer__header h2 { margin-top: 4px; font-size: 24px; }
-.task-drawer__header > div:first-child { min-width: 112px; flex: none; }
+.task-drawer__header-actions { margin-left: auto; }
 .task-drawer__header .icon-button { color: #17375f; border-color: #d9e4f1; border-radius: 14px; background: #f4f7fb; box-shadow: none; backdrop-filter: none; }
 .task-drawer__header .icon-button svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 .task-drawer__header-actions { gap: 10px; }
@@ -4566,7 +4566,8 @@ body { font-family: var(--font-body); }
 
 .task-list-filters { width: 100%; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .task-list-filters button { justify-content: center; }
-/* Task detail: one clear editing surface, with hierarchy from alignment and rules. */
+
+/* Task detail: one clear editing surface, with hierarchy from alignment and rules. */
 .task-editor-screen .task-editor {
   gap: 16px;
   padding: 16px 18px 18px;
@@ -4749,3 +4750,19 @@ body { font-family: var(--font-body); }
   .task-editor-screen .task-editor__actions { display: grid; }
   .task-editor-screen .task-editor__move { margin-left: 0; }
 }
+
+/* Keep task views and actions together in the drawer header. */
+.task-drawer__header { gap: 8px; min-height: 0; padding-block: max(12px, env(safe-area-inset-top)) 12px; }
+.task-drawer__header .task-mode-tabs { min-width: 0; padding: 0; border: 0; }
+.task-drawer__header-actions { flex: none; }
+@media (max-width: 600px) {
+  .task-drawer__header { flex-wrap: wrap; padding-inline: 12px; }
+  .task-drawer__header .task-mode-tabs { flex: 1 1 auto; }
+  .task-drawer__header-actions { flex-wrap: wrap; justify-content: flex-end; }
+}
+
+.task-capture__estimate-dial-wrap { display: flex; align-items: center; min-width: 0; width: min(420px, 100%); gap: 4px; }
+.task-capture__estimate-dial { display: flex; flex: 1; min-width: 0; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; padding-inline: calc(50% - 24px); }
+.task-capture__estimate-dial::-webkit-scrollbar { display: none; }
+.task-capture__estimate-dial button { flex: 0 0 48px; height: 44px; padding: 0; scroll-snap-align: center; border: 0; border-radius: 22px; background: transparent; color: var(--color-mid-gray); font-size: 18px; }
+.task-capture__estimate-dial button[aria-selected="true"] { color: var(--task-primary-text); background: var(--task-primary-soft); font-weight: 700; }

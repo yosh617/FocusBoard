@@ -18,6 +18,22 @@ import { ColorPickerDisclosure } from "../ui/ColorPicker";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import "./TaskDrawer.css";
 
+function EstimateDial({ value, onChange, onClose }: { value: number; onChange: (value: number) => void; onClose: () => void }) {
+  const dialRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const dial = dialRef.current;
+    if (dial) dial.scrollLeft = (value - 1) * 48;
+    // Initialize the scroll position when the dial opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return <div className="task-capture__estimate-dial-wrap">
+    <div ref={dialRef} className="task-capture__estimate-dial" role="listbox" aria-label="予定ポモドーロの回数" onScroll={(event) => onChange(Math.max(1, Math.min(99, Math.round(event.currentTarget.scrollLeft / 48) + 1)))}>
+      {Array.from({ length: 99 }, (_, index) => index + 1).map((count) => <button type="button" role="option" aria-selected={count === value} key={count} onClick={(event) => { onChange(count); event.currentTarget.parentElement?.scrollTo({ left: (count - 1) * 48, behavior: "smooth" }); }}>{count}</button>)}
+    </div>
+    <button className="task-capture__estimate-back" type="button" aria-label="予定ポモドーロのプリセットへ戻る" onClick={onClose}>×</button>
+  </div>;
+}
+
 type Props = {
   open: boolean;
   tasks: TaskRecord[];
@@ -1458,11 +1474,14 @@ export function TaskDrawer({
 
   return (
     <div className="task-backdrop" onPointerDown={(event) => { if (event.target === event.currentTarget) requestEditorExit(onClose); }}>
-      <aside className="task-drawer" role="dialog" aria-modal="true" aria-labelledby="task-drawer-title" ref={drawerRef}>
+      <aside className="task-drawer" role="dialog" aria-modal="true" aria-label="タスク" ref={drawerRef}>
         <a className="task-skip-link" href="#task-workspace-main">現在の一覧へ移動</a>
         <div className="task-drawer__sheet-handle" aria-hidden="true" />
         <header className="task-drawer__header">
-          <div><h2 id="task-drawer-title">タスク</h2></div>
+        <nav className="task-mode-tabs" aria-label="作業ビュー">
+          <button type="button" className={workspaceMode === "tasks" ? "is-active" : ""} aria-current={workspaceMode === "tasks" ? "page" : undefined} onClick={() => requestEditorExit(() => setWorkspaceMode("tasks"))}><WorkspaceIcon type="tasks" /><span>タスク</span></button>
+          <button type="button" className={workspaceMode === "report" ? "is-active" : ""} aria-current={workspaceMode === "report" ? "page" : undefined} onClick={() => requestEditorExit(() => setWorkspaceMode("report"))}><WorkspaceIcon type="report" /><span>レポート</span></button>
+        </nav>
           <div className="task-drawer__header-actions">
             {notificationPermission === "default" && <button className="task-header-action" type="button" onClick={() => void onRequestNotification()}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 7h18s-3 0-3-7M10 20h4" /></svg><span>通知を許可</span></button>}
             {canUndo && <button className="task-header-action" type="button" onClick={() => void onUndo()}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7-5 5 5 5M5 12h8a6 6 0 0 1 6 6" /></svg><span>元に戻す</span></button>}
@@ -1479,11 +1498,6 @@ export function TaskDrawer({
             <button className="icon-button" type="button" onClick={() => requestEditorExit(onClose)} ref={closeRef} aria-label="タスクを閉じる"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17" /></svg></button>
           </div>
         </header>
-
-        <nav className="task-mode-tabs" aria-label="作業ビュー">
-          <button type="button" className={workspaceMode === "tasks" ? "is-active" : ""} aria-current={workspaceMode === "tasks" ? "page" : undefined} onClick={() => requestEditorExit(() => setWorkspaceMode("tasks"))}><WorkspaceIcon type="tasks" /><span>タスク</span></button>
-          <button type="button" className={workspaceMode === "report" ? "is-active" : ""} aria-current={workspaceMode === "report" ? "page" : undefined} onClick={() => requestEditorExit(() => setWorkspaceMode("report"))}><WorkspaceIcon type="report" /><span>レポート</span></button>
-        </nav>
 
         <div className={`task-drawer__body task-drawer__body--${workspaceMode}${workspaceMode === "tasks" && !navigationCollapsed ? " is-navigation-open" : ""}`}>
           {workspaceMode === "tasks" && <nav className={`task-navigation${navigationCollapsed ? " is-collapsed" : ""}`} aria-label="タスク一覧">
@@ -1665,7 +1679,7 @@ export function TaskDrawer({
                 <div className="task-capture__estimate">
                   <span className="task-capture__estimate-label"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="7" /><path d="M9 3h6M12 6v7l3 2" /></svg><strong>予定ポモドーロ</strong></span>
                   {quickPanel === "estimate"
-                    ? <div className="task-capture__estimate-slider"><input type="range" min="1" max="20" step="1" aria-label="予定ポモドーロのスライダー" value={Math.min(20, Math.max(1, quickEstimatedPomodoros))} onChange={(event) => setQuickEstimatedPomodoros(Number(event.target.value))} /><input className="task-capture__estimate-number" type="number" min="1" max="99" inputMode="numeric" aria-label="予定ポモドーロの回数" value={quickEstimatedPomodoros} onChange={(event) => setQuickEstimatedPomodoros(Math.min(99, Math.max(1, Number(event.target.value))))} /><button className="task-capture__estimate-back" type="button" aria-label="予定ポモドーロのプリセットへ戻る" onClick={() => setQuickPanel(null)}>×</button></div>
+                    ? <EstimateDial value={quickEstimatedPomodoros} onChange={setQuickEstimatedPomodoros} onClose={() => setQuickPanel(null)} />
                     : <div className="task-capture__estimate-options" role="group" aria-label="追加するタスクの予定ポモドーロ">
                       {quickFocusOptions.map((value) => <button className={quickEstimatedPomodoros === value ? "is-active" : ""} type="button" aria-pressed={quickEstimatedPomodoros === value} aria-label={`${value}回`} onClick={() => setQuickEstimatedPomodoros(value)} key={value}>{value}</button>)}
                       <button className={quickEstimatedPomodoros >= 5 ? "is-active" : ""} type="button" aria-expanded="false" aria-label="5回以上を設定" onClick={() => { setQuickPanel("estimate"); if (quickEstimatedPomodoros < 5) setQuickEstimatedPomodoros(5); }}>5+</button>

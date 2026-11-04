@@ -36,7 +36,6 @@ for (const width of [390, 768, 1280]) {
     const editor = page.getByRole("dialog", { name: "期限を変更", exact: true });
     await expect(editor).toBeVisible();
     await expect(editor.getByText("スワイプ期限テスト", { exact: true })).toBeVisible();
-    await editor.getByRole("button", { name: "期限", exact: true }).click();
     await editor.getByRole("button", { name: "今日", exact: true }).click();
     await page.screenshot({ path: `test-results/swipe-due-${width}.png` });
     await editor.getByRole("button", { name: "保存", exact: true }).click();
@@ -57,7 +56,6 @@ for (const width of [390, 768, 1280]) {
     await page.getByRole("button", { name: "キャンセル", exact: true }).click();
     await expect(row).toBeVisible();
     await swipe(1);
-    await editor.getByRole("button", { name: "期限", exact: true }).click();
     await editor.getByRole("button", { name: "明日", exact: true }).click();
     await editor.getByRole("button", { name: "保存", exact: true }).click();
     await expect(editor).not.toBeVisible();

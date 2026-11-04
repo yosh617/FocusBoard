@@ -514,7 +514,7 @@ export default function App() {
     "--task-primary-text": "#17345f",
     "--task-primary-shadow": `color-mix(in srgb, ${uiAccentColor} 32%, transparent)`
   } as CSSProperties;
-  const taskLauncherVisible = !tasksOpen && ((settings.taskLauncherVisibility === "always" && !(settings.dateDisplayStyle === "calendar" && timer.status === "idle" && !settings.timerSetupCollapsed)) || taskDetailCardVisible);
+  const taskLauncherVisible = (settings.taskLauncherVisibility === "always" && !(settings.dateDisplayStyle === "calendar" && timer.status === "idle" && !settings.timerSetupCollapsed)) || taskDetailCardVisible;
   const floatingTimerVisible = settings.showTimer && (timer.status !== "idle" || settings.timerSetupCollapsed) && !timerSetupVisible;
   const launcherTimerCollision = taskLauncherVisible
     && floatingTimerVisible
@@ -652,12 +652,13 @@ export default function App() {
         onStart={(taskId) => beginFocusTimer(taskId)}
         onClose={() => setTimerTaskPickerIntent(null)}
       />
-      {!tasksOpen && (taskDetailCardVisible || settingsOpen) && <nav className={`home-dock home-dock--transient${taskDetailCardFading && !settingsOpen && !tasksOpen ? " home-dock--fading" : ""}`} aria-label="ホーム操作">
+      {(taskDetailCardVisible || settingsOpen || tasksOpen) && <nav style={tasksOpen ? { display: "none" } : undefined} className={`home-dock home-dock--transient${taskDetailCardFading && !settingsOpen && !tasksOpen ? " home-dock--fading" : ""}`} aria-label="ホーム操作">
         <button className="home-dock__button home-dock__button--tasks" type="button" aria-label="タスク" aria-pressed={tasksOpen} onClick={() => openTasks(homeTasksRef.current)} ref={homeTasksRef}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h10M9 12h10M9 18h10M4 6h.01M4 12h.01M4 18h.01" /></svg><span>タスク</span>
         </button>
       </nav>}
       {taskLauncherVisible && <TaskLauncher
+        hideButton={tasksOpen}
         todayCount={todayOpenTaskCount}
         todaySummary={{
           completedCount: todayCompletedTaskCount,

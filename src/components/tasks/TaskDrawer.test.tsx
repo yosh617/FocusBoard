@@ -590,17 +590,14 @@ describe("TaskDrawer", () => {
     await waitFor(() => expect(props.onAddTask).toHaveBeenCalledWith(expect.objectContaining({ title: "理科の暗記", estimatedPomodoros: 2 })));
   });
 
-  it("adjusts the planned pomodoro count down to one or by number input", () => {
+  it("opens the planned pomodoro dial and selects a count", () => {
     renderDrawer();
     openQuickAddSettings();
     fireEvent.click(screen.getByRole("button", { name: "5回以上を設定" }));
-    expect(screen.queryByRole("button", { name: "2回" })).toBeNull();
-    const slider = screen.getByRole("slider", { name: "予定ポモドーロのスライダー" });
-    fireEvent.change(slider, { target: { value: "1" } });
-    expect((slider as HTMLInputElement).value).toBe("1");
-    const numberInput = screen.getByRole("spinbutton", { name: "予定ポモドーロの回数" });
-    fireEvent.change(numberInput, { target: { value: "12" } });
-    expect((numberInput as HTMLInputElement).value).toBe("12");
+    const dial = screen.getByRole("listbox", { name: "予定ポモドーロの回数" });
+    expect(within(dial).getByRole("option", { name: "5" }).getAttribute("aria-selected")).toBe("true");
+    fireEvent.scroll(dial, { target: { scrollLeft: 11 * 48 } });
+    expect(within(dial).getByRole("option", { name: "12" }).getAttribute("aria-selected")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "予定ポモドーロのプリセットへ戻る" }));
     expect(screen.getByRole("button", { name: "2回" })).toBeTruthy();
   });
