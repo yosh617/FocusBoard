@@ -2174,7 +2174,7 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .task-workspace--list .task-quick-add.task-capture { margin: 0; }
 .task-workspace--list .task-capture { padding-inline: 0; }
 .task-workspace--list .task-capture__title { min-height: 48px; grid-template-columns: 36px minmax(0, 1fr); padding-inline: 8px; border-color: var(--color-hairline); border-radius: 11px; background: var(--color-paper); }
-.task-workspace--list .task-capture__title:focus-within { border-color: var(--task-primary-border); box-shadow: 0 0 0 2px var(--task-primary-shadow); }
+.task-workspace--list .task-capture__title:focus-within { border-color: var(--task-primary-border); box-shadow: inset 0 0 0 2px var(--task-primary-shadow); }
 .task-workspace--list .task-capture__title .task-capture__add { width: 36px; height: 40px; color: var(--task-primary-text); }
 .task-workspace--list .task-capture__title .task-capture__add svg { width: 22px; height: 22px; stroke-width: 1.6; }
 .task-workspace--list .task-capture .task-capture__title input { min-height: 46px; font-size: 15px; }
