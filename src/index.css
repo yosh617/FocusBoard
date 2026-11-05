@@ -1242,7 +1242,7 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .app-date-time-field__controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px; }
 .app-date-time-field__date { position: relative; min-width: 0; }
 .app-date-time-field__time { display: grid; grid-template-columns: auto 42px auto auto 42px; align-items: center; gap: 8px; min-height: 46px; color: var(--ink-muted, #4d688a); font-size: 12px; font-weight: 750; }
-.app-date-time-field__time input { width: 42px; min-height: 40px; padding: 0 8px; color: var(--ink, #17345f); border: 1px solid var(--line, rgba(73,112,163,.24)); border-radius: 10px; background: rgba(255,255,255,.82); font-size: 14px; font-variant-numeric: tabular-nums; text-align: center; }
+.app-date-time-field__time input { width: 42px; height: 44px; min-height: 44px; padding: 0 8px; color: var(--ink, #17345f); border: 1px solid var(--line, rgba(73,112,163,.24)); border-radius: 10px; background: rgba(255,255,255,.82); font-size: 14px; font-variant-numeric: tabular-nums; text-align: center; }
 .app-date-time-field__time input:hover:not(:disabled), .app-date-time-field__time input:focus { border-color: var(--blue, #3f6fab); background: #fff; }
 
 @media (max-width: 520px) {
