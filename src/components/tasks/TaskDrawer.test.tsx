@@ -176,6 +176,15 @@ describe("TaskDrawer", () => {
     expect(screen.getByRole("button", { name: "勉強 0h 50m" })).toBeTruthy();
   });
 
+  it("shows remaining project time and no duration for completed tasks", () => {
+    renderDrawer({ sessions: [{ ...session, startedAt: session.endedAt - 25 * 60_000 }] });
+    const navigation = screen.getByRole("navigation", { name: /^タスク一覧$/ });
+    expect(within(navigation).getByRole("button", { name: "勉強 0h 25m" })).toBeTruthy();
+    expect(within(navigation).getByRole("button", { name: /^完了済み$/ }).querySelector("strong")).toBeNull();
+    fireEvent.click(within(navigation).getByRole("button", { name: "勉強 0h 25m" }));
+    expect(screen.getByRole("region", { name: "勉強の進捗" }).textContent).toContain("00:25");
+  });
+
   it("shows a compact focus count and a play action in the task row", () => {
     renderDrawer();
     expect(screen.getByRole("button", { name: /数学の復習/, expanded: false }).textContent).toBe("数学の復習0/2");
@@ -480,7 +489,7 @@ describe("TaskDrawer", () => {
     renderDrawer({ tasks: [task, completedTask] });
 
     expect(document.querySelector(".task-quick-add")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /^完了済み / }));
+    fireEvent.click(screen.getByRole("button", { name: /^完了済み$/ }));
 
     expect(screen.getByRole("heading", { name: "完了済み" })).toBeTruthy();
     expect(document.querySelector(".task-quick-add")).toBeNull();
@@ -746,7 +755,7 @@ describe("TaskDrawer", () => {
     { list: "完了済み", task: { ...task, dueDate: null, status: "completed" as const, completedAt: Date.now() } }
   ])("returns to the $list list after opening task details", async ({ list, task: routeTask }) => {
     renderDrawer({ tasks: [routeTask] });
-    fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${list}\\s`) }));
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${list}(?:\\s|$)`) }));
     const listRegion = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
     fireEvent.click(within(listRegion).getByRole("button", { name: /数学の復習/, expanded: false }));
     fireEvent.click(screen.getByRole("button", { name: "タスク一覧へ戻る" }));
@@ -1442,9 +1451,10 @@ describe("TaskDrawer", () => {
     expect(details.getByLabelText("期限").textContent).toContain(`${expectedMonth}月`);
     expect(details.getByLabelText("分類").textContent).toContain("通常");
 
-    const fourPomodoros = details.getByRole("button", { name: "4" });
-    fireEvent.click(fourPomodoros);
-    expect(fourPomodoros.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(details.getByRole("button", { name: "3回以上を設定" }));
+    const dial = details.getByRole("listbox", { name: "予定ポモドーロの回数" });
+    fireEvent.scroll(dial, { target: { scrollLeft: 48 } });
+    expect(within(dial).getByRole("option", { name: "4" }).getAttribute("aria-selected")).toBe("true");
     expect((details.getByLabelText("見積もり") as HTMLInputElement).value).toBe("4");
 
     fireEvent.submit(screen.getByRole("form", { name: "数学の復習の詳細" }));

@@ -18,17 +18,17 @@ import { ColorPickerDisclosure } from "../ui/ColorPicker";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import "./TaskDrawer.css";
 
-function EstimateDial({ value, onChange, onClose }: { value: number; onChange: (value: number) => void; onClose: () => void }) {
+function EstimateDial({ value, onChange, onClose, minimum = 1 }: { value: number; onChange: (value: number) => void; onClose: () => void; minimum?: number }) {
   const dialRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const dial = dialRef.current;
-    if (dial) dial.scrollLeft = (value - 1) * 48;
+    if (dial) dial.scrollLeft = (value - minimum) * 48;
     // Initialize the scroll position when the dial opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return <div className="task-capture__estimate-dial-wrap">
-    <div ref={dialRef} className="task-capture__estimate-dial" role="listbox" aria-label="予定ポモドーロの回数" onScroll={(event) => onChange(Math.max(1, Math.min(99, Math.round(event.currentTarget.scrollLeft / 48) + 1)))}>
-      {Array.from({ length: 99 }, (_, index) => index + 1).map((count) => <button type="button" role="option" aria-selected={count === value} key={count} onClick={(event) => { onChange(count); event.currentTarget.parentElement?.scrollTo({ left: (count - 1) * 48, behavior: "smooth" }); }}>{count}</button>)}
+    <div ref={dialRef} className="task-capture__estimate-dial" role="listbox" aria-label="予定ポモドーロの回数" onScroll={(event) => onChange(Math.max(minimum, Math.min(99, Math.round(event.currentTarget.scrollLeft / 48) + minimum)))}>
+      {Array.from({ length: 100 - minimum }, (_, index) => index + minimum).map((count) => <button type="button" role="option" aria-selected={count === value} key={count} onClick={(event) => { onChange(count); event.currentTarget.parentElement?.scrollTo({ left: (count - minimum) * 48, behavior: "smooth" }); }}>{count}</button>)}
     </div>
     <button className="task-capture__estimate-back" type="button" aria-label="予定ポモドーロのプリセットへ戻る" onClick={onClose}>×</button>
   </div>;
@@ -106,7 +106,7 @@ const projectColorOptions = [
   { name: "ティール", value: "#00BFA6" },
   { name: "シアン", value: "#00AEEF" }
 ] as const;
-const quickEstimateOptions = [1, 2, 4];
+const quickEstimateOptions = [1, 2];
 const quickFocusOptions = [1, 2, 3, 4];
 const priorityOptions: { value: TaskPriority; label: string; color: string }[] = [
   { value: "high", label: "高", color: "#FF453A" },
@@ -250,6 +250,15 @@ function changedTaskEditorDraftKeys(draft: TaskEditorDraft, baseline: TaskEditor
 function estimatedFocusTimeLabel(tasks: TaskRecord[], workMinutes: number) {
   const totalMinutes = tasks.reduce((sum, task) => sum + task.estimatedPomodoros * workMinutes, 0);
   return `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
+}
+
+function remainingFocusMinutes(tasks: TaskRecord[], workMinutes: number, focusedMsByTask: Map<string, number>) {
+  return tasks.reduce((total, task) => total + Math.max(0, task.estimatedPomodoros * workMinutes - (focusedMsByTask.get(task.id) ?? 0) / 60_000), 0);
+}
+
+function remainingFocusTimeLabel(tasks: TaskRecord[], workMinutes: number, focusedMsByTask: Map<string, number>) {
+  const minutes = Math.floor(remainingFocusMinutes(tasks, workMinutes, focusedMsByTask));
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 }
 
 function ManualSessionForm({ tasks, projects, disabled, onAdd }: {
@@ -430,6 +439,7 @@ function TaskEditor({ task, parentTask, backLabel, onOpenRelatedTask, projects, 
   const [dueDate, setDueDate] = useState(task.dueDate ?? "");
   const [bucket, setBucket] = useState(task.bucket);
   const [estimatedPomodoros, setEstimatedPomodoros] = useState(task.estimatedPomodoros);
+  const [estimateDialOpen, setEstimateDialOpen] = useState(false);
   const [priority, setPriority] = useState<TaskPriority>(task.priority ?? "none");
   const [tags, setTags] = useState(task.tags ?? []);
   const [note, setNote] = useState(task.note);
@@ -741,9 +751,10 @@ function TaskEditor({ task, parentTask, backLabel, onOpenRelatedTask, projects, 
         </div>
         <div className="task-editor__quick-group">
           <span>予定回数 <strong>{estimatedPomodoros === 0 ? "なし" : `${estimatedPomodoros}回`}</strong></span>
-          <div role="group" aria-label="集中回数をすばやく設定">
+          {estimateDialOpen ? <EstimateDial minimum={3} value={estimatedPomodoros} onChange={setEstimatedPomodoros} onClose={() => setEstimateDialOpen(false)} /> : <div role="group" aria-label="集中回数をすばやく設定">
             {[0, ...quickEstimateOptions].map((value) => <button type="button" aria-pressed={estimatedPomodoros === value} className={estimatedPomodoros === value ? "is-active" : ""} onClick={() => setEstimatedPomodoros(value)} key={value}>{value === 0 ? "なし" : value}</button>)}
-          </div>
+            <button type="button" aria-label="3回以上を設定" aria-pressed={estimatedPomodoros >= 3} className={estimatedPomodoros >= 3 ? "is-active" : ""} onClick={() => { if (estimatedPomodoros < 3) setEstimatedPomodoros(3); setEstimateDialOpen(true); }}>3+</button>
+          </div>}
         </div>
       </section>
       <section className="task-editor__section task-editor__project">
@@ -998,7 +1009,7 @@ export function TaskDrawer({
     }
     return totals;
   }, [sessions]);
-  const todayRemainingMinutes = todayOpenTasks.reduce((total, task) => total + Math.max(0, task.estimatedPomodoros * workMinutes - (focusedMsByTask.get(task.id) ?? 0) / 60_000), 0);
+  const todayRemainingMinutes = remainingFocusMinutes(todayOpenTasks, workMinutes, focusedMsByTask);
   const todayFocusedMinutes = sessions
     .filter((session) => session.mode === "work" && toLocalDateKey(new Date(session.endedAt)) === today)
     .reduce((total, session) => total + getFocusedDurationMs(session), 0) / 60_000;
@@ -1006,7 +1017,7 @@ export function TaskDrawer({
   const overviewOpenTasks = isTodayView ? todayOpenTasks : scopedTasks.filter((task) => task.status === "open");
   const overviewCompletedTasks = isTodayView ? todayCompletedTasks : projectId ? projectCompletedTasks : scopedTasks.filter((task) => task.status === "completed");
   const overviewTaskIds = new Set([...scopedTasks, ...overviewCompletedTasks].map((task) => task.id));
-  const overviewRemainingMinutes = isTodayView ? todayRemainingMinutes : overviewOpenTasks.reduce((total, task) => total + Math.max(0, task.estimatedPomodoros * workMinutes - (focusedMsByTask.get(task.id) ?? 0) / 60_000), 0);
+  const overviewRemainingMinutes = isTodayView ? todayRemainingMinutes : remainingFocusMinutes(overviewOpenTasks, workMinutes, focusedMsByTask);
   const overviewFocusedMinutes = isTodayView ? todayFocusedMinutes : sessions.filter((session) => session.mode === "work" && session.taskId !== null && overviewTaskIds.has(session.taskId)).reduce((total, session) => total + getFocusedDurationMs(session), 0) / 60_000;
   const taskSections = useMemo<TaskListSection[]>(() => {
     if (scopedTasks.length === 0) return [];
@@ -1499,7 +1510,7 @@ export function TaskDrawer({
               <div className="task-navigation__views">
                 {views.map((item, index) => {
                   const estimatedTime = estimatedFocusTimeLabel(getTasksForView(tasks, item.value, today), workMinutes);
-                  return <button ref={index === 0 ? navigationHeadingRef : undefined} type="button" className={!projectId && view === item.value ? "is-active" : ""} aria-current={!projectId && view === item.value ? "page" : undefined} onClick={() => requestEditorExit(() => { setProjectSettingsOpen(false); setProjectId(null); setView(item.value); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); })} key={item.value}><span>{item.label}</span><strong>{estimatedTime}</strong></button>;
+                  return <button ref={index === 0 ? navigationHeadingRef : undefined} type="button" className={!projectId && view === item.value ? "is-active" : ""} aria-current={!projectId && view === item.value ? "page" : undefined} onClick={() => requestEditorExit(() => { setProjectSettingsOpen(false); setProjectId(null); setView(item.value); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); })} key={item.value}><span>{item.label}</span>{item.value !== "completed" && <strong>{estimatedTime}</strong>}</button>;
                 })}
                 {archivedTasks.length > 0 && <button type="button" className={!projectId && view === "archived" ? "is-active" : ""} aria-current={!projectId && view === "archived" ? "page" : undefined} onClick={() => requestEditorExit(() => { setProjectSettingsOpen(false); setProjectId(null); setView("archived"); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); })}><span>保管済み</span><strong>{estimatedFocusTimeLabel(archivedTasks, workMinutes)}</strong></button>}
               </div>
@@ -1507,7 +1518,7 @@ export function TaskDrawer({
                 <div className="task-navigation__projects-heading"><h3>プロジェクト</h3><button type="button" aria-label={showProjectForm ? "プロジェクト追加を閉じる" : "プロジェクトを追加"} title={showProjectForm ? "プロジェクト追加を閉じる" : "プロジェクトを追加"} aria-expanded={showProjectForm} onClick={() => setShowProjectForm((current) => !current)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d={showProjectForm ? "m6 6 12 12M6 18 18 6" : "M12 5v14M5 12h14"} /></svg></button></div>
                 {activeProjects.map((project) => (
                   <div className={projectId === project.id ? "project-link is-active" : "project-link"} key={project.id}>
-                    <button className="project-link__select" type="button" aria-current={projectId === project.id ? "page" : undefined} onClick={() => requestEditorExit(() => { setProjectSettingsOpen(false); setProjectId(project.id); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); })}><i style={{ background: project.color }} /><span>{project.name}</span><strong>{estimatedFocusTimeLabel(getTasksForProject(tasks, project.id), workMinutes)}</strong></button>
+                    <button className="project-link__select" type="button" aria-current={projectId === project.id ? "page" : undefined} onClick={() => requestEditorExit(() => { setProjectSettingsOpen(false); setProjectId(project.id); setSelectedTaskId(null); setWorkspaceMode("tasks"); collapseNavigationIfCompact(); })}><i style={{ background: project.color }} /><span>{project.name}</span><strong>{remainingFocusTimeLabel(getTasksForProject(tasks, project.id), workMinutes, focusedMsByTask)}</strong></button>
                   </div>
                 ))}
                 {showProjectForm && <form className="project-add" onSubmit={addProject}>

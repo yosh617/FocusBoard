@@ -124,7 +124,7 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .clock-editor__row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:16px; color:var(--ink); font-size:13px; font-weight:750; }.segmented-control { display:flex; padding:8px; border-radius:10px; background:var(--accent-soft); }.segmented-control button { min-width:44px; min-height:44px; padding:0 8px; color:var(--ink-muted); border:0; border-radius:8px; background:transparent; font-size:12px; font-weight:750; }.segmented-control button.is-active { color:var(--ink); background:var(--accent-soft); box-shadow:inset 0 0 0 1px var(--accent), 0 2px 5px color-mix(in srgb, var(--accent) 20%, transparent); }
 .clock-editor__toggles { display:flex; gap:16px; padding:8px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); }.clock-editor__toggles label { display:flex; align-items:center; gap:8px; color:var(--ink); font-size:13px; font-weight:700; }.clock-editor__toggles input { accent-color:var(--accent); }
 .clock-editor__color { padding: 16px 0 8px; border-bottom: 1px solid var(--line); }.clock-editor__color-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; color:var(--ink); font-size:13px; font-weight:750; }.clock-editor__color-heading label { display:flex; align-items:center; gap:8px; color:var(--ink-muted); font-size:12px; font-weight:700; }.clock-editor__color-heading input { accent-color:var(--accent); }.clock-editor__color-input { display:flex; align-items:center; justify-content:space-between; min-height:44px; margin:8px 0 8px; padding:8px 8px 8px 8px; color:var(--ink-muted); border:1px solid rgba(64,103,153,.2); border-radius:11px; background:#fff; font-size:12px; font-weight:700; }.clock-editor__color-input input { width:48px; height:32px; padding:0; border:0; border-radius:7px; background:transparent; }
-.clock-editor__range { display:grid; grid-template-columns:1fr auto; gap:8px; padding-top:16px; color:var(--ink); font-size:13px; font-weight:750; }.clock-editor__range output { color:var(--accent); }.clock-editor__range-input { grid-column:1 / -1; width:100%; height:30px; min-height:30px; margin:0; padding:0; appearance:none; -webkit-appearance:none; border:0; border-radius:999px; background:transparent; accent-color:var(--accent); }.clock-editor__range-input::-webkit-slider-runnable-track { height:8px; border:0; border-radius:999px; background:#e5e5e5; }.clock-editor__range-input::-webkit-slider-thumb { width:18px; height:18px; margin-top:-8px; appearance:none; -webkit-appearance:none; border:0; border-radius:50%; background:var(--accent); box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 28%, transparent); }.clock-editor__range-input::-moz-range-track { height:8px; border:0; border-radius:999px; background:#e5e5e5; }.clock-editor__range-input::-moz-range-progress { height:8px; border:0; border-radius:999px; background:var(--accent); }.clock-editor__range-input::-moz-range-thumb { width:18px; height:18px; border:0; border-radius:50%; background:var(--accent); box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 28%, transparent); }.clock-editor__reset { width:100%; min-height:40px; margin-top:16px; color:var(--accent); border:1px solid color-mix(in srgb, var(--accent) 28%, transparent); border-radius:11px; background:#fff; font-size:13px; font-weight:750; }
+.clock-editor__range { display:grid; grid-template-columns:1fr auto; gap:8px; padding-top:16px; color:var(--ink); font-size:13px; font-weight:750; }.clock-editor__range output { color:var(--accent); }.clock-editor__range-input { grid-column:1 / -1; width:100%; height:30px; min-height:30px; margin:0; padding:0; appearance:none; -webkit-appearance:none; border:0; border-radius:999px; background:transparent; accent-color:var(--accent); }.clock-editor__range-input::-webkit-slider-runnable-track { height:8px; border:0; border-radius:999px; background:#e5e5e5; }.clock-editor__range-input::-webkit-slider-thumb { width:18px; height:18px; margin-top:-5px; appearance:none; -webkit-appearance:none; border:0; border-radius:50%; background:var(--accent); box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 28%, transparent); }.clock-editor__range-input::-moz-range-track { height:8px; border:0; border-radius:999px; background:#e5e5e5; }.clock-editor__range-input::-moz-range-progress { height:8px; border:0; border-radius:999px; background:var(--accent); }.clock-editor__range-input::-moz-range-thumb { width:18px; height:18px; border:0; border-radius:50%; background:var(--accent); box-shadow:0 1px 3px color-mix(in srgb, var(--accent) 28%, transparent); }.clock-editor__reset { width:100%; min-height:40px; margin-top:16px; color:var(--accent); border:1px solid color-mix(in srgb, var(--accent) 28%, transparent); border-radius:11px; background:#fff; font-size:13px; font-weight:750; }
 
 .timer-card {
   width: min(100%, 650px);
@@ -430,7 +430,7 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .range-control__inputs { display: grid; grid-template-columns: minmax(0, 1fr) 78px auto auto; align-items: center; gap: 8px; }.range-control__inputs input[type="range"] { min-width: 0; }.number-input { width: 78px; min-height: 40px; padding: 0 8px; color: var(--ink); border: 1px solid rgba(64,103,153,.28); border-radius: 10px; background: #fff; font-variant-numeric: tabular-nums; }.range-control__inputs > span, .range-control small { color: var(--ink-muted); font-size: 12px; }.range-control small { display: block; margin-top: 8px; }.reset-value { min-height: 40px; padding: 0 8px; color: var(--blue-deep); border: 1px solid rgba(64,103,153,.24); border-radius: 10px; background: #fff; font-size: 12px; font-weight: 700; }
 .settings-drawer .settings-range { --range-progress: 0%; width: 100%; height: 30px; min-height: 30px; margin: 0; appearance: none; -webkit-appearance: none; border: 0; border-radius: 0; background: transparent; accent-color: var(--task-primary); }
 .settings-drawer .settings-range::-webkit-slider-runnable-track { height: 8px; border: 0; border-radius: 999px; background: linear-gradient(to right, var(--task-primary) 0 var(--range-progress), #dfe3e7 var(--range-progress) 100%); }
-.settings-drawer .settings-range::-webkit-slider-thumb { width: 18px; height: 18px; margin-top: -8px; appearance: none; -webkit-appearance: none; border: 0; border-radius: 50%; background: var(--task-primary); }
+.settings-drawer .settings-range::-webkit-slider-thumb { width: 18px; height: 18px; margin-top: -5px; appearance: none; -webkit-appearance: none; border: 0; border-radius: 50%; background: var(--task-primary); }
 .settings-drawer .settings-range::-moz-range-track { height: 8px; border: 0; border-radius: 999px; background: #dfe3e7; }
 .settings-drawer .settings-range::-moz-range-progress { height: 8px; border: 0; border-radius: 999px; background: var(--task-primary); }
 .settings-drawer .settings-range::-moz-range-thumb { width: 18px; height: 18px; border: 0; border-radius: 50%; background: var(--task-primary); }
@@ -4762,9 +4762,34 @@ body { font-family: var(--font-body); }
 }
 
 .task-capture__estimate-dial-wrap { display: flex; align-items: center; min-width: 0; width: min(420px, 100%); gap: 8px; }
-.task-capture__estimate-dial { display: flex; flex: 1; min-width: 0; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; padding-inline: calc(50% - 24px); }
+.task-capture__estimate-dial { display: flex; flex: 1; min-width: 0; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; padding-inline: 0; }
+.task-capture__estimate-dial::before, .task-capture__estimate-dial::after { content: ""; flex: 0 0 calc(50% - 24px); }
 .task-capture__estimate-dial::-webkit-scrollbar { display: none; }
 .task-capture__estimate-dial button { flex: 0 0 48px; height: 44px; padding: 0; scroll-snap-align: center; border: 0; border-radius: 22px; background: transparent; color: var(--color-mid-gray); font-size: 18px; }
 .task-capture__estimate-dial button[aria-selected="true"] { color: var(--task-primary-text); background: var(--task-primary-soft); font-weight: 700; }
 
 .floating-timer__next-task { max-width: 85%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 0; border-radius: 8px; padding: 8px 8px; background: var(--task-primary-soft); color: var(--task-primary-text); font-size: 11px; cursor: pointer; }
+
+/* Task detail uses the same scrollable estimate dial as quick add. */
+.task-editor-screen .task-editor__quick-group > .task-capture__estimate-dial-wrap { display: flex; grid-template-columns: none; width: 100%; gap: 8px; }
+.task-editor-screen .task-editor__quick-group .task-capture__estimate-dial button { flex: 0 0 48px; min-width: 48px; height: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 22px; background: transparent; color: var(--color-mid-gray); font-size: 18px; }
+.task-editor-screen .task-editor__quick-group .task-capture__estimate-dial button[aria-selected="true"] { color: var(--task-primary-text); background: var(--task-primary-soft); font-weight: 700; }
+.task-editor-screen .task-editor__quick-group .task-capture__estimate-back { min-width: 36px; padding: 0; font-size: 20px; }
+
+.task-capture__estimate .task-capture__estimate-back,
+.task-editor-screen .task-editor__quick-group .task-capture__estimate-back {
+  display: grid;
+  flex: 0 0 44px;
+  place-items: center;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-control);
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-size: 24px;
+  line-height: 1;
+}
