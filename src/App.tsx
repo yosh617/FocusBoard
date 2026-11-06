@@ -639,7 +639,6 @@ export default function App() {
           timer={timer}
           taskTitle={activeTask?.title ?? (timer.status === "idle" && timerAcceptsTask ? selectedTimerTask?.title ?? null : null)}
           taskProgress={activeTaskProgress}
-          nextTaskTitle={breakResumeTask?.title ?? null}
           onSelectNextTask={timer.program === "pomodoro" && timer.mode !== "work" && timer.status !== "idle" ? () => setTimerTaskPickerIntent("next") : undefined}
           onStart={startTimer}
           onPause={pause}

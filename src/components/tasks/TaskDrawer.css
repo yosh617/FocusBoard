@@ -106,3 +106,7 @@
 
 .task-swipe-date-dialog { max-height: calc(100dvh - 40px); overflow-y: auto; }
 .task-swipe-date-dialog .app-calendar { position: static; width: 100%; max-height: none; transform: none; margin-top: 8px; box-shadow: none; }
+
+/* Keep completed rows aligned with the active task list. */
+.task-list__completed > .task-list__section-items { width: 100%; min-width: 0; }
+.task-list .task-row--completed { grid-template-columns: 44px minmax(0, 1fr) 48px; }

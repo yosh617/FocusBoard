@@ -533,7 +533,10 @@ describe("App", () => {
       fireEvent.click(screen.getByRole("button", { name: "次の短い休憩を開始" }));
       fireEvent.click(screen.getByRole("button", { name: "休憩後のタスクを選ぶ" }));
       fireEvent.click(screen.getByRole("button", { name: `${nextFocusTask.title}を選択` }));
-      expect(screen.getByRole("button", { name: "休憩後のタスクを選ぶ" }).textContent).toContain(nextFocusTask.title);
+      expect(screen.getByRole("button", { name: "休憩後のタスクを選ぶ" }).textContent).toBe("休憩");
+      fireEvent.click(screen.getByRole("button", { name: "休憩後のタスクを選ぶ" }));
+      expect(screen.getByRole("button", { name: `${nextFocusTask.title}を選択` }).getAttribute("aria-pressed")).toBe("true");
+      fireEvent.click(screen.getByRole("button", { name: "タスク選択を閉じる" }));
       await act(async () => { await vi.advanceTimersByTimeAsync(5 * 60_000 + 250); });
       expect(screen.getByRole("group", { name: `${nextFocusTask.title}の集中タイマー` })).toBeTruthy();
     } finally { vi.useRealTimers(); }
