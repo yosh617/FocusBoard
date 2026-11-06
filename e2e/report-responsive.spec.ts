@@ -58,6 +58,14 @@ test("report charts fit the available width and retain the selected period", asy
         await page.screenshot({ path: `test-results/report-${process.env.REPORT_BASELINE ? "before" : "after"}-${width}-month.png` });
       }
       if (!process.env.REPORT_BASELINE) {
+        const labelOffsets = await report.locator('.report-comparison__column[data-tick="true"]').evaluateAll((columns) => columns.flatMap((column) => {
+          const label = column.querySelector("small");
+          if (!label || getComputedStyle(label).visibility === "hidden") return [];
+          const columnBox = column.getBoundingClientRect();
+          const labelBox = label.getBoundingClientRect();
+          return [Math.abs((columnBox.left + columnBox.width / 2) - (labelBox.left + labelBox.width / 2))];
+        }));
+        expect(Math.max(...labelOffsets), `label alignment at ${width}px/${period}`).toBeLessThan(1);
         const order = await report.evaluate((root) => [".report-summary", ".report-comparison", "#project-report-title"].map((selector) => root.querySelector(selector)!.getBoundingClientRect().top));
         expect(order[0]).toBeLessThan(order[1]);
         expect(order[1]).toBeLessThan(order[2]);

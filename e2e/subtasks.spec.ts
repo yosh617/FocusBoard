@@ -39,6 +39,7 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 820, height: 1180 
     await details.getByRole("textbox", { name: "サブタスク名" }).fill(grandchild);
     await details.getByRole("button", { name: "追加", exact: true }).click();
     await details.getByRole("button", { name: `${grandchild}の詳細を開く` }).click();
+    await tasks.getByRole("form", { name: `${grandchild}の詳細`, exact: true }).getByRole("group", { name: "タスクの期限をすばやく設定" }).getByRole("button", { name: "今日", exact: true }).click();
     await tasks.getByRole("button", { name: `${child}の詳細へ戻る`, exact: true }).click();
     await tasks.getByRole("button", { name: `${parent}の詳細へ戻る`, exact: true }).click();
     await tasks.getByRole("button", { name: "タスク一覧へ戻る", exact: true }).click();

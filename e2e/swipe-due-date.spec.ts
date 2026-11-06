@@ -48,6 +48,11 @@ for (const width of [390, 768, 1280]) {
     await editor.getByRole("button", { name: "期限なし", exact: true }).click();
     await editor.getByRole("button", { name: "保存", exact: true }).click();
     await expect(editor).not.toBeVisible();
+    await expect(row).not.toBeVisible();
+    const navigation = tasks.getByRole("navigation", { name: "タスク一覧", exact: true });
+    if (!(await navigation.isVisible())) await tasks.getByRole("button", { name: "一覧を開く" }).click();
+    await navigation.getByRole("button", { name: /^いつか / }).click();
+    await expect(row).toBeVisible();
     await swipe(1);
     await expect(editor.getByRole("button", { name: "期限", exact: true })).toHaveText("日付を選択");
     await editor.getByRole("button", { name: "キャンセル", exact: true }).click();

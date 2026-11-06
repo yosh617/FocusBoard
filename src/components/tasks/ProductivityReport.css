@@ -73,7 +73,7 @@
 .productivity-report .report-comparison__selected strong { font-size: 18px; font-weight: 650; }
 .productivity-report .report-comparison__plot { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 8px; }
 .productivity-report .report-comparison__scale { display: flex; flex-direction: column; justify-content: space-between; padding-bottom: 24px; color: var(--color-mid-gray); font-size: 10px; }
-.productivity-report .report-comparison__chart { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0; min-width: 0; min-height: 0; overflow: visible; padding: 0; border-bottom: 0; background: repeating-linear-gradient(to top, transparent 0, transparent calc(50% - 1px), var(--color-hairline) 50%, transparent calc(50% + 1px)); }
+.productivity-report .report-comparison__chart { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0; min-width: 0; min-height: 0; overflow: visible; padding: 0 16px; border-bottom: 0; background: repeating-linear-gradient(to top, transparent 0, transparent calc(50% - 1px), var(--color-hairline) 50%, transparent calc(50% + 1px)); }
 .task-drawer .productivity-report .report-comparison__column { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: 148px 22px; align-items: stretch; gap: 8px; width: 100%; min-width: 0; min-height: 0; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--color-ink); cursor: pointer; }
 .task-drawer .productivity-report .report-comparison__column[aria-pressed="true"] { background: transparent; box-shadow: none; }
 .productivity-report .report-comparison__column i { display: flex; align-items: flex-end; justify-content: center; min-width: 0; height: 148px; border-bottom: 1px solid var(--color-hairline); }
@@ -81,8 +81,6 @@
 .productivity-report .report-comparison__column[aria-pressed="true"] b { opacity: 1; }
 .productivity-report .report-comparison__column small { justify-self: center; width: max-content; color: var(--color-mid-gray); font-size: 10px; font-style: normal; white-space: nowrap; visibility: hidden; }
 .productivity-report .report-comparison__column[data-tick="true"] small { visibility: visible; }
-.productivity-report .report-comparison__column:first-child small { justify-self: start; }
-.productivity-report .report-comparison__column:last-child small { justify-self: end; }
 .productivity-report .report-comparison__column[aria-pressed="true"] small { color: var(--color-ink); font-weight: 700; }
 .productivity-report .report-point-picker { display: flex; align-items: center; justify-content: flex-end; gap: 16px; margin-top: 16px; color: var(--color-mid-gray); font-size: 12px; }
 .productivity-report .report-point-picker select { width: auto; max-width: 70%; min-width: 0; height: 44px; min-height: 44px; padding: 0 32px 0 16px; appearance: none; -webkit-appearance: none; border: 1px solid var(--color-hairline); border-radius: var(--radius-control); color: var(--color-ink); background: var(--color-paper); font: inherit; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%234b5562' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; }
