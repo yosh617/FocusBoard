@@ -38,10 +38,10 @@ describe("task smart lists", () => {
   ];
 
   it("groups parent tasks and subtasks by local due date", () => {
-    expect(getTasksForView(tasks, "today", today).map((task) => task.id)).toEqual(["overdue", "today", "subtask", "inbox"]);
+    expect(getTasksForView(tasks, "today", today).map((task) => task.id)).toEqual(["overdue", "today", "subtask"]);
     expect(getTasksForView(tasks, "tomorrow", today).map((task) => task.id)).toEqual(["tomorrow"]);
     expect(getTasksForView(tasks, "upcoming", today).map((task) => task.id)).toEqual(["future"]);
-    expect(getTasksForView(tasks, "someday", today).map((task) => task.id)).toEqual(["someday"]);
+    expect(getTasksForView(tasks, "someday", today).map((task) => task.id)).toEqual(["inbox", "someday"]);
     expect(getTasksForView([...tasks, createTask("done-subtask", { parentTaskId: "done", status: "completed", completedAt: 3 })], "completed", today).map((task) => task.id)).toEqual(["done", "done-subtask"]);
     expect(getTasksForView([...tasks, createTask("archived", { status: "archived" }), createTask("archived-subtask", { parentTaskId: "archived", status: "archived" })], "archived", today).map((task) => task.id)).toEqual(["archived", "archived-subtask"]);
   });

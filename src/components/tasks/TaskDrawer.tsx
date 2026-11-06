@@ -1047,11 +1047,8 @@ export function TaskDrawer({
     }
 
     if (view === "today") {
-      const datedTasks = [
-        ...scopedTasks.filter((task) => task.dueDate !== null && task.dueDate >= today),
-        ...scopedTasks.filter((task) => task.dueDate !== null && task.dueDate < today)
-      ];
-      const undatedTasks = scopedTasks.filter((task) => task.dueDate === null);
+      const todayTasks = scopedTasks.filter((task) => task.dueDate === today);
+      const overdueTasks = scopedTasks.filter((task) => task.dueDate !== null && task.dueDate < today);
       const makeSection = (key: string, label: string, sectionTasks: TaskRecord[]): TaskListSection => ({
         key,
         label,
@@ -1062,12 +1059,8 @@ export function TaskDrawer({
         estimatedPomodoros: sectionTasks.reduce((sum, task) => sum + task.estimatedPomodoros, 0)
       });
       const sections: TaskListSection[] = [];
-      if (datedTasks.length > 0) {
-        const hasOverdue = datedTasks.some((task) => task.dueDate !== null && task.dueDate < today);
-        const hasToday = datedTasks.some((task) => task.dueDate === today);
-        sections.push(makeSection("today-dated", hasToday && hasOverdue ? "今日・期限切れ" : hasOverdue ? "期限切れ" : "今日", datedTasks));
-      }
-      if (undatedTasks.length > 0) sections.push(makeSection("today-undated", "日付なし", undatedTasks));
+      if (todayTasks.length > 0) sections.push(makeSection("today-dated", "今日", todayTasks));
+      if (overdueTasks.length > 0) sections.push(makeSection("today-overdue", "期限切れ", overdueTasks));
       return sections;
     }
     const orderedTasks = scopedTasks;
@@ -1636,26 +1629,18 @@ export function TaskDrawer({
               ? <div className="task-empty task-empty--today">
                   <div className="task-empty__art" aria-hidden="true"><svg viewBox="0 0 180 160"><circle className="task-empty__halo" cx="95" cy="81" r="58" /><circle className="task-empty__dot" cx="37" cy="105" r="7" /><path className="task-empty__spark" d="M145 29v13m-6.5-6.5h13" /><rect className="task-empty__paper" x="38" y="39" width="96" height="86" rx="13" transform="rotate(-4 86 82)" /><rect className="task-empty__input" x="55" y="56" width="13" height="13" rx="4" /><path className="task-empty__line" d="M77 62h39M55 83h12m10 0h39M55 101h12m10 0h28" /><circle className="task-empty__clock" cx="130" cy="111" r="17" /><path className="task-empty__clock-hand" d="M130 101v10l7 4" /></svg></div>
                   <strong>{view === "completed" ? "完了したタスクはありません" : view === "archived" ? "保管済みタスクはありません" : "タスクなし"}</strong>
-                  <span>{view === "completed" ? "タスクを完了すると、ここに表示されます。" : view === "archived" ? "保管したタスクは、ここに表示されます。" : currentProject ? "上の入力欄から追加すると、このプロジェクトに表示されます。" : view === "today" ? "上の入力欄から追加できます。期限なしのタスクも、この一覧に表示されます。" : "上の入力欄からタスクを追加できます。"}</span>
+                  <span>{view === "completed" ? "タスクを完了すると、ここに表示されます。" : view === "archived" ? "保管したタスクは、ここに表示されます。" : currentProject ? "上の入力欄から追加すると、このプロジェクトに表示されます。" : view === "today" ? "上の入力欄から今日のタスクを追加できます。" : "上の入力欄からタスクを追加できます。"}</span>
                 </div>
               : <div className={`task-list${view === "today" && !projectId ? " task-list--today" : ""}`} aria-label="タスク一覧">
                 {taskSections.map((section) => (
-                  <section className={`task-list__section${view === "completed" ? " task-list__section--day" : ""}`} aria-labelledby={view === "today" && !projectId && taskSections.length === 1 && section.key.startsWith("today-") ? undefined : `task-section-${section.key}`} aria-label={view === "today" && !projectId && taskSections.length === 1 && section.key.startsWith("today-") ? section.label : undefined} key={section.key}>
-                    {(taskSections.length > 1 || section.key.startsWith("today-") || view === "completed") && !(view === "today" && !projectId && taskSections.length === 1 && section.key.startsWith("today-")) && (
+                  <section className={`task-list__section${view === "completed" ? " task-list__section--day" : ""}`} aria-label={section.label} key={section.key}>
+                    {(view === "today" && !projectId ? section.key === "today-overdue" : taskSections.length > 1 || view === "completed") && (
                       <div className="task-list__section-header">
-                        <div className="task-list__section-copy">
-                          <h4 id={`task-section-${section.key}`}>{section.label}</h4>
-                        </div>
-                        <div className="task-list__section-stats">
-                          {section.estimatedPomodoros > 0 && (
-                            <FocusMeter
-                              label={`${section.label}の集中目安`}
-                              completedPomodoros={section.completedPomodoros}
-                              estimatedPomodoros={section.estimatedPomodoros}
-                            />
-                          )}
+                        <div className="task-list__section-copy"><h4>{section.label}</h4></div>
+                        {!(view === "today" && !projectId) && <div className="task-list__section-stats">
+                          {section.estimatedPomodoros > 0 && <FocusMeter label={`${section.label}の集中目安`} completedPomodoros={section.completedPomodoros} estimatedPomodoros={section.estimatedPomodoros} />}
                           <em>{section.tasks.length}件</em>
-                        </div>
+                        </div>}
                       </div>
                     )}
                     <div className="task-list__section-items">

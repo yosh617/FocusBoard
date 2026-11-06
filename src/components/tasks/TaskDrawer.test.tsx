@@ -115,7 +115,7 @@ describe("TaskDrawer", () => {
     expect(overview.getAllByText("00:00")).toHaveLength(2);
     expect(overview.getAllByText("0")).toHaveLength(2);
     expect(screen.getByText("タスクなし")).toBeTruthy();
-    expect(screen.getByText("上の入力欄から追加できます。期限なしのタスクも、この一覧に表示されます。")).toBeTruthy();
+    expect(screen.getByText("上の入力欄から今日のタスクを追加できます。")).toBeTruthy();
     expect(screen.queryByRole("region", { name: "今日の記録" })).toBeNull();
     expect(screen.getByLabelText("新しいタスク")).toBeTruthy();
     expect(screen.getByRole("region", { name: "設定" })).toBeTruthy();
@@ -632,11 +632,13 @@ describe("TaskDrawer", () => {
     renderDrawer({ tasks: [overdueTask, task] });
 
     const todayList = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
-    expect(within(todayList).getByRole("region", { name: "今日・期限切れ" })).toBeTruthy();
+    expect(within(todayList).getByRole("region", { name: "期限切れ" })).toBeTruthy();
     expect(within(todayList).getByText("期限切れタスク")).toBeTruthy();
+    expect(within(todayList).getByRole("region", { name: "今日" }).compareDocumentPosition(within(todayList).getByRole("region", { name: "期限切れ" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(todayList).queryByRole("heading", { name: "今日" })).toBeNull();
   });
 
-  it("includes undated tasks in Today without counting them as scheduled work", () => {
+  it("shows undated tasks in someday instead of today", () => {
     const unfilteredTodayTask: TaskRecord = {
       ...task,
       id: "task-today-unfiltered",
@@ -662,12 +664,13 @@ describe("TaskDrawer", () => {
 
     const todayList = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
     expect(within(todayList).getByText("数学の復習")).toBeTruthy();
-    expect(within(todayList).getByText("予定のない今日タスク")).toBeTruthy();
-    expect(within(todayList).getByRole("heading", { name: "日付なし" })).toBeTruthy();
+    expect(within(todayList).queryByText("予定のない今日タスク")).toBeNull();
     expect(screen.getByText("未完了タスク").parentElement?.textContent).toContain("1");
 
     fireEvent.click(within(todayList).getByRole("button", { name: "今日の完了済みタスク 1件" }));
     expect(within(todayList).getByText("今日完了したタスク")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /^いつか/ }));
+    expect(screen.getByText("予定のない今日タスク")).toBeTruthy();
   });
 
   it("opens task details from the task list", () => {
@@ -896,6 +899,8 @@ describe("TaskDrawer", () => {
 
     props.rerender({ tasks: [task, { ...task, id: "task-undated-project", title: "期限なしのプロジェクト作業", bucket: "inbox", dueDate: null }] });
     fireEvent.click(screen.getByRole("button", { name: /^今日 / }));
+    expect(screen.queryByText("期限なしのプロジェクト作業")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /^いつか / }));
     expect(screen.getByText("期限なしのプロジェクト作業")).toBeTruthy();
   });
 
@@ -1215,7 +1220,7 @@ describe("TaskDrawer", () => {
     });
 
     const list = screen.getAllByLabelText("タスク一覧").at(-1) as HTMLElement;
-    expect(within(list).getByRole("region", { name: "今日・期限切れ" })).toBeTruthy();
+    expect(within(list).getByRole("region", { name: "期限切れ" })).toBeTruthy();
     expect(within(list).getByText("数学の復習")).toBeTruthy();
     expect(within(list).getByText("英語の宿題")).toBeTruthy();
     expect(within(list).getByText("机を片づける")).toBeTruthy();

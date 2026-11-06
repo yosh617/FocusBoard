@@ -570,7 +570,7 @@ describe("App", () => {
       fireEvent.click(launcher);
       expect(screen.getByRole("form", { name: "数学の復習の詳細" })).toBeTruthy();
       fireEvent.click(screen.getByRole("button", { name: "タスク一覧へ戻る" }));
-      expect(screen.getByRole("region", { name: "一覧へ戻ったあとの案内" }).textContent).toContain("休憩後");
+      expect(screen.queryByRole("region", { name: "一覧へ戻ったあとの案内" })).toBeNull();
     } finally {
       vi.useRealTimers();
     }

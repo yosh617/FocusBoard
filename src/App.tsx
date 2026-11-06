@@ -696,7 +696,8 @@ export default function App() {
               title: `${launcherSuggestedTask.title}を休憩後の候補として開いています`,
               detail: `${launcherSuggestedTask.detail}。休憩タイマーを止めずに、次の集中を確認できます。`,
               taskId: launcherSuggestedTask.id,
-              actionLabel: "休憩後の候補を開く"
+              actionLabel: "休憩後の候補を開く",
+              showBanner: false
             });
           } else if (activeTask && timer.status !== "idle") {
             const activeTaskProject = activeTask.projectId
