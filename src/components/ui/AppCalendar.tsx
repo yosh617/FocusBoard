@@ -29,9 +29,10 @@ export type AppCalendarProps = {
   onClose: () => void;
   title: string;
   id?: string;
+  closeOnSelect?: boolean;
 };
 
-export function AppCalendar({ value, today, onSelect, onClose, title, id }: AppCalendarProps) {
+export function AppCalendar({ value, today, onSelect, onClose, title, id, closeOnSelect = true }: AppCalendarProps) {
   const calendarRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const focusDateAfterRenderRef = useRef(false);
@@ -101,7 +102,7 @@ export function AppCalendar({ value, today, onSelect, onClose, title, id }: AppC
 
   const selectDate = (dateKey: string) => {
     onSelect(dateKey);
-    onClose();
+    if (closeOnSelect) onClose();
   };
 
   const moveDateFocus = (dateKey: string) => {

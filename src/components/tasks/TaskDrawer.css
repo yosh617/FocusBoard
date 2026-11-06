@@ -110,3 +110,6 @@
 /* Keep completed rows aligned with the active task list. */
 .task-list__completed > .task-list__section-items { width: 100%; min-width: 0; }
 .task-list .task-row--completed { grid-template-columns: 44px minmax(0, 1fr) 48px; }
+
+.task-swipe-date-dialog__calendar { min-width: 0; margin: 0; padding: 0; border: 0; }
+.task-swipe-date-dialog .app-calendar { margin-top: 0; }

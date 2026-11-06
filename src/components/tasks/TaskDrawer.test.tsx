@@ -804,7 +804,6 @@ describe("TaskDrawer", () => {
     const dialog = screen.getByRole("dialog", { name: "期限を変更" });
     expect(within(dialog).getByText(task.title)).toBeTruthy();
     fireEvent.click(within(within(dialog).getByRole("dialog", { name: "期限を選択" })).getByRole("button", { name: "明日" }));
-    fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
     await waitFor(() => expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, { dueDate: addLocalDays(today, 1), bucket: "inbox" }));
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "期限を変更" })).toBeNull());
     expect(screen.queryByRole("form", { name: "数学の復習の詳細" })).toBeNull();
@@ -818,8 +817,7 @@ describe("TaskDrawer", () => {
     fireEvent.touchEnd(row, { changedTouches: [{ clientX: 180, clientY: 20 }] });
 
     const dialog = screen.getByRole("dialog", { name: "期限を変更" });
-    fireEvent.click(within(dialog).getByRole("button", { name: "期限なし" }));
-    fireEvent.click(within(dialog).getByRole("button", { name: "保存" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "なし" }));
     await waitFor(() => expect(within(dialog).getByRole("alert").textContent).toContain("保存できませんでした"));
     expect(within(dialog).getByRole("button", { name: "再試行" })).toBeTruthy();
     expect(props.onUpdateTask).toHaveBeenCalledWith(task.id, { dueDate: null, bucket: "inbox" });

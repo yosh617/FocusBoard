@@ -1307,12 +1307,13 @@ export function TaskDrawer({
     const firstControl = dialog?.querySelector<HTMLElement>("button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled)");
     firstControl?.focus();
   }, [swipeDueDateTask]);
-  const saveSwipeDueDate = async () => {
+  const saveSwipeDueDate = async (date: string) => {
     if (!swipeDueDateTask || swipeDueDateSaving) return;
+    setSwipeDueDate(date);
     setSwipeDueDateSaving(true);
     setSwipeDueDateError(false);
     try {
-      const saved = await onUpdateTask(swipeDueDateTask.id, { dueDate: swipeDueDate || null, bucket: swipeDueDate ? "inbox" : swipeDueDateTask.bucket });
+      const saved = await onUpdateTask(swipeDueDateTask.id, { dueDate: date || null, bucket: date ? "inbox" : swipeDueDateTask.bucket });
       if (!saved) {
         setSwipeDueDateError(true);
         return;
@@ -1709,13 +1710,11 @@ export function TaskDrawer({
         }}>
           <h3 id="task-swipe-date-title">期限を変更</h3>
           <p>{swipeDueDateTask.title}</p>
-          <AppDateField id={`swipe-due-date-${swipeDueDateTask.id}`} label="期限" defaultOpen value={swipeDueDate} today={today} disabled={swipeDueDateSaving} onChange={setSwipeDueDate} />
-          <button className="secondary-button" type="button" disabled={swipeDueDateSaving} onClick={() => setSwipeDueDate("")}>期限なし</button>
-          {swipeDueDateError && <p className="task-swipe-date-dialog__error" role="alert">保存できませんでした。もう一度お試しください。</p>}
-          <div className="task-swipe-date-dialog__actions">
-            <button className="secondary-button" type="button" disabled={swipeDueDateSaving} onClick={closeSwipeDueDate}>キャンセル</button>
-            <button className="primary-button" type="button" disabled={swipeDueDateSaving} onClick={() => void saveSwipeDueDate()}>{swipeDueDateSaving ? "保存中" : swipeDueDateError ? "再試行" : "保存"}</button>
-          </div>
+          <fieldset className="task-swipe-date-dialog__calendar" disabled={swipeDueDateSaving}>
+            <AppCalendar title="期限を選択" value={swipeDueDate} today={today} closeOnSelect={false} onSelect={(date) => void saveSwipeDueDate(date)} onClose={closeSwipeDueDate} />
+          </fieldset>
+          {swipeDueDateSaving && <p role="status">保存中…</p>}
+          {swipeDueDateError && <div className="task-swipe-date-dialog__actions"><p className="task-swipe-date-dialog__error" role="alert">保存できませんでした。もう一度お試しください。</p><button className="secondary-button" type="button" onClick={() => void saveSwipeDueDate(swipeDueDate)}>再試行</button></div>}
         </section>
       </div>}
       <ConfirmDialog
