@@ -24,12 +24,20 @@ for (const width of [390, 768, 1280]) {
         for (let step = 1; step <= 8; step++) {
           await touchSession.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: x + 85 * direction * step / 8, y: y + 2 }] });
         }
+        await expect(row.locator("..")).toHaveClass(direction === 1 ? /task-list__item--swiping-right/ : /task-list__item--swiping-left/);
+        const swipeLabel = await row.locator("..").evaluate((item) => getComputedStyle(item, "::after").content);
+        expect(swipeLabel).toBe(direction === 1 ? '"期限を変更"' : '"削除"');
+        if (direction === 1) await expect(row.locator("..")).toHaveCSS("background-color", "rgb(228, 243, 233)");
         await touchSession.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
         return;
       }
       await page.mouse.move(x, y);
       await page.mouse.down();
       await page.mouse.move(x + 85 * direction, y + 2, { steps: 8 });
+      await expect(row.locator("..")).toHaveClass(direction === 1 ? /task-list__item--swiping-right/ : /task-list__item--swiping-left/);
+      const swipeLabel = await row.locator("..").evaluate((item) => getComputedStyle(item, "::after").content);
+      expect(swipeLabel).toBe(direction === 1 ? '"期限を変更"' : '"削除"');
+      if (direction === 1) await expect(row.locator("..")).toHaveCSS("background-color", "rgb(228, 243, 233)");
       await page.mouse.up();
     };
     await swipe(1);

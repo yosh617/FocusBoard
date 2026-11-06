@@ -10,8 +10,8 @@
   --accent-contrast: var(--task-primary-text, #17345f);
 }
 
-.task-list__item--swiping-right { background: var(--task-primary-soft, #edf4ff); }
-.task-list__item--swiping-right::after { content: "期限を変更"; right: auto; left: 18px; color: var(--task-primary-text, #315b8e); }
+.task-list__item.task-list__item--swiping-right { background: #e4f3e9; }
+.task-list__item.task-list__item--swiping-right::after { content: "期限を変更"; right: auto; left: 18px; color: #246b45; }
 .task-swipe-date-backdrop { position: fixed; z-index: 120; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(24, 32, 44, .42); }
 .task-swipe-date-dialog { display: grid; gap: 16px; width: min(100%, 380px); padding: 24px; border: 1px solid var(--color-hairline); border-radius: var(--radius-l, 16px); background: var(--color-paper); box-shadow: var(--shadow-dialog, 0 18px 48px rgba(25, 35, 50, .2)); }
 .task-swipe-date-dialog h3, .task-swipe-date-dialog p { margin: 0; overflow-wrap: anywhere; }
