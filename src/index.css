@@ -301,11 +301,11 @@ body.focusboard-background-gesturing .clock-editor { visibility: hidden; pointer
 .task-launcher__summary .task-launcher__overdue { color: #94493f; background: rgba(255,235,231,.9); }
 .task-launcher__summary .task-launcher__overdue strong { color: #873b33; }
 .task-launcher__side { display: grid; justify-items: center; gap: 8px; flex: none; }
-.task-launcher__icon { --task-completion: 0%; display: grid; place-items: center; width: 56px; height: 56px; padding: 8px; color: var(--blue-deep); border-radius: 50%; background: conic-gradient(var(--task-primary, var(--blue-deep)) var(--task-completion), rgba(178,196,218,.34) 0); box-shadow: inset 0 1px rgba(255,255,255,.8); }
-.task-launcher__icon::before { content: ""; grid-area: 1 / 1; width: 46px; height: 46px; border-radius: 50%; background: rgba(244,249,255,.97); }
+.task-launcher__icon { --task-completion: 0%; position: relative; display: grid; place-items: center; width: 56px; height: 56px; padding: 8px; color: var(--blue-deep); border-radius: 50%; background: conic-gradient(var(--task-primary, var(--blue-deep)) var(--task-completion), rgba(178,196,218,.34) 0); box-shadow: inset 0 1px rgba(255,255,255,.8); }
+.task-launcher__icon::before { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: rgba(244,249,255,.97); }
 .task-launcher--break .task-launcher__icon { color: #2b7269; background: rgba(226,245,239,.94); }
 .task-launcher__icon svg { z-index: 1; grid-area: 1 / 1; width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
-.task-launcher__count { display: grid; place-items: center; min-width: 30px; height: 30px; padding-inline: 8px; margin-left: 8px; color: #fff; border-radius: 999px; background: linear-gradient(135deg, var(--blue-deep), var(--blue)); font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.task-launcher__count { display: grid; place-items: center; min-width: 30px; height: 30px; padding-inline: 8px; margin-left: 0; color: #fff; border-radius: 999px; background: linear-gradient(135deg, var(--blue-deep), var(--blue)); font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
 
 .task-backdrop { position: fixed; z-index: 10; inset: 0; background: rgba(38,58,86,.32); animation: fade-in .2s ease-out; }
 .task-drawer { position: absolute; top: 0; right: 0; display: flex; flex-direction: column; width: clamp(400px, 42vw, 520px); max-width: 96vw; height: 100dvh; color: var(--ink); border-left: 1px solid rgba(255,255,255,.9); background: rgba(243,249,255,.97); box-shadow: -28px 0 70px rgba(40,71,111,.24); backdrop-filter: blur(26px); -webkit-backdrop-filter: blur(26px); overscroll-behavior: contain; animation: drawer-in .24s ease-out; }
@@ -3448,7 +3448,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .dashboard--timer-setup ~ .task-launcher .task-launcher__main { display: none; }
   .dashboard--timer-setup ~ .task-launcher .task-launcher__side { display: flex; align-items: center; gap: 8px; }
   .dashboard--timer-setup ~ .task-launcher .task-launcher__icon { width: 34px; height: 34px; }
-  .dashboard--timer-setup ~ .task-launcher .task-launcher__icon::before { width: 28px; height: 28px; }
+  .dashboard--timer-setup ~ .task-launcher .task-launcher__icon::before { inset: 3px; }
   .dashboard--timer-setup ~ .task-launcher .task-launcher__icon svg { width: 17px; height: 17px; }
   .dashboard--timer-setup ~ .task-launcher .task-launcher__count { min-width: 24px; height: 24px; padding-inline: 8px; font-size: 11px; }
 }
