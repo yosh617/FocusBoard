@@ -256,7 +256,7 @@ describe("useTasks", () => {
     ]));
   });
 
-  it("moves project focus history to unassigned when the project is archived", async () => {
+  it("preserves project associations when archived and restores the project", async () => {
     const project: ProjectRecord = { version: 1, id: "project-1", name: "勉強", color: "#3f6fab", order: 0, archivedAt: null, createdAt: 1, updatedAt: 1 };
     const task = { ...savedTask, projectId: project.id };
     const session: FocusSessionRecord = {
@@ -271,11 +271,12 @@ describe("useTasks", () => {
 
     await act(async () => { expect(await result.current.archiveProject(project.id)).toBe(true); });
 
-    expect(result.current.tasks[0].projectId).toBeNull();
-    expect(result.current.sessions[0]).toMatchObject({ taskId: task.id, focusedDurationMs: 8, projectIdSnapshot: null, projectNameSnapshot: null });
-    expect(saveProductivityRecords).toHaveBeenCalledWith(expect.objectContaining({
-      sessions: [expect.objectContaining({ id: session.id, projectIdSnapshot: null, projectNameSnapshot: null, focusedDurationMs: 8 })]
-    }));
+    expect(result.current.tasks[0].projectId).toBe(project.id);
+    expect(result.current.sessions[0]).toEqual(session);
+    expect(result.current.projects[0].archivedAt).not.toBeNull();
+    await act(async () => { expect(await result.current.restoreProject(project.id)).toBe(true); });
+    expect(result.current.projects[0].archivedAt).toBeNull();
+    expect(result.current.tasks[0].projectId).toBe(project.id);
   });
 
   it("normalizes a task added to an archived project into Inbox", async () => {

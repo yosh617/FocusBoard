@@ -1549,7 +1549,7 @@ export function TaskDrawer({
               </section>
               <section className="project-settings-screen__section project-settings-screen__section--danger" aria-labelledby="project-actions-heading">
                 <h4 id="project-actions-heading">プロジェクトの操作</h4>
-                <p>アーカイブまたは削除をすると、未完了のタスクを今日の一覧へ戻します。削除してもタスクの記録は残ります。</p>
+                <p>アーカイブすると、タスクと記録の関連付けを保持します。削除してもタスクの記録は残ります。</p>
                 <div className="project-settings-screen__actions">
                   <button className="secondary-button" type="button" onClick={() => setProjectToArchive(currentProject)}>プロジェクトをアーカイブ</button>
                   <button className="danger-button" type="button" onClick={() => setProjectToDelete(currentProject)}>プロジェクトを削除</button>
@@ -1701,7 +1701,7 @@ export function TaskDrawer({
       <ConfirmDialog
         open={projectToArchive !== null}
         title="プロジェクトをアーカイブしますか？"
-        description={`${projectToArchive?.name ?? "このプロジェクト"}をアーカイブし、所属するタスクを今日の一覧へ戻します。`}
+        description={`${projectToArchive?.name ?? "このプロジェクト"}をアーカイブします。タスクと記録の関連付けは保持されます。`}
         confirmLabel="アーカイブする"
         onCancel={() => setProjectToArchive(null)}
         onConfirm={() => {

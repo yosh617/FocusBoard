@@ -64,6 +64,7 @@ export default function App() {
     addProject,
     updateProjectColor,
     archiveProject,
+    restoreProject,
     deleteProject,
     undo: undoTask,
     recordTimerSession,
@@ -725,6 +726,8 @@ export default function App() {
         fading={settings.taskLauncherVisibility === "background-tap" && taskDetailCardFading}
       />}
       <SettingsPanel
+        projects={projects}
+        onRestoreProject={restoreProject}
         open={settingsOpen}
         settings={settings}
         orientation={orientation}

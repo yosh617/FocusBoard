@@ -1,3 +1,4 @@
+import type { ProjectRecord } from "../types/project";
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { colorPresets, dateFormatPresets, defaultSettings, describeFontSize, fontOptions, orientations, settingRanges, uiAccentPresets, type AppSettings, type BackgroundChoice, type BackgroundFrame, type FontOption, type Orientation, type PositionPreset } from "../types/settings";
 import { MAX_CUSTOM_BACKGROUNDS, type CustomBackground } from "../utils/backgroundStorage";
@@ -14,6 +15,7 @@ type Category = "background" | "display" | "timer" | "data";
 type ResettableCategory = Exclude<Category, "data">;
 type BackgroundFrameTarget = Exclude<BackgroundChoice, "slideshow">;
 type Props = {
+  projects?: ProjectRecord[]; onRestoreProject?: (id: string) => Promise<boolean>;
   open: boolean; settings: AppSettings; saveState: "saved" | "saving" | "failed";
   orientation: Orientation;
   notificationPermission?: NotificationPermission | "unsupported";
@@ -186,7 +188,7 @@ function BackgroundSettings({ settings, frame, customBackgrounds, frameOptions, 
   </>;
 }
 
-export function SettingsPanel({ open, settings, orientation, saveState, notificationPermission, onRequestNotification, onChange: applySettings, onClose, onOpenTasks, onStartBackgroundEditing, fullscreenSupported, onFullscreenToggle, onResetSettings, onClearTimer, onMessage, adaptivePalette, customBackgrounds, onAddBackgrounds, onRemoveBackground, onReorderBackgrounds }: Props) {
+export function SettingsPanel({ projects = [], onRestoreProject, open, settings, orientation, saveState, notificationPermission, onRequestNotification, onChange: applySettings, onClose, onOpenTasks, onStartBackgroundEditing, fullscreenSupported, onFullscreenToggle, onResetSettings, onClearTimer, onMessage, adaptivePalette, customBackgrounds, onAddBackgrounds, onRemoveBackground, onReorderBackgrounds }: Props) {
   const drawerRef = useRef<HTMLElement>(null); const closeRef = useRef<HTMLButtonElement>(null); const contentRef = useRef<HTMLDivElement>(null); const tabsRef = useRef<HTMLElement>(null); const [category, setCategory] = useState<Category>("background"); const [frameTarget, setFrameTarget] = useState<BackgroundFrameTarget>("bg1"); const [clockTarget, setClockTarget] = useState<BackgroundFrameTarget | "">(""); const [positionOrientation, setPositionOrientation] = useState<Orientation>(orientation);
   useEffect(() => { if (!open) return; const previous = document.activeElement as HTMLElement | null; closeRef.current?.focus(); const keys = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); if (event.key !== "Tab" || !drawerRef.current) return; const nodes = [...drawerRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, a[href], [tabindex]:not([tabindex="-1"])')].filter((node) => !node.closest("details:not([open])")); const first = nodes[0], last = nodes.at(-1); if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); } }; document.addEventListener("keydown", keys); return () => { document.removeEventListener("keydown", keys); previous?.focus(); }; }, [open, onClose]);
   useEffect(() => { if (settings.backgroundChoice !== "slideshow") setFrameTarget(settings.backgroundChoice); }, [settings.backgroundChoice]);
@@ -374,6 +376,9 @@ export function SettingsPanel({ open, settings, orientation, saveState, notifica
             <button className="data-row__action data-row__action--secondary" type="button" aria-label="アプリを再読み込み" onClick={() => window.location.reload()}>再読み込み</button>
           </div>
         </section>
+        <Disclosure label="アーカイブしたプロジェクト">
+          {projects.filter((project) => project.archivedAt !== null).length === 0 ? <p>アーカイブしたプロジェクトはありません。</p> : projects.filter((project) => project.archivedAt !== null).map((project) => <div className="setting-row" key={project.id}><span>{project.name}</span><button type="button" className="secondary-button" onClick={() => void onRestoreProject?.(project.id)}>{project.name}を復元</button></div>)}
+        </Disclosure>
         <ResetPanel onResetSettings={onResetSettings} onClearTimer={onClearTimer} onMessage={onMessage} />
       </>}
         {category !== "data" && <div className="settings-section__footer"><button className="text-button" type="button" aria-label={`${categories.find((item) => item.id === category)?.label ?? "設定"}を初期値に戻す`} onClick={() => resetSection(category)}>このカテゴリを初期値に戻す</button></div>}

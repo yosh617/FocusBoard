@@ -544,25 +544,29 @@ export function useTasks() {
     if (!project || !storageAvailable) return false;
     const now = Date.now();
     const archived = { ...project, archivedAt: now, updatedAt: now };
-    const affectedTasks = tasksRef.current
-      .filter((task) => task.projectId === id && task.status !== "archived")
-      .map((task) => ({ ...task, projectId: null, bucket: "inbox" as const, updatedAt: now }));
-    const updatedSessions = getSessionProjectUpdates(sessionsRef.current, affectedTasks, projectsRef.current);
     try {
-      await saveProductivityRecords({ tasks: affectedTasks, projects: [archived], sessions: updatedSessions });
+      await saveProjectRecord(archived);
       setProjects((current) => current.map((item) => item.id === id ? archived : item));
-      setTasks((current) => current.map((task) => affectedTasks.find((item) => item.id === task.id) ?? task));
-      if (updatedSessions.length > 0) {
-        const updatedSessionsById = new Map(updatedSessions.map((session) => [session.id, session]));
-        setSessions((current) => current.map((session) => updatedSessionsById.get(session.id) ?? session));
-      }
-      setMessage("プロジェクトをアーカイブし、タスクを今日の一覧へ戻しました。");
+      setMessage("プロジェクトをアーカイブしました。");
       clearUndo();
       return true;
     } catch {
       fail();
       return false;
     }
+  }, [clearUndo, fail, storageAvailable]);
+
+  const restoreProject = useCallback(async (id: string) => {
+    const project = projectsRef.current.find((item) => item.id === id);
+    if (!project || project.archivedAt === null || !storageAvailable) return false;
+    const restored = { ...project, archivedAt: null, updatedAt: Date.now() };
+    try {
+      await saveProjectRecord(restored);
+      setProjects((current) => current.map((item) => item.id === id ? restored : item));
+      setMessage("プロジェクトを復元しました。");
+      clearUndo();
+      return true;
+    } catch { fail(); return false; }
   }, [clearUndo, fail, storageAvailable]);
 
   const deleteProject = useCallback(async (id: string) => {
@@ -711,6 +715,7 @@ export function useTasks() {
     addProject,
     updateProjectColor,
     archiveProject,
+    restoreProject,
     deleteProject,
     undo,
     recordTimerSession,
